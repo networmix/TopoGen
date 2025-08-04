@@ -1,0 +1,101 @@
+# TopologyGenerator Configuration
+# Configuration for generating continental US backbone topologies
+
+# ===================================================================
+# General Parameters
+# ===================================================================
+
+# Random seed for reproducible results
+random_seed: 42
+
+# Target number of metro clusters (approximately)
+metro_clusters: 30
+
+# ===================================================================
+# Geographic Parameters
+# ===================================================================
+
+# Ring radius factor for intra-metro connections
+# R_ring = ring_radius_factor × R_metro
+ring_radius_factor: 0.8
+
+# Number of k-shortest paths to consider between metro pairs
+k_shortest_paths: 3
+
+# ===================================================================
+# Network Generation Parameters
+# ===================================================================
+
+# Waxman model parameters for link selection
+waxman_alpha: 0.25
+waxman_beta: 0.7
+
+# Budget constraint as multiplier of MST length
+budget_multiplier: 1.5
+
+# Target average node degree for redundancy
+target_avg_degree: 4
+
+# ===================================================================
+# Data Sources
+# ===================================================================
+
+data_sources:
+  # Population density raster (GPW v4 2020)
+  population_raster: "data/gpw_v4_2020.tif"
+
+  # OpenStreetMap highway data
+  osm_highways: "data/us-latest.osm.pbf"
+
+  # TIGER/Line primary roads
+  tiger_roads: "data/tl_2024_us_primaryroads.zip"
+
+  # Optional: additional corridor data
+  extra_corridors: "data/extra_corridors/"
+
+# ===================================================================
+# Processing Parameters
+# ===================================================================
+
+# Geographic processing
+projection:
+  # Target CRS for distance calculations (EPSG:5070 = US Albers Equal Area)
+  target_crs: "EPSG:5070"
+
+# Highway graph processing
+highway_processing:
+  # Snap tolerance for merging OSM and TIGER (meters)
+  snap_tolerance: 30
+
+  # Minimum edge length to keep (meters)
+  min_edge_length: 1000
+
+  # Densification interval for OSM edges (meters)
+  densify_interval: 200
+
+# Validation parameters
+validation:
+  # Maximum distance from metro centroid to nearest highway node (km)
+  max_metro_highway_distance: 10
+
+  # Minimum connectivity for final graph
+  require_connected: true
+
+# ===================================================================
+# Output Parameters
+# ===================================================================
+
+output:
+  # Blueprint configuration for PoP sites
+  pop_blueprint:
+    # Number of core routers per PoP
+    cores_per_pop: 2
+
+    # Internal connectivity pattern
+    internal_pattern: "mesh"
+
+  # NetGraph scenario metadata
+  scenario_metadata:
+    title: "Continental US Backbone Topology"
+    description: "Generated backbone topology based on population density and highway infrastructure"
+    version: "1.0"

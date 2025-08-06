@@ -113,7 +113,7 @@ Prefer stability over cosmetic change.
 **Performance** – generator expressions, set operations, dict comprehensions; `functools.cached_property` for expensive computations.
 **File handling** – `pathlib.Path` objects for all file operations; avoid raw strings for filesystem paths.
 **Type clarity** – Type aliases for complex signatures; modern syntax (`list[int]`, `dict[str, Any]`); `typing.Protocol` for interface definitions.
-**Logging** – `topogen.logging.get_logger(__name__)` for business logic, servers, and internal operations; `print()` statements are acceptable for interactive notebook output and user-facing display methods in interactive modules.
+**Logging** – `topogen.log_config.get_logger(__name__)` for business logic, servers, and internal operations; `print()` statements are acceptable for interactive notebook output and user-facing display methods in interactive modules.
 **Immutability** – Default to `tuple`, `frozenset` for collections that won't change after construction; use `frozen=True` for immutable dataclasses.
 **Pattern matching** – Use `match/case` for clean branching on enums or structured data (Python ≥3.10).
 **Visualization** – Use `matplotlib` for plotting and custom styling; `itables` for interactive data display in notebooks.
@@ -133,7 +133,7 @@ Prioritize **why** over **what**, but include **what** when code is non-obvious.
 
 - Use specific exception types; avoid bare `except:` clauses.
 - Validate inputs at public API boundaries; use type hints for internal functions.
-- Use `topogen.logging.get_logger(__name__)` for business logic, server operations, and internal processes.
+- Use `topogen.log_config.get_logger(__name__)` for business logic, server operations, and internal processes.
 - Use `print()` statements for interactive notebook output, user-facing display methods, and visualization feedback in interactive modules.
 - For topology generation operations, provide meaningful error messages with context.
 - Log important events at appropriate levels (DEBUG for detailed tracing, INFO for workflow steps, WARNING for recoverable issues, ERROR for failures).

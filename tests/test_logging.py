@@ -3,7 +3,7 @@
 import logging
 from io import StringIO
 
-from topogen.logging import get_logger, set_global_log_level
+from topogen.log_config import get_logger, set_global_log_level
 
 
 def test_set_global_log_level():

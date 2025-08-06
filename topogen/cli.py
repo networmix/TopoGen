@@ -1,257 +1,393 @@
-"""Command-line interface for TopologyGenerator."""
+"""Command line interface for backbone topology generation."""
 
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
+import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
 
-import yaml
-
-from topogen.logging import get_logger, set_global_log_level
+from topogen.config import TopologyConfig
+from topogen.log_config import get_logger
 
 logger = get_logger(__name__)
 
 
-def _load_config(config_path: Path) -> dict[str, Any]:
-    """Load configuration from YAML file.
+@contextmanager
+def Timer(description: str):
+    """Context manager for timing operations with both print and log output.
 
     Args:
-        config_path: Path to configuration YAML file.
+        description: Operation description for timing messages.
+
+    Yields:
+        None: Context manager yields nothing.
+    """
+    print(f"🔄 {description}...")
+    logger.info(f"Starting {description}")
+    start = time.time()
+    try:
+        yield
+        elapsed = time.time() - start
+        print(f"✅ {description} (completed in {elapsed:.1f}s)")
+        logger.info(f"Completed {description} in {elapsed:.1f}s")
+    except Exception as e:
+        elapsed = time.time() - start
+        print(f"❌ {description} (failed after {elapsed:.1f}s)")
+        logger.error(f"Failed {description} after {elapsed:.1f}s: {e}")
+        raise
+
+
+def _load_config(config_path: Path) -> TopologyConfig:
+    """Load and validate configuration.
+
+    Args:
+        config_path: Path to YAML configuration file.
 
     Returns:
-        Configuration dictionary.
+        Loaded and validated configuration object.
 
     Raises:
-        FileNotFoundError: If config file doesn't exist.
-        yaml.YAMLError: If config file has invalid YAML.
+        SystemExit: If configuration loading or validation fails.
     """
-    logger.info(f"Loading configuration from: {config_path}")
-
     try:
-        config_text = config_path.read_text()
-        config = yaml.safe_load(config_text)
-        logger.info("✓ Configuration loaded successfully")
+        config = TopologyConfig.from_yaml(config_path)
+        logger.info(f"Loaded configuration from {config_path}")
         return config
     except FileNotFoundError:
+        print(f"❌ Configuration file not found: {config_path}")
+        print(f"💡 Create one with: cp config.yml {config_path}")
         logger.error(f"Configuration file not found: {config_path}")
-        raise
-    except yaml.YAMLError as e:
-        logger.error(f"Invalid YAML in configuration file: {e}")
-        raise
+        sys.exit(2)  # Config problem
+    except Exception as e:
+        logger.error(f"Failed to load config: {e}")
+        print(f"❌ Configuration error: {e}")
+        print(f"💡 Check YAML syntax in: {config_path}")
+        sys.exit(2)  # Config problem
 
 
-def _print_config_summary(config: dict[str, Any]) -> None:
-    """Print a summary of the loaded configuration.
-
-    Args:
-        config: Configuration dictionary to summarize.
-    """
-    print("\n" + "=" * 60)
-    print("TOPOLOGY GENERATOR CONFIGURATION")
-    print("=" * 60)
-
-    # General parameters
-    print("\n1. GENERAL PARAMETERS")
-    print("-" * 30)
-    print(f"   Random Seed: {config.get('random_seed', 42)}")
-    print(f"   Metro Clusters: ~{config.get('metro_clusters', 30)}")
-
-    # Geographic parameters
-    print("\n2. GEOGRAPHIC PARAMETERS")
-    print("-" * 30)
-    print(f"   Ring Radius Factor: {config.get('ring_radius_factor', 0.8)}")
-    print(f"   K-Shortest Paths: {config.get('k_shortest_paths', 3)}")
-
-    # Network generation parameters
-    print("\n3. NETWORK GENERATION")
-    print("-" * 30)
-    print(f"   Waxman Alpha: {config.get('waxman_alpha', 0.25)}")
-    print(f"   Waxman Beta: {config.get('waxman_beta', 0.7)}")
-    print(f"   Budget Multiplier: {config.get('budget_multiplier', 1.5)}")
-    print(f"   Target Avg Degree: {config.get('target_avg_degree', 4)}")
-
-    # Data sources
-    print("\n4. DATA SOURCES")
-    print("-" * 30)
-    data_sources = config.get("data_sources", {})
-    for source_name, source_path in data_sources.items():
-        print(f"   {source_name}: {source_path}")
-
-    print("\n" + "=" * 60)
-
-
-def _build_topology(
-    config_path: Path,
-    output_path: Path,
-    dry_run: bool = False,
-) -> None:
-    """Build topology and export NetGraph scenario.
+def build_command(args: argparse.Namespace) -> None:
+    """Build continental US backbone topology.
 
     Args:
-        config_path: Path to configuration YAML file.
-        output_path: Path where NetGraph scenario should be written.
-        dry_run: If True, parse config and echo parameters without building.
+        args: Parsed command line arguments containing config and output paths.
     """
-    logger.info("Starting topology generation")
-
     try:
-        # Load and validate configuration
-        config = _load_config(config_path)
+        config_path = Path(args.config)
+        config_obj = _load_config(config_path)
+        output_path = Path(args.output)
 
-        # Print configuration summary
-        _print_config_summary(config)
+        # Run the pipeline with timing
+        with Timer("Topology generation pipeline"):
+            _run_pipeline(config_obj, output_path)
 
-        if dry_run:
-            print("\n" + "=" * 60)
-            print("DRY RUN MODE - NO FILES WILL BE CREATED")
-            print("=" * 60)
-            print(f"\nWould create output: {output_path}")
-
-            # Create output directory if it doesn't exist (in dry run, just check)
-            output_dir = output_path.parent
-            if not output_dir.exists():
-                print(f"Would create directory: {output_dir}")
-            else:
-                print(f"Output directory exists: {output_dir}")
-
-            logger.info("Dry run completed successfully")
-            return
-
-        # TODO: Implement actual topology generation
-        # This is where the main algorithm will be implemented:
-        # 1. Load geographic data
-        # 2. Generate metro clusters
-        # 3. Build highway graph
-        # 4. Select corridors
-        # 5. Apply MST + Waxman sampling
-        # 6. Export to NetGraph YAML
-
-        print("\n" + "=" * 60)
-        print("TOPOLOGY GENERATION")
-        print("=" * 60)
-        print("\n⚠️  Topology generation not yet implemented")
-        print("   This will be the main algorithm pipeline:")
-        print("   1. Load population and highway data")
-        print("   2. Generate metro clusters via K-means")
-        print("   3. Build hybrid highway graph")
-        print("   4. Select inter-metro corridors")
-        print("   5. Apply MST + Waxman sampling")
-        print("   6. Export NetGraph scenario with blueprints")
-
-        # Create output directory
-        output_dir = output_path.parent
-        output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created output directory: {output_dir}")
-
-        # Placeholder: write a minimal scenario file
-        placeholder_scenario = {
-            "metadata": {
-                "generated_by": "topogen",
-                "config_file": str(config_path),
-                "status": "placeholder",
-            },
-            "blueprints": {
-                "PoP_Site": {
-                    "groups": {
-                        "core[1-2]": {
-                            "node_count": 1,
-                            "name_template": "core{node_num}",
-                        }
-                    },
-                    "adjacency": [
-                        {"source": "core[1]", "target": "core[2]", "pattern": "mesh"}
-                    ],
-                }
-            },
-            "network": {"groups": {}, "adjacency": []},
-        }
-
-        # Write placeholder scenario
-        with open(output_path, "w") as f:
-            yaml.dump(placeholder_scenario, f, default_flow_style=False, indent=2)
-
-        print(f"\n✅ Placeholder scenario written to: {output_path}")
-        print("   (Implementation of topology generation algorithm pending)")
-        logger.info("Topology generation completed successfully")
+        print(f"🎉 SUCCESS! Generated topology: {output_path}")
+        print("Run validation: make check")
 
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
-        print(f"❌ ERROR: File not found: {e}")
-        sys.exit(1)
-    except yaml.YAMLError as e:
-        logger.error(f"Configuration error: {e}")
-        print(f"❌ ERROR: Invalid configuration: {e}")
-        sys.exit(1)
+        print(f"❌ File not found: {e}")
+        print("💡 Check data file paths in configuration")
+        sys.exit(3)  # Validation failure
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        print(f"❌ Validation error: {e}")
+        print("💡 Check input data quality and configuration parameters")
+        sys.exit(3)  # Validation failure
     except Exception as e:
-        logger.error(f"Failed to build topology: {type(e).__name__}: {e}")
-        print(f"❌ ERROR: Failed to build topology: {type(e).__name__}: {e}")
-        sys.exit(1)
+        logger.error(f"Pipeline failed: {e}")
+        print(f"❌ ERROR: {e}")
+        print("💡 Use --log-level debug for detailed error information")
+
+        sys.exit(1)  # Runtime error
 
 
-def main(argv: list[str] | None = None) -> None:
-    """Entry point for the ``topogen`` command.
+def _run_pipeline(config: TopologyConfig, output_path: Path) -> None:
+    """Execute topology generation from integrated graph.
 
     Args:
-        argv: Optional list of command-line arguments. If ``None``, ``sys.argv``
-            is used.
+        config: Topology configuration object.
+        output_path: Path for output scenario file.
+
+    Raises:
+        NotImplementedError: Current implementation placeholder.
+        ValueError: If integrated graph loading fails.
+    """
+    from topogen import load_from_json
+
+    # Check for integrated graph
+    graph_path = Path("data/processed/integrated_graph.json")
+    if not graph_path.exists():
+        print("❌ No integrated graph found!")
+        print("   Run generation first: python -m topogen generate")
+        sys.exit(1)
+
+    print("Topology Generation Pipeline")
+    print("=" * 50)
+
+    # Load integrated graph
+    print("🔄 Loading integrated graph...")
+    graph, crs = load_from_json(graph_path)
+
+    print(f"📊 Graph loaded: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
+
+    # Count metro and highway nodes
+    metro_nodes = [
+        n for n, d in graph.nodes(data=True) if d.get("node_type") == "metro"
+    ]
+    highway_nodes = [n for n in graph.nodes() if n not in metro_nodes]
+    print(f"   Metro nodes: {len(metro_nodes)}")
+    print(f"   Highway nodes: {len(highway_nodes)}")
+
+    # Corridor selection and NetGraph generation not yet implemented
+    print("\n❌ ERROR: Corridor selection algorithms not yet implemented")
+    print("   Required algorithms:")
+    print("   - k-shortest paths between metros")
+    print("   - Minimum spanning tree generation")
+    print("   - Waxman sampling for path diversity")
+    print("   - NetGraph YAML scenario generation")
+    print("")
+    print("   The integrated graph is ready for processing at:")
+    print(f"   {graph_path}")
+    print("")
+    print("   Next implementation tasks:")
+    print("   1. Implement corridor selection algorithms")
+    print("   2. Add NetGraph YAML export functionality")
+    print("   3. Blueprint-based PoP and link generation")
+
+    raise NotImplementedError(
+        "Corridor selection and NetGraph generation not yet implemented. "
+        f"Integrated graph available at: {graph_path}"
+    )
+
+
+def _run_generation(config: TopologyConfig) -> None:
+    """Execute integrated graph generation pipeline.
+
+    Args:
+        config: Topology configuration object.
+    """
+    from topogen import build_integrated_graph, save_to_json
+
+    print("Integrated Graph Generation Pipeline")
+    print("=" * 50)
+
+    # Create output directory
+    processed_dir = Path("data/processed")
+    processed_dir.mkdir(parents=True, exist_ok=True)
+
+    # Output path for integrated graph
+    graph_output = processed_dir / "integrated_graph.json"
+
+    print(f"   Urban areas: {config.clustering.metro_clusters}")
+    print(f"   UAC data: {config.data_sources.uac_polygons}")
+    print(f"   Highway data: {config.data_sources.tiger_roads}")
+
+    # Build integrated graph with timing
+    with Timer("Build integrated metro + highway graph"):
+        graph = build_integrated_graph(config)
+
+    # Save integrated graph to JSON with timing
+    with Timer("Save integrated graph"):
+        save_to_json(
+            graph, graph_output, config.projection.target_crs, config.output.formatting
+        )
+
+    print("\n🎉 Generation complete!")
+    print(f"📁 Integrated graph: {graph_output}")
+    print(f"📊 Graph summary: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
+    print("🔗 Ready for topology generation with:")
+    print("   python -m topogen build --output scenarios/topology.yaml")
+
+
+def validate_command(args: argparse.Namespace) -> None:
+    """Validate NetGraph scenario file.
+
+    Args:
+        args: Parsed command line arguments containing scenario file path.
+    """
+    scenario_path = Path(args.scenario)
+    print(f"🔍 Validating scenario: {scenario_path}")
+
+    if not scenario_path.exists():
+        print(f"❌ Scenario file not found: {scenario_path}")
+        sys.exit(1)
+
+    try:
+        # TODO: Implement NetGraph validation
+        print("🚧 NetGraph validation phase")
+        print("✅ Scenario file exists and is readable")
+
+    except Exception as e:
+        print(f"❌ Validation failed: {e}")
+        sys.exit(1)
+
+
+def generate_command(args: argparse.Namespace) -> None:
+    """Generate integrated graph from raw datasets.
+
+    Args:
+        args: Parsed command line arguments containing config file path.
+    """
+    try:
+        config_path = Path(args.config)
+        config_obj = _load_config(config_path)
+
+        # Run generation pipeline
+        _run_generation(config_obj)
+
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        sys.exit(1)
+
+
+def info_command(args: argparse.Namespace) -> None:
+    """Show configuration and data source information.
+
+    Args:
+        args: Parsed command line arguments containing config file path.
+    """
+    try:
+        config_path = Path(args.config)
+        config_obj = _load_config(config_path)
+
+        print("TopoGen Configuration")
+        print("=" * 30)
+        print(f"Metro clusters: {config_obj.clustering.metro_clusters}")
+        print(f"Target CRS: {config_obj.projection.target_crs}")
+
+        print("\nData Sources")
+        print("=" * 20)
+        print(f"UAC polygons: {config_obj.data_sources.uac_polygons}")
+        print(f"TIGER roads: {config_obj.data_sources.tiger_roads}")
+
+        # Check data source availability
+        print("\nData Availability")
+        print("=" * 20)
+
+        uac_path = Path(config_obj.data_sources.uac_polygons)
+        tiger_path = Path(config_obj.data_sources.tiger_roads)
+
+        uac_status = "✅" if uac_path.exists() else "❌"
+        tiger_status = "✅" if tiger_path.exists() else "❌"
+
+        print(f"UAC data: {uac_status} {uac_path}")
+        print(f"TIGER roads: {tiger_status} {tiger_path}")
+
+        if not uac_path.exists() or not tiger_path.exists():
+            print("\n⚠️  Missing data files - download required before generation")
+
+    except Exception as e:
+        print(f"❌ Error loading configuration: {e}")
+        sys.exit(1)
+
+
+def main() -> None:
+    """Parse command line arguments and execute the appropriate subcommand.
+
+    Configures logging, parses CLI arguments, and dispatches to the correct
+    command function (build, generate, validate, or info).
     """
     parser = argparse.ArgumentParser(
         prog="topogen",
-        description="Generate realistic network topologies for backbone analysis",
+        description="Generate continental US backbone topologies from highway infrastructure and urban area data.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
     # Global options
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose (DEBUG) logging"
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable debug logging",
     )
     parser.add_argument(
-        "--quiet", "-q", action="store_true", help="Enable quiet mode (WARNING+ only)"
+        "--quiet",
+        action="store_true",
+        help="Suppress console output (logs only)",
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Build command
     build_parser = subparsers.add_parser(
-        "build", help="Build topology and export NetGraph scenario"
+        "build", help="Build continental US backbone topology"
     )
     build_parser.add_argument(
+        "-c",
         "--config",
-        type=Path,
-        default=Path("config.yml"),
-        help="Path to configuration YAML file (default: config.yml)",
+        default="config.yml",
+        help="Configuration file path (default: config.yml)",
     )
     build_parser.add_argument(
-        "--out",
-        type=Path,
-        default=Path("scenarios/us_backbone.yaml"),
-        help="Output path for NetGraph scenario (default: scenarios/us_backbone.yaml)",
-    )
-    build_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Parse config and echo parameters without building",
+        "-o",
+        "--output",
+        default="scenarios/us_backbone.yaml",
+        help="Output YAML scenario file (default: scenarios/us_backbone.yaml)",
     )
 
-    args = parser.parse_args(argv)
+    build_parser.set_defaults(func=build_command)
+
+    # Generate command
+    generate_parser = subparsers.add_parser(
+        "generate", help="Build integrated metro + highway graph"
+    )
+    generate_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yml",
+        help="Configuration file path (default: config.yml)",
+    )
+
+    generate_parser.set_defaults(func=generate_command)
+
+    # Validate command
+    validate_parser = subparsers.add_parser(
+        "validate", help="Validate NetGraph scenario file"
+    )
+    validate_parser.add_argument("scenario", help="NetGraph scenario file to validate")
+    validate_parser.set_defaults(func=validate_command)
+
+    # Info command
+    info_parser = subparsers.add_parser(
+        "info", help="Show configuration and data source information"
+    )
+    info_parser.add_argument(
+        "-c",
+        "--config",
+        default="config.yml",
+        help="Configuration file path (default: config.yml)",
+    )
+    info_parser.set_defaults(func=info_command)
+
+    # Parse arguments and dispatch
+    args = parser.parse_args()
 
     # Configure logging based on arguments
-    if args.verbose:
-        set_global_log_level(logging.DEBUG)
-        logger.debug("Debug logging enabled")
-    elif args.quiet:
-        set_global_log_level(logging.WARNING)
-    else:
-        set_global_log_level(logging.INFO)
+    import logging
 
-    if args.command == "build":
-        _build_topology(
-            args.config,
-            args.out,
-            args.dry_run,
-        )
+    from topogen.log_config import set_global_log_level
+
+    # Determine log level from flags
+    if args.verbose:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
+
+    set_global_log_level(log_level)
+
+    # Suppress print output if --quiet is set
+    if args.quiet:
+        import builtins
+
+        builtins.print = lambda *args, **kwargs: None
+
+    if args.func is None:
+        parser.print_help()
+        sys.exit(1)
+
+    args.func(args)
 
 
 if __name__ == "__main__":

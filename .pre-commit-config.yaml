@@ -17,7 +17,16 @@ repos:
             "pandas",
             "matplotlib",
             "nbformat",
+            "nbconvert",
+            "ipykernel",
             "itables",
+            "rasterio",
+            "pyproj",
+            "geopandas",
+            "shapely",
+            "scikit-learn",
+            "networkx",
+            "contextily",
             "pandas-stubs",
           ]
 

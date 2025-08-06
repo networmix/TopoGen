@@ -1,0 +1,334 @@
+"""Configuration management for topology generator."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from topogen.log_config import get_logger
+
+logger = get_logger(__name__)
+
+
+@dataclass
+class DataSources:
+    """Data source configuration."""
+
+    uac_polygons: Path
+    tiger_roads: Path
+    conus_boundary: Path
+
+    def __post_init__(self) -> None:
+        """Convert string paths to Path objects."""
+        self.uac_polygons = Path(self.uac_polygons)
+        self.tiger_roads = Path(self.tiger_roads)
+        self.conus_boundary = Path(self.conus_boundary)
+
+
+@dataclass
+class ProjectionConfig:
+    """Geographic projection configuration."""
+
+    target_crs: str = "EPSG:5070"
+
+
+@dataclass
+class HighwayProcessingConfig:
+    """Highway data processing configuration (lightweight approach)."""
+
+    min_edge_length_km: float = 0.05  # Minimum edge length in kilometers
+    snap_precision_m: float = 10.0  # Grid snap precision in meters
+    highway_classes: list[str] = field(
+        default_factory=lambda: ["S1100", "S1200"]
+    )  # TIGER highway classes to keep
+    min_cycle_nodes: int = 3  # Minimum nodes to contract isolated cycles
+    filter_largest_component: bool = (
+        True  # Keep only largest connected component if highway graph is disconnected
+    )
+    validation_sample_size: int = 5  # Number of edges to validate for efficiency
+
+
+@dataclass
+class CorridorsConfig:
+    """Corridor discovery configuration."""
+
+    k_paths: int = 1  # Maximum number of diverse paths per adjacent metro pair (reduced for performance)
+    k_nearest: int = 3  # Number of nearest neighbors per metro for adjacency
+    max_edge_km: float = 600.0  # Maximum distance for metro pair connections (km)
+    max_corridor_distance_km: float = (
+        1000.0  # Skip corridors longer than this distance (km)
+    )
+
+
+@dataclass
+class ValidationConfig:
+    """Validation parameters."""
+
+    max_metro_highway_distance_km: float = 10.0
+    require_connected: bool = True
+    max_degree_threshold: int = 1000  # Maximum node degree before validation error
+    high_degree_warning: int = 20  # Node degree threshold for warnings
+    min_largest_component_fraction: float = 0.5  # Fails if sliver removal causes largest component to drop below 50% OR if corridor graph's largest component is below 50%
+
+
+@dataclass
+class PopBlueprintConfig:
+    """PoP blueprint configuration."""
+
+    sites_per_metro: int = 4
+    cores_per_pop: int = 2
+    internal_pattern: str = "mesh"
+
+
+@dataclass
+class ScenarioMetadata:
+    """NetGraph scenario metadata."""
+
+    title: str = "Continental US Backbone Topology"
+    description: str = "Generated backbone topology based on population density and highway infrastructure"
+    version: str = "1.0"
+
+
+@dataclass
+class ClusteringConfig:
+    """Metro clustering configuration."""
+
+    metro_clusters: int = 30  # Target number of metro clusters
+    max_uac_radius_km: float = 100.0  # Maximum radius for UAC urban areas
+    export_clusters: bool = (
+        False  # Export cluster visualization files (JPEG + simplified GeoJSON)
+    )
+    export_integrated_graph: bool = (
+        False  # Export integrated graph visualization (metro clusters + corridors)
+    )
+    override_metro_clusters: list[str] = field(
+        default_factory=list
+    )  # Metro names/patterns to force include regardless of size ranking
+    coordinate_precision: int = 1  # Decimal places for coordinate rounding
+    area_precision: int = 2  # Decimal places for area/radius rounding
+
+
+@dataclass
+class FormattingConfig:
+    """Data formatting and precision configuration."""
+
+    json_indent: int = 2  # JSON output indentation
+    distance_conversion_factor: int = 1000  # Meters to kilometers conversion
+    area_conversion_factor: int = 1_000_000  # Square meters to square kilometers
+
+
+@dataclass
+class OutputConfig:
+    """Output configuration."""
+
+    pop_blueprint: PopBlueprintConfig = field(default_factory=PopBlueprintConfig)
+    scenario_metadata: ScenarioMetadata = field(default_factory=ScenarioMetadata)
+    formatting: FormattingConfig = field(default_factory=FormattingConfig)
+
+
+@dataclass
+class TopologyConfig:
+    """Complete topology generator configuration."""
+
+    # Configuration sections
+    data_sources: DataSources = field(
+        default_factory=lambda: DataSources(
+            uac_polygons=Path("data/tl_2020_us_uac20.zip"),
+            tiger_roads=Path("data/tl_2024_us_primaryroads.zip"),
+            conus_boundary=Path("data/cb_2024_us_state_500k.zip"),
+        )
+    )
+    projection: ProjectionConfig = field(default_factory=ProjectionConfig)
+    clustering: ClusteringConfig = field(default_factory=ClusteringConfig)
+    highway_processing: HighwayProcessingConfig = field(
+        default_factory=HighwayProcessingConfig
+    )
+    corridors: CorridorsConfig = field(default_factory=CorridorsConfig)
+    validation: ValidationConfig = field(default_factory=ValidationConfig)
+    output: OutputConfig = field(default_factory=OutputConfig)
+
+    @classmethod
+    def from_yaml(cls, config_path: Path) -> TopologyConfig:
+        """Load configuration from YAML file.
+
+        Args:
+            config_path: Path to YAML configuration file.
+
+        Returns:
+            Parsed configuration object.
+
+        Raises:
+            FileNotFoundError: If config file doesn't exist.
+            yaml.YAMLError: If YAML is invalid.
+            ValueError: If configuration is invalid.
+        """
+        logger.info(f"Loading configuration from: {config_path}")
+
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+        try:
+            with open(config_path, "r") as f:
+                raw_config = yaml.safe_load(f)
+
+        except yaml.YAMLError as e:
+            logger.error(f"Invalid YAML in configuration: {e}")
+            raise
+
+        return cls._from_dict(raw_config)
+
+    @classmethod
+    def _from_dict(cls, config_dict: dict[str, Any]) -> TopologyConfig:
+        """Create configuration from dictionary.
+
+        Args:
+            config_dict: Raw configuration dictionary.
+
+        Returns:
+            Parsed configuration object.
+        """
+        # Extract nested configurations with strict validation
+        if "data_sources" not in config_dict:
+            raise ValueError("Missing required 'data_sources' configuration section")
+        if "projection" not in config_dict:
+            raise ValueError("Missing required 'projection' configuration section")
+        if "clustering" not in config_dict:
+            raise ValueError("Missing required 'clustering' configuration section")
+        if "highway_processing" not in config_dict:
+            raise ValueError(
+                "Missing required 'highway_processing' configuration section"
+            )
+        if "corridors" not in config_dict:
+            raise ValueError("Missing required 'corridors' configuration section")
+        if "validation" not in config_dict:
+            raise ValueError("Missing required 'validation' configuration section")
+        if "output" not in config_dict:
+            raise ValueError("Missing required 'output' configuration section")
+
+        data_sources_dict = config_dict["data_sources"]
+        projection_dict = config_dict["projection"]
+        clustering_dict = config_dict["clustering"]
+
+        # Handle override_metro_clusters as optional list
+        if "override_metro_clusters" not in clustering_dict:
+            clustering_dict["override_metro_clusters"] = []
+        highway_dict = config_dict["highway_processing"]
+        corridors_dict = config_dict["corridors"]
+        validation_dict = config_dict["validation"]
+        output_dict = config_dict["output"]
+
+        # Create nested objects with validation
+        data_sources = DataSources(**data_sources_dict)
+        projection = ProjectionConfig(**projection_dict)
+        clustering = ClusteringConfig(**clustering_dict)
+        highway_processing = HighwayProcessingConfig(**highway_dict)
+        corridors = CorridorsConfig(**corridors_dict)
+        validation = ValidationConfig(**validation_dict)
+
+        # Handle output configuration with strict validation
+        if "pop_blueprint" not in output_dict:
+            raise ValueError("Missing required 'pop_blueprint' in output configuration")
+        if "scenario_metadata" not in output_dict:
+            raise ValueError(
+                "Missing required 'scenario_metadata' in output configuration"
+            )
+        if "formatting" not in output_dict:
+            raise ValueError("Missing required 'formatting' in output configuration")
+
+        pop_blueprint_dict = output_dict["pop_blueprint"]
+        scenario_metadata_dict = output_dict["scenario_metadata"]
+        formatting_dict = output_dict["formatting"]
+
+        pop_blueprint = PopBlueprintConfig(**pop_blueprint_dict)
+        scenario_metadata = ScenarioMetadata(**scenario_metadata_dict)
+        formatting = FormattingConfig(**formatting_dict)
+        output = OutputConfig(
+            pop_blueprint=pop_blueprint,
+            scenario_metadata=scenario_metadata,
+            formatting=formatting,
+        )
+
+        # Create main configuration
+        return cls(
+            data_sources=data_sources,
+            projection=projection,
+            clustering=clustering,
+            highway_processing=highway_processing,
+            corridors=corridors,
+            validation=validation,
+            output=output,
+        )
+
+    def validate(self) -> None:
+        """Validate configuration parameters.
+
+        Raises:
+            ValueError: If configuration is invalid.
+        """
+        logger.info("Validating configuration")
+
+        # Validate numeric parameters first
+        if self.clustering.metro_clusters <= 0:
+            raise ValueError("metro_clusters must be positive")
+
+        # Check data sources exist (only if doing full validation)
+        if not self.data_sources.uac_polygons.exists():
+            raise ValueError(
+                f"UAC polygons file not found: {self.data_sources.uac_polygons}"
+            )
+
+        if not self.data_sources.tiger_roads.exists():
+            raise ValueError(
+                f"TIGER roads file not found: {self.data_sources.tiger_roads}"
+            )
+
+        if not self.data_sources.conus_boundary.exists():
+            raise ValueError(
+                f"CONUS boundary file not found: {self.data_sources.conus_boundary}"
+            )
+
+        logger.info("Configuration validation passed")
+
+    def summary(self) -> str:
+        """Generate configuration summary string.
+
+        Returns:
+            Human-readable configuration summary.
+        """
+        lines = [
+            "TOPOLOGY GENERATOR CONFIGURATION",
+            "=" * 60,
+            "",
+            "CLUSTERING PARAMETERS",
+            "-" * 30,
+            f"   Metro Clusters: ~{self.clustering.metro_clusters}",
+            f"   Max UAC Radius: {self.clustering.max_uac_radius_km}km",
+            f"   Export Clusters: {self.clustering.export_clusters}",
+            "",
+            "DATA SOURCES",
+            "-" * 30,
+            f"   UAC Polygons: {self.data_sources.uac_polygons}",
+            f"   TIGER Roads: {self.data_sources.tiger_roads}",
+            f"   CONUS Boundary: {self.data_sources.conus_boundary}",
+            f"   Target CRS: {self.projection.target_crs}",
+            "",
+            "HIGHWAY PROCESSING (Lightweight)",
+            "-" * 30,
+            f"   Min Edge Length: {self.highway_processing.min_edge_length_km}km",
+            "",
+            "CORRIDOR DISCOVERY",
+            "-" * 30,
+            f"   K-Paths per Metro Pair: {self.corridors.k_paths}",
+            "",
+            "VALIDATION",
+            "-" * 30,
+            f"   Max Metro-Highway Distance: {self.validation.max_metro_highway_distance_km}km",
+            f"   Require Connected: {self.validation.require_connected}",
+            "",
+            "=" * 60,
+        ]
+
+        return "\n".join(lines)

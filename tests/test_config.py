@@ -1,59 +1,151 @@
-"""Test configuration loading and validation."""
+"""Tests for configuration management."""
 
+from pathlib import Path
+
+import pytest
 import yaml
 
+from topogen.config import TopologyConfig
 
-def test_config_with_missing_optional_sections():
-    """Test config handling with missing optional sections."""
-    minimal_config = {
-        "random_seed": 123,
-        "metro_clusters": 10,
+
+def test_config_from_yaml(tmp_path: Path) -> None:
+    """Test loading configuration from YAML file."""
+    # Create test config file
+    config_data = {
+        "clustering": {
+            "metro_clusters": 25,
+            "export_clusters": True,
+            "coordinate_precision": 1,
+            "area_precision": 2,
+            "max_uac_radius_km": 100.0,
+        },
+        "data_sources": {
+            "uac_polygons": "test_uac.zip",
+            "tiger_roads": "test_tiger.zip",
+            "conus_boundary": "test_conus.zip",
+        },
+        "projection": {"target_crs": "EPSG:3857"},
+        "highway_processing": {
+            "min_edge_length_km": 0.05,
+            "snap_precision_m": 10.0,
+            "highway_classes": ["S1100", "S1200"],
+            "min_cycle_nodes": 3,
+            "filter_largest_component": True,
+            "validation_sample_size": 5,
+        },
+        "validation": {
+            "max_metro_highway_distance_km": 10.0,
+            "require_connected": True,
+            "max_degree_threshold": 1000,
+            "high_degree_warning": 20,
+        },
+        "corridors": {
+            "k_paths": 1,
+            "k_nearest": 3,
+            "max_edge_km": 600.0,
+            "max_corridor_distance_km": 1000.0,
+        },
+        "output": {
+            "pop_blueprint": {
+                "sites_per_metro": 4,
+                "cores_per_pop": 2,
+                "internal_pattern": "mesh",
+            },
+            "scenario_metadata": {
+                "title": "Test Topology",
+                "description": "Test description",
+                "version": "1.0",
+            },
+            "formatting": {
+                "json_indent": 2,
+                "distance_conversion_factor": 1000,
+                "area_conversion_factor": 1000000,
+            },
+        },
     }
 
-    # Should not raise errors when optional sections are missing
-    assert minimal_config["random_seed"] == 123
-    assert minimal_config["metro_clusters"] == 10
+    config_path = tmp_path / "test_config.yml"
+    with open(config_path, "w") as f:
+        yaml.dump(config_data, f)
 
-    # Missing sections should be handled gracefully
-    assert minimal_config.get("data_sources", {}) == {}
-    assert minimal_config.get("waxman_alpha", 0.25) == 0.25
+    # Load configuration
+    config = TopologyConfig.from_yaml(config_path)
 
-
-def test_config_parameter_ranges(sample_config):
-    """Test that configuration parameters are within reasonable ranges."""
-    # Probability parameters should be between 0 and 1
-    assert 0 <= sample_config["waxman_alpha"] <= 1
-
-    # Beta should be positive
-    assert sample_config["waxman_beta"] > 0
-
-    # Budget multiplier should be >= 1 (more than MST)
-    assert sample_config["budget_multiplier"] >= 1.0
-
-    # Target degree should be at least 2 for connectivity
-    assert sample_config["target_avg_degree"] >= 2
-
-    # Number of clusters should be positive
-    assert sample_config["metro_clusters"] > 0
-
-    # K-shortest paths should be at least 1
-    assert sample_config["k_shortest_paths"] >= 1
-
-    # Ring radius factor should be positive
-    assert sample_config["ring_radius_factor"] > 0
+    # Verify values
+    assert config.clustering.metro_clusters == 25
+    assert config.clustering.export_clusters is True
+    assert config.projection.target_crs == "EPSG:3857"
+    assert config.data_sources.uac_polygons == Path("test_uac.zip")
 
 
-def test_config_serialization_roundtrip(sample_config, tmp_path):
-    """Test that config can be serialized and deserialized correctly."""
-    config_file = tmp_path / "roundtrip_config.yml"
+def test_config_defaults() -> None:
+    """Test default configuration values."""
+    config = TopologyConfig()
 
-    # Write config
-    with open(config_file, "w") as f:
-        yaml.dump(sample_config, f, default_flow_style=False, indent=2)
+    assert config.clustering.metro_clusters == 30
+    assert config.clustering.export_clusters is False  # Default should be False
 
-    # Read config back
-    with open(config_file, "r") as f:
-        loaded_config = yaml.safe_load(f)
 
-    # Should be identical
-    assert loaded_config == sample_config
+def test_export_clusters_config() -> None:
+    """Test that export_clusters configuration works correctly."""
+    config = TopologyConfig.from_yaml(Path("config.yml"))
+
+    # The current config has export_clusters set to true
+    assert config.clustering.export_clusters is True
+
+
+def test_config_validation_missing_files() -> None:
+    """Test configuration validation with missing data files."""
+    from topogen.config import DataSources
+
+    # Create config with missing UAC file
+    config = TopologyConfig()
+    config.data_sources = DataSources(
+        uac_polygons=Path("data/nonexistent_uac.zip"),
+        tiger_roads=config.data_sources.tiger_roads,
+        conus_boundary=config.data_sources.conus_boundary,
+    )
+
+    # Should raise ValueError for missing files
+    with pytest.raises(ValueError, match="UAC polygons file not found"):
+        config.validate()
+
+
+def test_config_validation_invalid_params() -> None:
+    """Test configuration validation with invalid parameters."""
+    from topogen.config import ClusteringConfig
+
+    # Test negative metro_clusters
+    config = TopologyConfig()
+    config.clustering = ClusteringConfig(metro_clusters=0)
+    with pytest.raises(ValueError, match="metro_clusters must be positive"):
+        config.validate()
+
+
+def test_config_summary() -> None:
+    """Test configuration summary generation."""
+    config = TopologyConfig()
+    summary = config.summary()
+
+    assert "TOPOLOGY GENERATOR CONFIGURATION" in summary
+    assert "Metro Clusters: ~30" in summary
+
+
+def test_config_file_not_found() -> None:
+    """Test handling of missing configuration file."""
+    non_existent_path = Path("non_existent_config.yml")
+
+    with pytest.raises(FileNotFoundError):
+        TopologyConfig.from_yaml(non_existent_path)
+
+
+def test_config_invalid_yaml(tmp_path: Path) -> None:
+    """Test handling of invalid YAML."""
+    config_path = tmp_path / "invalid_config.yml"
+
+    # Write invalid YAML
+    with open(config_path, "w") as f:
+        f.write("invalid: yaml: content: [unclosed")
+
+    with pytest.raises(yaml.YAMLError):
+        TopologyConfig.from_yaml(config_path)

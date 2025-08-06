@@ -1,101 +1,138 @@
 # TopologyGenerator Configuration
-# Configuration for generating continental US backbone topologies
 
-# ===================================================================
-# General Parameters
-# ===================================================================
-
-# Random seed for reproducible results
-random_seed: 42
-
-# Target number of metro clusters (approximately)
-metro_clusters: 30
-
-# ===================================================================
-# Geographic Parameters
-# ===================================================================
-
-# Ring radius factor for intra-metro connections
-# R_ring = ring_radius_factor × R_metro
-ring_radius_factor: 0.8
-
-# Number of k-shortest paths to consider between metro pairs
-k_shortest_paths: 3
-
-# ===================================================================
-# Network Generation Parameters
-# ===================================================================
-
-# Waxman model parameters for link selection
-waxman_alpha: 0.25
-waxman_beta: 0.7
-
-# Budget constraint as multiplier of MST length
-budget_multiplier: 1.5
-
-# Target average node degree for redundancy
-target_avg_degree: 4
-
-# ===================================================================
 # Data Sources
-# ===================================================================
+# Input data files used for topology generation
 
 data_sources:
-  # Population density raster (GPW v4 2020)
-  population_raster: "data/gpw_v4_2020.tif"
+  # Census 2020 Urban Areas (UAC20) - defines urban area boundaries for metro clustering
+  uac_polygons: "data/tl_2020_us_uac20.zip"
 
-  # OpenStreetMap highway data
-  osm_highways: "data/us-latest.osm.pbf"
-
-  # TIGER/Line primary roads
+  # TIGER/Line primary roads - highway network backbone data
   tiger_roads: "data/tl_2024_us_primaryroads.zip"
 
-  # Optional: additional corridor data
-  extra_corridors: "data/extra_corridors/"
+  # CONUS boundary shapefile - used for visualization bounds (Census state boundaries)
+  conus_boundary: "data/cb_2024_us_state_500k.zip"
 
-# ===================================================================
 # Processing Parameters
-# ===================================================================
 
-# Geographic processing
+# Geographic projection settings
 projection:
-  # Target CRS for distance calculations (EPSG:5070 = US Albers Equal Area)
+  # Target CRS for all spatial operations (EPSG:5070 = US Albers Equal Area - optimal for CONUS)
   target_crs: "EPSG:5070"
 
-# Highway graph processing
+# Metro clustering configuration
+clustering:
+  # Target number of metro clusters to generate
+  metro_clusters: 25
+
+  # Maximum radius for filtering UAC urban areas (kilometers) - excludes oversized metro areas
+  max_uac_radius_km: 100.0
+
+  # Export cluster visualization files (JPEG + simplified GeoJSON) - used in metro_clusters.py
+  export_clusters: true
+
+  # Export integrated graph visualization (metro clusters + corridors) - used in integrated_graph.py
+  export_integrated_graph: true
+
+  # Metro clusters to force include regardless of size ranking
+  # Uses partial name matches (case-insensitive) for strategic network connectivity
+  override_metro_clusters:
+    - "Denver" # Bridge Plains to Rockies via I-70/I-25 hub
+    - "Minneapolis" # Bridge Upper Midwest to Plains via I-94/I-35 hub
+    - "Salt Lake City" # Bridge CA to Rockies via I-80/I-15 hub
+    - "Las Vegas" # Bridge CA to Rockies via I-15 corridor
+    - "Phoenix" # Bridge CA to Southwest via I-10 corridor
+    - "Atlanta" # Bridge FL to Southeast via I-75/I-85 hub
+    - "Portland" # Bridge WA to CA via I-5 corridor
+    - "Omaha" # Bridge Upper Plains to Rockies via I-80/I-29 hub
+    - "Boise" # Bridge PNW to Rockies via I-84/I-15 hub
+    - "Albuquerque" # Bridge CA to TX via I-40/I-25 hub
+    - "New Orleans" # Bridge TX to Southeast via I-10/I-55 hub
+    - "Buffalo" # Bridge Northeast to Midwest via I-90/I-79 corridor
+    - "Chicago" # Bridge Great Lakes to Plains via I-90/I-55 hub
+    - "Dallas" # Bridge Plains to Gulf via I-35/I-20 hub
+    - "Kansas City" # Bridge Plains to Midwest via I-70/I-35 hub
+    - "St. Louis" # Bridge Midwest to South via I-70/I-55 hub
+    - "Charlotte" # Bridge Southeast to Northeast via I-85/I-77 hub
+    - "Nashville" # Bridge South to Midwest via I-40/I-65 hub
+    - "Pittsburgh" # Bridge Northeast to Midwest via I-76/I-79 hub
+    - "Sacramento" # Bridge Northern CA to Rockies via I-80 corridor
+
+  # Numeric precision for coordinate and area values
+  coordinate_precision: 1 # Decimal places for rounding coordinates in output
+  area_precision: 2 # Decimal places for areas and radii in calculations
+
+# Highway graph processing configuration
 highway_processing:
-  # Snap tolerance for merging OSM and TIGER (meters)
-  snap_tolerance: 30
+  # Minimum edge length filter (kilometers) - set to 0.0 to preserve connectivity
+  min_edge_length_km: 0.0
 
-  # Minimum edge length to keep (meters)
-  min_edge_length: 1000
+  # Grid snap precision (meters) - tolerance for merging nearby nodes
+  snap_precision_m: 150.0
 
-  # Densification interval for OSM edges (meters)
-  densify_interval: 200
+  # TIGER highway classes to include (S1100 = Primary roads, S1200 = Secondary roads)
+  highway_classes: ["S1100"] # Primary roads only for backbone network
 
-# Validation parameters
+  # Minimum nodes required in cycle before edge contraction optimization
+  min_cycle_nodes: 3
+
+  # Keep only largest connected component if highway graph is disconnected
+  filter_largest_component: true
+
+  # Sample size for edge validation performance - number of edges to validate
+  validation_sample_size: 5
+
+# Corridor discovery between metro areas
+corridors:
+  # Maximum paths to find between each adjacent metro pair (reduced for performance)
+  k_paths: 1
+
+  # Number of nearest neighbors per metro for building adjacency graph
+  k_nearest: 6
+
+  # Maximum distance for considering metros as adjacent (kilometers)
+  max_edge_km: 1000.0
+
+  # Skip corridor path finding for metro pairs farther than this distance (kilometers)
+  max_corridor_distance_km: 1000.0
+
+# Graph validation parameters
 validation:
-  # Maximum distance from metro centroid to nearest highway node (km)
-  max_metro_highway_distance: 10
+  # Maximum allowed distance from metro centroid to nearest highway node (kilometers)
+  max_metro_highway_distance_km:
+    50.0
 
-  # Minimum connectivity for final graph
+    # Require final highway graph to be connected (used in corridor validation)
   require_connected: true
 
-# ===================================================================
-# Output Parameters
-# ===================================================================
+  # Node degree thresholds for graph quality validation
+  max_degree_threshold: 1000 # Fail validation if any node exceeds this degree
+  high_degree_warning: 20 # Log warning for nodes exceeding this degree
 
+  # Graph component validation for connectivity analysis
+  min_largest_component_fraction: 0.5 # Fails if sliver removal causes largest component to drop below 50% OR if corridor graph's largest component is below 50%
+
+# Output configuration (currently unused - reserved for future NetGraph YAML generation)
 output:
-  # Blueprint configuration for PoP sites
+  # PoP blueprint configuration for future network topology generation
   pop_blueprint:
-    # Number of core routers per PoP
+    # Number of PoP sites to place per metro area
+    sites_per_metro: 4
+
+    # Number of core routers per PoP site
     cores_per_pop: 2
 
-    # Internal connectivity pattern
+    # Internal connectivity pattern within PoP sites
     internal_pattern: "mesh"
 
-  # NetGraph scenario metadata
+  # NetGraph scenario metadata for future YAML output
   scenario_metadata:
     title: "Continental US Backbone Topology"
     description: "Generated backbone topology based on population density and highway infrastructure"
     version: "1.0"
+
+  # Data formatting configuration
+  formatting:
+    json_indent: 2 # JSON output indentation (used in integrated_graph.py save_to_json)
+    distance_conversion_factor: 1000 # Meters to kilometers conversion (used in metro_clusters.py)
+    area_conversion_factor: 1000000 # Square meters to square kilometers conversion (used in metro_clusters.py)

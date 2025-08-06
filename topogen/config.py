@@ -52,6 +52,17 @@ class HighwayProcessingConfig:
 
 
 @dataclass
+class RiskGroupsConfig:
+    """Risk groups configuration."""
+
+    enabled: bool = True  # Enable risk group assignment for corridor edges
+    group_prefix: str = "corridor_risk"  # Prefix for generated risk group names
+    exclude_metro_radius_shared: bool = (
+        True  # Exclude highway segments within metro radius from risk groups
+    )
+
+
+@dataclass
 class CorridorsConfig:
     """Corridor discovery configuration."""
 
@@ -61,6 +72,7 @@ class CorridorsConfig:
     max_corridor_distance_km: float = (
         1000.0  # Skip corridors longer than this distance (km)
     )
+    risk_groups: RiskGroupsConfig = field(default_factory=RiskGroupsConfig)
 
 
 @dataclass
@@ -81,6 +93,87 @@ class PopBlueprintConfig:
     sites_per_metro: int = 4
     cores_per_pop: int = 2
     internal_pattern: str = "mesh"
+
+
+@dataclass
+class BuildDefaults:
+    """Default configuration for build operations."""
+
+    sites_per_metro: int = 2
+    site_blueprint: str = "SingleRouter"
+
+
+@dataclass
+class BuildConfig:
+    """Configuration for the build process."""
+
+    build_defaults: BuildDefaults = field(default_factory=BuildDefaults)
+    build_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+@dataclass
+class ComponentAssignment:
+    """Component assignment configuration for a role."""
+
+    hw_component: str = ""
+    optics: str = ""
+
+
+@dataclass
+class ComponentAssignments:
+    """Component assignments configuration."""
+
+    # Default role assignments
+    spine: ComponentAssignment = field(default_factory=ComponentAssignment)
+    leaf: ComponentAssignment = field(default_factory=ComponentAssignment)
+    core: ComponentAssignment = field(default_factory=ComponentAssignment)
+
+    # Per-blueprint overrides
+    blueprint_overrides: dict[str, dict[str, ComponentAssignment]] = field(
+        default_factory=dict
+    )
+
+
+@dataclass
+class ComponentsConfig:
+    """Component library and assignment configuration."""
+
+    library: dict[str, dict[str, Any]] = field(default_factory=dict)
+    assignments: ComponentAssignments = field(default_factory=ComponentAssignments)
+
+
+@dataclass
+class FailurePolicyAssignments:
+    """Failure policy assignment configuration."""
+
+    default: str = "single_random_link_failure"
+    scenario_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
+
+
+@dataclass
+class FailurePoliciesConfig:
+    """Failure policy library and assignment configuration."""
+
+    library: dict[str, dict[str, Any]] = field(default_factory=dict)
+    assignments: FailurePolicyAssignments = field(
+        default_factory=FailurePolicyAssignments
+    )
+
+
+@dataclass
+class WorkflowAssignments:
+    """Workflow assignment configuration."""
+
+    default: str = "basic_capacity_analysis"
+    scenario_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
+
+
+@dataclass
+class WorkflowsConfig:
+    """Workflow library and assignment configuration."""
+
+    library: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    assignments: WorkflowAssignments = field(default_factory=WorkflowAssignments)
 
 
 @dataclass
@@ -149,6 +242,12 @@ class TopologyConfig:
     corridors: CorridorsConfig = field(default_factory=CorridorsConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    build: BuildConfig = field(default_factory=BuildConfig)
+    components: ComponentsConfig = field(default_factory=ComponentsConfig)
+    failure_policies: FailurePoliciesConfig = field(
+        default_factory=FailurePoliciesConfig
+    )
+    workflows: WorkflowsConfig = field(default_factory=WorkflowsConfig)
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> TopologyConfig:
@@ -218,6 +317,13 @@ class TopologyConfig:
         highway_dict = config_dict["highway_processing"]
         corridors_dict = config_dict["corridors"]
         validation_dict = config_dict["validation"]
+
+        # Handle risk_groups configuration within corridors
+        if "risk_groups" in corridors_dict:
+            risk_groups_dict = corridors_dict["risk_groups"]
+            risk_groups_config = RiskGroupsConfig(**risk_groups_dict)
+            corridors_dict = corridors_dict.copy()
+            corridors_dict["risk_groups"] = risk_groups_config
         output_dict = config_dict["output"]
 
         # Create nested objects with validation
@@ -251,6 +357,151 @@ class TopologyConfig:
             formatting=formatting,
         )
 
+        # Handle optional build configuration
+        build_dict = config_dict.get("build", {})
+        if not isinstance(build_dict, dict):
+            raise ValueError("'build' configuration section must be a dictionary")
+
+        build_defaults_dict = build_dict.get("build_defaults", {})
+        build_overrides_dict = build_dict.get("build_overrides", {})
+
+        if not isinstance(build_defaults_dict, dict):
+            raise ValueError("'build_defaults' must be a dictionary")
+        if not isinstance(build_overrides_dict, dict):
+            raise ValueError("'build_overrides' must be a dictionary")
+
+        build_defaults = BuildDefaults(**build_defaults_dict)
+        build = BuildConfig(
+            build_defaults=build_defaults,
+            build_overrides=build_overrides_dict,
+        )
+
+        # Handle optional components configuration
+        components_dict = config_dict.get("components", {})
+        if not isinstance(components_dict, dict):
+            raise ValueError("'components' configuration section must be a dictionary")
+
+        # Parse component library
+        library_dict = components_dict.get("library", {})
+        if library_dict is None:
+            library_dict = {}
+        if not isinstance(library_dict, dict):
+            raise ValueError("'components.library' must be a dictionary")
+
+        # Parse component assignments
+        assignments_dict = components_dict.get("assignments", {})
+        if not isinstance(assignments_dict, dict):
+            raise ValueError("'components.assignments' must be a dictionary")
+
+        # Parse role assignments
+        spine_assignment = ComponentAssignment(**assignments_dict.get("spine", {}))
+        leaf_assignment = ComponentAssignment(**assignments_dict.get("leaf", {}))
+        core_assignment = ComponentAssignment(**assignments_dict.get("core", {}))
+
+        # Parse blueprint overrides
+        blueprint_overrides_dict = assignments_dict.get("blueprint_overrides", {})
+        if not isinstance(blueprint_overrides_dict, dict):
+            raise ValueError("'blueprint_overrides' must be a dictionary")
+
+        blueprint_overrides = {}
+        for blueprint_name, roles_dict in blueprint_overrides_dict.items():
+            if not isinstance(roles_dict, dict):
+                raise ValueError(
+                    f"Blueprint override '{blueprint_name}' must be a dictionary"
+                )
+
+            blueprint_overrides[blueprint_name] = {}
+            for role_name, assignment_dict in roles_dict.items():
+                if not isinstance(assignment_dict, dict):
+                    raise ValueError(
+                        f"Assignment for '{blueprint_name}.{role_name}' must be a dictionary"
+                    )
+                blueprint_overrides[blueprint_name][role_name] = ComponentAssignment(
+                    **assignment_dict
+                )
+
+        assignments = ComponentAssignments(
+            spine=spine_assignment,
+            leaf=leaf_assignment,
+            core=core_assignment,
+            blueprint_overrides=blueprint_overrides,
+        )
+
+        components = ComponentsConfig(
+            library=library_dict,
+            assignments=assignments,
+        )
+
+        # Handle optional failure_policies configuration
+        failure_policies_dict = config_dict.get("failure_policies", {})
+        if not isinstance(failure_policies_dict, dict):
+            raise ValueError(
+                "'failure_policies' configuration section must be a dictionary"
+            )
+
+        # Parse failure policy library
+        fp_library_dict = failure_policies_dict.get("library", {})
+        if fp_library_dict is None:
+            fp_library_dict = {}
+        if not isinstance(fp_library_dict, dict):
+            raise ValueError("'failure_policies.library' must be a dictionary")
+
+        # Parse failure policy assignments
+        fp_assignments_dict = failure_policies_dict.get("assignments", {})
+        if fp_assignments_dict is None:
+            fp_assignments_dict = {}
+        if not isinstance(fp_assignments_dict, dict):
+            raise ValueError("'failure_policies.assignments' must be a dictionary")
+
+        fp_default = fp_assignments_dict.get("default", "single_random_link_failure")
+        fp_scenario_overrides = fp_assignments_dict.get("scenario_overrides", {})
+        if fp_scenario_overrides is None:
+            fp_scenario_overrides = {}
+
+        fp_assignments = FailurePolicyAssignments(
+            default=fp_default,
+            scenario_overrides=fp_scenario_overrides,
+        )
+
+        failure_policies = FailurePoliciesConfig(
+            library=fp_library_dict,
+            assignments=fp_assignments,
+        )
+
+        # Handle optional workflows configuration
+        workflows_dict = config_dict.get("workflows", {})
+        if not isinstance(workflows_dict, dict):
+            raise ValueError("'workflows' configuration section must be a dictionary")
+
+        # Parse workflow library
+        wf_library_dict = workflows_dict.get("library", {})
+        if wf_library_dict is None:
+            wf_library_dict = {}
+        if not isinstance(wf_library_dict, dict):
+            raise ValueError("'workflows.library' must be a dictionary")
+
+        # Parse workflow assignments
+        wf_assignments_dict = workflows_dict.get("assignments", {})
+        if wf_assignments_dict is None:
+            wf_assignments_dict = {}
+        if not isinstance(wf_assignments_dict, dict):
+            raise ValueError("'workflows.assignments' must be a dictionary")
+
+        wf_default = wf_assignments_dict.get("default", "basic_capacity_analysis")
+        wf_scenario_overrides = wf_assignments_dict.get("scenario_overrides", {})
+        if wf_scenario_overrides is None:
+            wf_scenario_overrides = {}
+
+        wf_assignments = WorkflowAssignments(
+            default=wf_default,
+            scenario_overrides=wf_scenario_overrides,
+        )
+
+        workflows = WorkflowsConfig(
+            library=wf_library_dict,
+            assignments=wf_assignments,
+        )
+
         # Create main configuration
         return cls(
             data_sources=data_sources,
@@ -260,6 +511,10 @@ class TopologyConfig:
             corridors=corridors,
             validation=validation,
             output=output,
+            build=build,
+            components=components,
+            failure_policies=failure_policies,
+            workflows=workflows,
         )
 
     def validate(self) -> None:

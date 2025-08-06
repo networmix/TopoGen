@@ -214,7 +214,7 @@ def export_integrated_graph_map(
 
         # Extract corridor connections from graph
         corridor_lines = []
-        # Extract metro coordinates and names for plotting
+        # Extract metro coordinates for plotting
         # metro_coords_dict = {metro.node_key: metro for metro in metros}  # Kept for potential future use
         metro_id_to_coords = {metro.metro_id: metro.coordinates for metro in metros}
 

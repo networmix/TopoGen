@@ -34,11 +34,42 @@ class MetroCluster:
 
     metro_id: str
     name: str
+    name_orig: str
     uac_code: str
     land_area_km2: float
     centroid_x: float
     centroid_y: float
     radius_km: float
+
+    @staticmethod
+    def _sanitize_metro_name(name: str) -> str:
+        """Convert metro name to clean identifier for machine use.
+
+        Removes state suffixes and special characters, creating a clean
+        identifier suitable for use in configuration keys and risk groups.
+
+        Args:
+            name: Original metro name from Census data.
+
+        Returns:
+            Sanitized name with hyphens and alphanumeric characters only.
+        """
+        import re
+
+        # Remove everything after first comma (removes states)
+        base = name.split(",")[0]
+
+        # Convert to lowercase and replace separators with hyphens
+        clean = re.sub(r"[\s\-]+", "-", base.lower())
+
+        # Remove any remaining non-alphanumeric except hyphens
+        clean = re.sub(r"[^a-z0-9-]", "", clean)
+
+        # Remove duplicate hyphens and trim
+        clean = re.sub(r"-+", "-", clean).strip("-")
+
+        # Limit length for practical use
+        return clean[:30]
 
     @property
     def coordinates(self) -> tuple[float, float]:
@@ -351,9 +382,11 @@ def load_metro_clusters(
             if pd.isna(uace_code) or not str(uace_code).strip():
                 raise ValueError(f"Invalid UACE20 code at index {i}: {uace_code}")
 
+            original_name = top_areas["NAME20"].iloc[i]
             cluster = MetroCluster(
                 metro_id=str(uace_code).strip(),
-                name=top_areas["NAME20"].iloc[i],
+                name=MetroCluster._sanitize_metro_name(original_name),
+                name_orig=original_name,
                 uac_code=str(uace_code).strip(),
                 land_area_km2=round(
                     float(land_areas_km2.iloc[i]), clustering_config.area_precision
@@ -402,7 +435,7 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
         metro_clusters: List of MetroCluster objects to export.
         target_crs: Target coordinate reference system for export.
     """
-    output_dir = Path("data/processed")
+    output_dir = Path("output")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Export metro centroids as GeoJSON

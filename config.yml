@@ -96,6 +96,17 @@ corridors:
   # Skip corridor path finding for metro pairs farther than this distance (kilometers)
   max_corridor_distance_km: 1000.0
 
+  # Risk groups configuration for corridor edges
+  risk_groups:
+    # Enable risk group assignment for corridor edges
+    enabled: true
+
+    # Prefix for generated risk group names
+    group_prefix: "corridor_risk"
+
+    # Exclude highway segments within metro radius from risk groups to avoid shared risk
+    exclude_metro_radius_shared: true
+
 # Graph validation parameters
 validation:
   # Maximum allowed distance from metro centroid to nearest highway node (kilometers)
@@ -112,9 +123,9 @@ validation:
   # Graph component validation for connectivity analysis
   min_largest_component_fraction: 0.5 # Fails if sliver removal causes largest component to drop below 50% OR if corridor graph's largest component is below 50%
 
-# Output configuration (currently unused - reserved for future NetGraph YAML generation)
+# Output configuration
 output:
-  # PoP blueprint configuration for future network topology generation
+  # PoP blueprint configuration (legacy - use build section instead)
   pop_blueprint:
     # Number of PoP sites to place per metro area
     sites_per_metro: 4
@@ -125,7 +136,7 @@ output:
     # Internal connectivity pattern within PoP sites
     internal_pattern: "mesh"
 
-  # NetGraph scenario metadata for future YAML output
+  # NetGraph scenario metadata
   scenario_metadata:
     title: "Continental US Backbone Topology"
     description: "Generated backbone topology based on population density and highway infrastructure"
@@ -133,6 +144,109 @@ output:
 
   # Data formatting configuration
   formatting:
-    json_indent: 2 # JSON output indentation (used in integrated_graph.py save_to_json)
-    distance_conversion_factor: 1000 # Meters to kilometers conversion (used in metro_clusters.py)
-    area_conversion_factor: 1000000 # Square meters to square kilometers conversion (used in metro_clusters.py)
+    json_indent: 2 # JSON output indentation
+    distance_conversion_factor: 1000 # Meters to kilometers conversion
+    area_conversion_factor: 1000000 # Square meters to square kilometers
+
+# Build configuration for generating NetGraph scenarios
+build:
+  # Default settings for topology generation
+  build_defaults:
+    sites_per_metro: 2 # Default number of sites per metro area
+    site_blueprint: SingleRouter # Default blueprint for each site
+
+  # Per-metro overrides (key must match metro.name from metro_clusters)
+  build_overrides:
+    # Example overrides for specific metros (use full metro names)
+    "Denver--Aurora, CO":
+      sites_per_metro: 4
+      site_blueprint: Clos_64_256
+    "Salt Lake City, UT":
+      site_blueprint: FullMesh4
+
+# Component library and assignment configuration
+components:
+  # Component library definitions (can extend or override built-ins)
+  library:
+    # Example custom component - uncomment to override built-in
+    # CustomSpineChassis:
+    #   component_type: chassis
+    #   description: "Custom spine router chassis"
+    #   cost: 75000.0
+    #   power_watts: 3000.0
+    #   power_watts_max: 3500.0
+    #   capacity: 102400.0  # Gbps
+    #   ports: 64
+    #   attrs:
+    #     vendor: "Custom Corp"
+    #     model: "CS-12000"
+
+  # Component assignments to blueprint roles
+  assignments:
+    # Map blueprint roles to hardware components
+    spine:
+      hw_component: SpineChassis
+      optics: 400G-LR4 # Default optics for spine links
+    leaf:
+      hw_component: LeafChassis
+      optics: 400G-SR8
+    core:
+      hw_component: CoreRouter
+      optics: 100G-LR4
+
+    # Per-blueprint overrides (optional)
+    blueprint_overrides:
+      Clos_64_256:
+        spine:
+          hw_component: HighEndSpineChassis
+          optics: 400G-LR4
+        leaf:
+          hw_component: HighEndLeafChassis
+          optics: 400G-SR8
+      SingleRouter:
+        core:
+          hw_component: EdgeRouter
+          optics: 100G-LR4
+
+# Failure policy configuration
+failure_policies:
+  # Built-in and custom failure policy library
+  library:
+    # Example custom failure policy - uncomment to override built-in
+    # custom_single_link_failure:
+    #   attrs:
+    #     description: "Custom single random link failure policy"
+    #   rules:
+    #     - entity_scope: "link"
+    #       rule_type: "choice"
+    #       count: 1
+
+  # Assignment configuration for failure policies
+  assignments:
+    # Default failure policy to use
+    default: "single_random_link_failure"
+
+    # Per-scenario overrides (optional)
+    scenario_overrides: {}
+
+# Workflow configuration
+workflows:
+  # Built-in and custom workflow library
+  library:
+    # Example custom workflow - uncomment to override built-in
+    # custom_basic_analysis:
+    #   - step_type: NetworkStats
+    #     name: "network_statistics"
+    #   - step_type: CapacityProbe
+    #     name: "capacity_probe"
+    #     source_path: "^(core_.+)"
+    #     sink_path: "^(core_.+)"
+    #     mode: "pairwise"
+
+  # Assignment configuration for workflows
+  assignments:
+    # Default workflow to use
+    default: "basic_capacity_analysis"
+
+    # Per-scenario overrides (optional)
+    scenario_overrides: {}

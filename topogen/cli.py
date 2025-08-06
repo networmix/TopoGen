@@ -80,10 +80,18 @@ def build_command(args: argparse.Namespace) -> None:
 
         # Run the pipeline with timing
         with Timer("Topology generation pipeline"):
-            _run_pipeline(config_obj, output_path)
+            scenario_yaml = _run_pipeline(
+                config_obj, output_path, print_yaml=args.print
+            )
 
-        print(f"🎉 SUCCESS! Generated topology: {output_path}")
-        print("Run validation: make check")
+        if args.print:
+            print("\n" + "=" * 60)
+            print("GENERATED SCENARIO YAML:")
+            print("=" * 60)
+            print(scenario_yaml)
+        else:
+            print(f"🎉 SUCCESS! Generated topology: {output_path}")
+            print("Run validation: make check")
 
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
@@ -103,21 +111,27 @@ def build_command(args: argparse.Namespace) -> None:
         sys.exit(1)  # Runtime error
 
 
-def _run_pipeline(config: TopologyConfig, output_path: Path) -> None:
+def _run_pipeline(
+    config: TopologyConfig, output_path: Path, print_yaml: bool = False
+) -> str:
     """Execute topology generation from integrated graph.
 
     Args:
         config: Topology configuration object.
         output_path: Path for output scenario file.
+        print_yaml: Whether to print YAML to stdout instead of validation.
+
+    Returns:
+        Generated scenario YAML string.
 
     Raises:
-        NotImplementedError: Current implementation placeholder.
         ValueError: If integrated graph loading fails.
     """
     from topogen import load_from_json
+    from topogen.scenario_builder import build_scenario
 
     # Check for integrated graph
-    graph_path = Path("data/processed/integrated_graph.json")
+    graph_path = Path("output/integrated_graph.json")
     if not graph_path.exists():
         print("❌ No integrated graph found!")
         print("   Run generation first: python -m topogen generate")
@@ -134,32 +148,43 @@ def _run_pipeline(config: TopologyConfig, output_path: Path) -> None:
 
     # Count metro and highway nodes
     metro_nodes = [
-        n for n, d in graph.nodes(data=True) if d.get("node_type") == "metro"
+        n
+        for n, d in graph.nodes(data=True)
+        if d.get("node_type") in ["metro", "metro+highway"]
     ]
     highway_nodes = [n for n in graph.nodes() if n not in metro_nodes]
     print(f"   Metro nodes: {len(metro_nodes)}")
     print(f"   Highway nodes: {len(highway_nodes)}")
 
-    # Corridor selection and NetGraph generation not yet implemented
-    print("\n❌ ERROR: Corridor selection algorithms not yet implemented")
-    print("   Required algorithms:")
-    print("   - k-shortest paths between metros")
-    print("   - Minimum spanning tree generation")
-    print("   - Waxman sampling for path diversity")
-    print("   - NetGraph YAML scenario generation")
-    print("")
-    print("   The integrated graph is ready for processing at:")
-    print(f"   {graph_path}")
-    print("")
-    print("   Next implementation tasks:")
-    print("   1. Implement corridor selection algorithms")
-    print("   2. Add NetGraph YAML export functionality")
-    print("   3. Blueprint-based PoP and link generation")
+    # Create output directory
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    raise NotImplementedError(
-        "Corridor selection and NetGraph generation not yet implemented. "
-        f"Integrated graph available at: {graph_path}"
-    )
+    # Build NetGraph scenario
+    with Timer("Generate NetGraph scenario"):
+        scenario_yaml = build_scenario(graph, config)
+
+    # Write scenario to file
+    with Timer(f"Write scenario to {output_path}"):
+        with open(output_path, "w") as f:
+            f.write(scenario_yaml)
+
+    print(f"\n📄 Scenario written to: {output_path}")
+
+    # Validate the generated scenario (unless just printing)
+    if not print_yaml:
+        try:
+            from ngraph.scenario import Scenario
+
+            print("🔄 Validating generated scenario...")
+            scenario = Scenario.from_yaml(scenario_yaml)
+            print("✅ Scenario validation passed")
+            print(f"   Network nodes: {len(scenario.network.nodes)}")
+            print(f"   Network links: {len(scenario.network.links)}")
+        except Exception as e:
+            print(f"⚠️  Scenario validation warning: {e}")
+            print("   Scenario file generated but may have issues")
+
+    return scenario_yaml
 
 
 def _run_generation(config: TopologyConfig) -> None:
@@ -174,11 +199,11 @@ def _run_generation(config: TopologyConfig) -> None:
     print("=" * 50)
 
     # Create output directory
-    processed_dir = Path("data/processed")
-    processed_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path("output")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Output path for integrated graph
-    graph_output = processed_dir / "integrated_graph.json"
+    graph_output = output_dir / "integrated_graph.json"
 
     print(f"   Urban areas: {config.clustering.metro_clusters}")
     print(f"   UAC data: {config.data_sources.uac_polygons}")
@@ -198,7 +223,7 @@ def _run_generation(config: TopologyConfig) -> None:
     print(f"📁 Integrated graph: {graph_output}")
     print(f"📊 Graph summary: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
     print("🔗 Ready for topology generation with:")
-    print("   python -m topogen build --output scenarios/topology.yaml")
+    print("   python -m topogen build --output output/topology.yaml")
 
 
 def validate_command(args: argparse.Namespace) -> None:
@@ -215,9 +240,17 @@ def validate_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        # TODO: Implement NetGraph validation
-        print("🚧 NetGraph validation phase")
-        print("✅ Scenario file exists and is readable")
+        # Validate using ngraph library
+        from ngraph.scenario import Scenario
+
+        print("🔄 Loading and validating scenario with ngraph...")
+        with open(scenario_path) as f:
+            scenario_content = f.read()
+
+        scenario = Scenario.from_yaml(scenario_content)
+        print("✅ Scenario validation passed")
+        print(f"   Network nodes: {len(scenario.network.nodes)}")
+        print(f"   Network links: {len(scenario.network.links)}")
 
     except Exception as e:
         print(f"❌ Validation failed: {e}")
@@ -323,8 +356,13 @@ def main() -> None:
     build_parser.add_argument(
         "-o",
         "--output",
-        default="scenarios/us_backbone.yaml",
-        help="Output YAML scenario file (default: scenarios/us_backbone.yaml)",
+        default="output/us_backbone.yaml",
+        help="Output YAML scenario file (default: output/us_backbone.yaml)",
+    )
+    build_parser.add_argument(
+        "--print",
+        action="store_true",
+        help="Print generated YAML to stdout for debugging",
     )
 
     build_parser.set_defaults(func=build_command)

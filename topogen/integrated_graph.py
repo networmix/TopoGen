@@ -526,10 +526,10 @@ def add_corridors(
 
             if distance_km <= corridors_config.max_edge_km:
                 # Add pair in sorted order to avoid duplicates
-                metro_a = metro.metro_id
-                metro_b = metros[neighbor_idx].metro_id
-                if metro_a < metro_b:
-                    adjacent_pairs.append((metro_a, metro_b, distance_km))
+                metro_a_id = metro.metro_id
+                metro_b_id = metros[neighbor_idx].metro_id
+                if metro_a_id < metro_b_id:
+                    adjacent_pairs.append((metro_a_id, metro_b_id, distance_km))
 
     logger.info(
         f"Found {len(adjacent_pairs)} adjacent metro pairs for corridor discovery"
@@ -641,6 +641,107 @@ def add_corridors(
         raise ValueError("No corridors found - corridor discovery failed")
 
 
+def assign_risk_groups_to_corridors(
+    graph: nx.Graph,
+    metros: list[MetroCluster],
+    corridors_config: CorridorsConfig,
+) -> None:
+    """Assign risk groups to corridor edges, avoiding shared metro radius segments.
+
+    Creates unique risk groups for each corridor while excluding highway segments
+    that fall within any metro's radius to prevent shared risk scenarios.
+
+    Args:
+        graph: Integrated graph with corridor tags on edges.
+        metros: List of metro clusters with radius information.
+        corridors_config: Configuration including risk groups settings.
+    """
+    if not corridors_config.risk_groups.enabled:
+        logger.info("Risk group assignment disabled - skipping")
+        return
+
+    logger.info("Assigning risk groups to corridor edges")
+
+    # Build spatial index for metro areas and ID-to-name mapping
+    metro_points = {}
+    metro_id_to_name = {}
+    for metro in metros:
+        metro_points[metro.metro_id] = {
+            "center": Point(metro.centroid_x, metro.centroid_y),
+            "radius_m": metro.radius_km * 1000.0,  # Convert km to meters
+        }
+        metro_id_to_name[metro.metro_id] = metro.name
+
+    # Process each corridor edge in the graph
+    corridor_counter = 0
+    excluded_counter = 0
+    assigned_counter = 0
+
+    for u, v, edge_data in graph.edges(data=True):
+        if "corridor" not in edge_data or not edge_data["corridor"]:
+            continue
+
+        corridor_counter += 1
+
+        # Check if either endpoint is within a metro radius
+        if corridors_config.risk_groups.exclude_metro_radius_shared:
+            u_point = Point(u)
+            v_point = Point(v)
+            is_shared = False
+
+            for _metro_id, metro_info in metro_points.items():
+                center = metro_info["center"]
+                radius_m = metro_info["radius_m"]
+
+                # Check if either endpoint is within this metro's radius
+                if (
+                    u_point.distance(center) <= radius_m
+                    or v_point.distance(center) <= radius_m
+                ):
+                    is_shared = True
+                    break
+
+            if is_shared:
+                excluded_counter += 1
+                logger.debug(f"Excluding corridor edge {u}-{v} - within metro radius")
+                continue
+
+        # Assign risk groups to this corridor edge
+        for corridor_info in edge_data["corridor"]:
+            metro_a_id = corridor_info["metro_a"]
+            metro_b_id = corridor_info["metro_b"]
+            path_index = corridor_info["path_index"]
+
+            # Convert metro IDs to names for risk group naming
+            metro_a_name = metro_id_to_name[metro_a_id]
+            metro_b_name = metro_id_to_name[metro_b_id]
+
+            # Create unique risk group name for this corridor (using sanitized metro names)
+            if metro_a_name < metro_b_name:
+                risk_group_name = f"{corridors_config.risk_groups.group_prefix}_{metro_a_name}_{metro_b_name}"
+            else:
+                risk_group_name = f"{corridors_config.risk_groups.group_prefix}_{metro_b_name}_{metro_a_name}"
+
+            # Add path index if multiple paths exist
+            if path_index > 0:
+                risk_group_name += f"_path{path_index}"
+
+            # Store risk group assignment in edge data
+            if "risk_groups" not in edge_data:
+                edge_data["risk_groups"] = []
+
+            if risk_group_name not in edge_data["risk_groups"]:
+                edge_data["risk_groups"].append(risk_group_name)
+                assigned_counter += 1
+
+    logger.info(
+        f"Risk group assignment complete: "
+        f"Processed {corridor_counter} corridor edges, "
+        f"Excluded {excluded_counter} within metro radius, "
+        f"Assigned {assigned_counter} risk group tags"
+    )
+
+
 def extract_corridor_graph(
     full_graph: nx.Graph, metros: list[MetroCluster]
 ) -> nx.Graph:
@@ -673,6 +774,7 @@ def extract_corridor_graph(
             node_type="metro",
             metro_id=metro.metro_id,
             name=metro.name,
+            name_orig=metro.name_orig,
             x=metro.centroid_x,
             y=metro.centroid_y,
             radius_km=metro.radius_km,
@@ -682,7 +784,7 @@ def extract_corridor_graph(
 
     # Extract corridor connections from highway edges
     metro_id_to_coords = {metro.metro_id: metro.node_key for metro in metros}
-    corridor_connections = {}  # (metro_a, metro_b) -> shortest_distance
+    corridor_connections = {}  # (metro_a_id, metro_b_id) -> shortest_distance
 
     # Scan corridor-tagged edges to find metro pairs
     for _u, _v, data in full_graph.edges(data=True):
@@ -710,6 +812,20 @@ def extract_corridor_graph(
             node_a = metro_id_to_coords[metro_a_id]
             node_b = metro_id_to_coords[metro_b_id]
 
+            # Find risk groups from the full graph highway edges for this corridor
+            corridor_risk_groups = set()
+            for _u, _v, edge_data in full_graph.edges(data=True):
+                if "corridor" in edge_data and edge_data["corridor"]:
+                    for corridor_info in edge_data["corridor"]:
+                        if (
+                            corridor_info["metro_a"] in [metro_a_id, metro_b_id]
+                            and corridor_info["metro_b"] in [metro_a_id, metro_b_id]
+                            and corridor_info["metro_a"] != corridor_info["metro_b"]
+                        ):
+                            # This edge is part of our corridor
+                            if "risk_groups" in edge_data:
+                                corridor_risk_groups.update(edge_data["risk_groups"])
+
             corridor_graph.add_edge(
                 node_a,
                 node_b,
@@ -717,6 +833,7 @@ def extract_corridor_graph(
                 length_km=distance_km,
                 metro_a=metro_a_id,
                 metro_b=metro_b_id,
+                risk_groups=list(corridor_risk_groups) if corridor_risk_groups else [],
             )
             edges_added += 1
 
@@ -963,6 +1080,7 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
                 x=metro.centroid_x,
                 y=metro.centroid_y,
                 name=metro.name,
+                name_orig=metro.name_orig,
                 radius_km=metro.radius_km,
                 metro_id=metro.metro_id,
                 uac_code=metro.uac_code,
@@ -984,6 +1102,9 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
     logger.info("Discovering corridors")
     add_corridors(G, anchors, metros, config.corridors)
 
+    # Step 8.5: Assign risk groups to corridor edges
+    assign_risk_groups_to_corridors(G, metros, config.corridors)
+
     # Step 9: Validate integration
     validate_integrated_graph(G, metros, config.validation)
 
@@ -999,7 +1120,7 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
         try:
             from topogen.visualization import export_integrated_graph_map
 
-            output_dir = Path("data/processed")
+            output_dir = Path("output")
             output_dir.mkdir(parents=True, exist_ok=True)
             visualization_path = output_dir / "integrated_graph.jpg"
 

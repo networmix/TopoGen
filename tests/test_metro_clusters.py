@@ -23,7 +23,8 @@ class TestMetroCluster:
         """Create a sample MetroCluster for testing."""
         return MetroCluster(
             metro_id="63217",
-            name="New York--Newark, NY--NJ--CT",
+            name="new-york--newark",
+            name_orig="New York--Newark, NY--NJ--CT",
             uac_code="63217",
             land_area_km2=8936.2,
             centroid_x=586515.2,
@@ -36,7 +37,8 @@ class TestMetroCluster:
         """Create another MetroCluster for testing interactions."""
         return MetroCluster(
             metro_id="51445",
-            name="Los Angeles--Long Beach--Anaheim, CA",
+            name="los-angeles--long-beach--anaheim",
+            name_orig="Los Angeles--Long Beach--Anaheim, CA",
             uac_code="51445",
             land_area_km2=4850.3,
             centroid_x=-2056789.1,
@@ -47,7 +49,8 @@ class TestMetroCluster:
     def test_cluster_creation(self, sample_cluster):
         """Test basic MetroCluster creation and attributes."""
         assert sample_cluster.metro_id == "63217"
-        assert sample_cluster.name == "New York--Newark, NY--NJ--CT"
+        assert sample_cluster.name == "new-york--newark"
+        assert sample_cluster.name_orig == "New York--Newark, NY--NJ--CT"
         assert sample_cluster.uac_code == "63217"
         assert sample_cluster.land_area_km2 == 8936.2
         assert sample_cluster.centroid_x == 586515.2
@@ -99,7 +102,8 @@ class TestMetroCluster:
         """Test overlap detection with nearby clusters."""
         cluster1 = MetroCluster(
             metro_id="12345",
-            name="Cluster 1",
+            name="cluster-1",
+            name_orig="Cluster 1",
             uac_code="12345",
             land_area_km2=100.0,
             centroid_x=0.0,
@@ -109,7 +113,8 @@ class TestMetroCluster:
 
         cluster2 = MetroCluster(
             metro_id="67890",
-            name="Cluster 2",
+            name="cluster-2",
+            name_orig="Cluster 2",
             uac_code="67890",
             land_area_km2=200.0,
             centroid_x=15000.0,  # 15 km away
@@ -214,7 +219,8 @@ class TestLoadMetroClusters:
             expected_uace = f"UAC{i + 1:02d}"
 
             assert clusters[i].metro_id == expected_uace
-            assert clusters[i].name == f"Urban Area {i + 1}"
+            assert clusters[i].name == f"urban-area-{i + 1}"
+            assert clusters[i].name_orig == f"Urban Area {i + 1}"
             assert clusters[i].uac_code == expected_uace
 
     def test_load_insufficient_areas(self, temp_uac_file):
@@ -456,7 +462,8 @@ class TestExportClusterFiles:
         return [
             MetroCluster(
                 metro_id="12345",
-                name="Metro 1",
+                name="metro-1",
+                name_orig="Metro 1",
                 uac_code="12345",
                 land_area_km2=100.0,
                 centroid_x=1000.0,
@@ -465,7 +472,8 @@ class TestExportClusterFiles:
             ),
             MetroCluster(
                 metro_id="67890",
-                name="Metro 2",
+                name="metro-2",
+                name_orig="Metro 2",
                 uac_code="67890",
                 land_area_km2=200.0,
                 centroid_x=3000.0,

@@ -38,6 +38,8 @@ dependencies = [
     "scikit-learn",
     "networkx",
     "contextily",
+    # NetGraph validation
+    "ngraph",
 ]
 
 # Dev / CI extras

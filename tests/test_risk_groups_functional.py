@@ -3,7 +3,7 @@
 import networkx as nx
 
 from topogen.config import CorridorsConfig, RiskGroupsConfig
-from topogen.integrated_graph import assign_risk_groups_to_corridors
+from topogen.corridors import assign_risk_groups as assign_risk_groups_to_corridors
 from topogen.metro_clusters import MetroCluster
 
 

@@ -33,7 +33,12 @@ def build_scenario(
     blueprint templates, preserving corridor connectivity between metros.
 
     Args:
-        graph: Integrated graph with metro and highway nodes.
+        graph: Corridor-level graph whose nodes are metros and whose edges are
+            metro-to-metro corridors. If a full integrated graph (metros +
+            highway + anchor edges) is provided, inter-metro adjacency will be
+            empty because this function extracts corridor edges only between
+            metro nodes. To build from a full graph, first call
+            ``extract_corridor_graph``.
         config: Topology configuration including build settings.
 
     Returns:

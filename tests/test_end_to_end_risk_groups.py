@@ -10,10 +10,8 @@ from topogen.config import (
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.integrated_graph import (
-    assign_risk_groups_to_corridors,
-    extract_corridor_graph,
-)
+from topogen.corridors import assign_risk_groups as assign_risk_groups_to_corridors
+from topogen.corridors import extract_corridor_graph
 from topogen.metro_clusters import MetroCluster
 from topogen.scenario_builder import build_scenario
 

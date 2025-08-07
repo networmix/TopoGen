@@ -4,7 +4,7 @@ import networkx as nx
 import pytest
 
 from topogen.config import CorridorsConfig
-from topogen.integrated_graph import add_corridors, extract_corridor_graph
+from topogen.corridors import add_corridors, extract_corridor_graph
 from topogen.metro_clusters import MetroCluster
 
 

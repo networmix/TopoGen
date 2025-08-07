@@ -1,12 +1,24 @@
 """Integrated metro and highway graph construction and management.
 
-Builds a NetworkX graph combining:
-- Highway backbone from build_highway_graph
-- Metro clusters from load_metro_clusters
-- Anchor edges connecting metros to nearest highway nodes
-- Corridor tags marking k-shortest fiber paths between adjacent metros
+This module assembles a highway network and metropolitan clusters into two
+graphs used by downstream steps:
 
-Saves to JSON with tuple encoding/decoding.
+1. A full integrated graph (internal) containing the highway backbone, metro
+   nodes, and metro anchor edges. Highway edges along k-shortest inter-metro
+   paths are tagged with corridor metadata.
+2. A corridor-level graph (returned) where nodes are metros and edges are
+   metro-to-metro corridors. Edge attributes include `length_km` (sum of
+   highway edge lengths along the chosen path), `euclidean_km` (straight-line
+   centroid separation), and `detour_ratio` (length_km / euclidean_km).
+
+Note:
+- The public ``build_integrated_graph`` function returns the corridor-level
+  graph by design because the scenario builder consumes metro-to-metro
+  corridors directly. If callers need the full integrated graph, they should
+  modify the pipeline to capture it before corridor extraction or call
+  ``extract_corridor_graph`` themselves.
+
+Saves to JSON with tuple encoding/decoding via ``save_to_json`` / ``load_from_json``.
 """
 
 from __future__ import annotations
@@ -20,13 +32,18 @@ import numpy as np
 from scipy.spatial import KDTree  # type: ignore[import-untyped]
 from shapely.geometry import Point
 
+from topogen.corridors import (
+    add_corridors,
+    assign_risk_groups,
+    extract_corridor_graph,
+    validate_corridor_graph,
+)
 from topogen.highway_graph import build_highway_graph
 from topogen.log_config import get_logger
 from topogen.metro_clusters import MetroCluster, load_metro_clusters
 
 if TYPE_CHECKING:
     from topogen.config import (
-        CorridorsConfig,
         FormattingConfig,
         TopologyConfig,
         ValidationConfig,
@@ -470,539 +487,24 @@ def anchor_metros(
     return anchors
 
 
-def add_corridors(
-    graph: nx.Graph,
-    anchors: dict[str, tuple[float, float]],
-    metros: list[MetroCluster],
-    corridors_config: CorridorsConfig,
-) -> None:
-    """Add corridor tags to highway edges using k-shortest paths.
-
-    Finds k-shortest paths between adjacent metro pairs and tags the highway
-    edges used in those paths with corridor metadata.
-
-    Args:
-        graph: Integrated graph to add corridor tags to.
-        anchors: Dict mapping metro_id to anchor node coordinates.
-        metros: List of metro clusters.
-        corridors_config: Corridor discovery configuration.
-
-    Raises:
-        ValueError: If no corridors are found.
-    """
-    logger.info(f"Starting corridor discovery for {len(metros)} metros")
-    logger.info(
-        f"Corridor configuration: k_paths={corridors_config.k_paths}, "
-        f"k_nearest={corridors_config.k_nearest}, max_edge_km={corridors_config.max_edge_km}km"
-    )
-
-    # Build adjacency using k-nearest neighbors
-    metro_coords = np.array([[m.centroid_x, m.centroid_y] for m in metros])
-    tree = KDTree(metro_coords)
-
-    adjacent_pairs = []
-    for metro in metros:
-        # Find k nearest neighbors
-        distances, indices = tree.query(
-            [metro.centroid_x, metro.centroid_y], k=corridors_config.k_nearest + 1
-        )
-
-        # Handle numpy array results properly
-        if isinstance(indices, np.ndarray):
-            indices_list = indices.tolist()
-        else:
-            indices_list = [indices]
-
-        if isinstance(distances, np.ndarray):
-            distances_list = distances.tolist()
-        else:
-            distances_list = [distances]
-
-        for j in range(
-            1, min(len(indices_list), corridors_config.k_nearest + 1)
-        ):  # Skip self (index 0)
-            neighbor_idx = indices_list[j]
-            distance_km = distances_list[j] / 1000.0
-
-            if distance_km <= corridors_config.max_edge_km:
-                # Add pair in sorted order to avoid duplicates
-                metro_a_id = metro.metro_id
-                metro_b_id = metros[neighbor_idx].metro_id
-                if metro_a_id < metro_b_id:
-                    adjacent_pairs.append((metro_a_id, metro_b_id, distance_km))
-
-    logger.info(
-        f"Found {len(adjacent_pairs)} adjacent metro pairs for corridor discovery"
-    )
-
-    if not adjacent_pairs:
-        raise ValueError("No adjacent metro pairs found for corridor discovery")
-
-    # Process corridors with progress reporting
-    corridor_count = 0
-    processed_pairs = 0
-    skipped_pairs = 0
-    successful_pairs = 0
-
-    logger.info(f"Processing {len(adjacent_pairs)} metro pairs for corridor discovery")
-
-    for metro_a_id, metro_b_id, pair_distance in adjacent_pairs:
-        processed_pairs += 1
-
-        # Log progress every 10 pairs
-        if processed_pairs % 10 == 0 or processed_pairs == len(adjacent_pairs):
-            logger.info(
-                f"Progress: {processed_pairs:,}/{len(adjacent_pairs):,} pairs processed"
-            )
-
-        if pair_distance > corridors_config.max_corridor_distance_km:
-            skipped_pairs += 1
-            logger.debug(
-                f"Skipping {metro_a_id}-{metro_b_id}: {pair_distance:.1f}km > {corridors_config.max_corridor_distance_km}km"
-            )
-            continue
-
-        anchor_a = anchors[metro_a_id]
-        anchor_b = anchors[metro_b_id]
-
-        logger.debug(
-            f"Finding paths between {metro_a_id} and {metro_b_id} ({pair_distance:.1f}km)"
-        )
-
-        # Find k-shortest paths between anchors
-        try:
-            import itertools
-            import time
-
-            start_time = time.time()
-            logger.debug(
-                f"Finding paths between {metro_a_id} ({anchor_a}) and {metro_b_id} ({anchor_b})"
-            )
-            paths_generator = nx.shortest_simple_paths(
-                graph, anchor_a, anchor_b, weight="length_km"
-            )
-            paths = list(
-                itertools.islice(paths_generator, corridors_config.k_paths)
-            )  # Take only k paths efficiently
-            elapsed = time.time() - start_time
-
-            if not paths:
-                logger.warning(f"No paths found between {metro_a_id} and {metro_b_id}")
-                continue
-
-            logger.debug(
-                f"Found {len(paths)} paths between {metro_a_id}-{metro_b_id} in {elapsed:.2f}s"
-            )
-
-        except nx.NetworkXNoPath:
-            logger.warning(
-                f"No path found between metros {metro_a_id} and {metro_b_id}"
-            )
-            continue
-        except Exception as e:
-            logger.error(
-                f"Error finding paths between {metro_a_id} and {metro_b_id}: {e}"
-            )
-            continue
-
-        # Tag edges in all paths using actual path distance (sum of edge lengths)
-        successful_pairs += 1
-        for path_idx, path in enumerate(paths):
-            # Compute path length from edge weights
-            path_length_km = 0.0
-            for i in range(len(path) - 1):
-                u, v = path[i], path[i + 1]
-                if not graph.has_edge(u, v):
-                    continue
-                path_length_km += float(graph[u][v].get("length_km", 0.0))
-
-            for i in range(len(path) - 1):
-                u, v = path[i], path[i + 1]
-
-                # Add corridor tag to edge
-                if graph.has_edge(u, v):
-                    edge_data = graph[u][v]
-                    if "corridor" not in edge_data:
-                        edge_data["corridor"] = []
-
-                    corridor_info = {
-                        "metro_a": metro_a_id,
-                        "metro_b": metro_b_id,
-                        "path_index": path_idx,
-                        # Use actual path length, not centroid separation
-                        "distance_km": path_length_km,
-                    }
-                    edge_data["corridor"].append(corridor_info)
-                    corridor_count += 1
-
-    # Final summary
-    failed_pairs = processed_pairs - skipped_pairs - successful_pairs
-    logger.info(
-        f"Corridor discovery complete: "
-        f"Processed {processed_pairs:,}/{len(adjacent_pairs):,} pairs, "
-        f"Successful {successful_pairs:,}, "
-        f"Failed {failed_pairs:,}, "
-        f"Skipped {skipped_pairs:,} (too far), "
-        f"Tagged {corridor_count:,} highway edges with corridor labels"
-    )
-
-    if corridor_count == 0:
-        raise ValueError("No corridors found - corridor discovery failed")
-
-
-def assign_risk_groups_to_corridors(
-    graph: nx.Graph,
-    metros: list[MetroCluster],
-    corridors_config: CorridorsConfig,
-) -> None:
-    """Assign risk groups to corridor edges, avoiding shared metro radius segments.
-
-    Creates unique risk groups for each corridor while excluding highway segments
-    that fall within any metro's radius to prevent shared risk scenarios.
-
-    Args:
-        graph: Integrated graph with corridor tags on edges.
-        metros: List of metro clusters with radius information.
-        corridors_config: Configuration including risk groups settings.
-    """
-    if not corridors_config.risk_groups.enabled:
-        logger.info("Risk group assignment disabled - skipping")
-        return
-
-    logger.info("Assigning risk groups to corridor edges")
-
-    # Build spatial index for metro areas and ID-to-name mapping
-    metro_points = {}
-    metro_id_to_name = {}
-    for metro in metros:
-        metro_points[metro.metro_id] = {
-            "center": Point(metro.centroid_x, metro.centroid_y),
-            "radius_m": metro.radius_km * 1000.0,  # Convert km to meters
-        }
-        metro_id_to_name[metro.metro_id] = metro.name
-
-    # Process each corridor edge in the graph
-    corridor_counter = 0
-    excluded_counter = 0
-    assigned_counter = 0
-
-    for u, v, edge_data in graph.edges(data=True):
-        if "corridor" not in edge_data or not edge_data["corridor"]:
-            continue
-
-        corridor_counter += 1
-
-        # Check if either endpoint is within a metro radius
-        if corridors_config.risk_groups.exclude_metro_radius_shared:
-            u_point = Point(u)
-            v_point = Point(v)
-            is_shared = False
-
-            for _metro_id, metro_info in metro_points.items():
-                center = metro_info["center"]
-                radius_m = metro_info["radius_m"]
-
-                # Check if either endpoint is within this metro's radius
-                if (
-                    u_point.distance(center) <= radius_m
-                    or v_point.distance(center) <= radius_m
-                ):
-                    is_shared = True
-                    break
-
-            if is_shared:
-                excluded_counter += 1
-                logger.debug(f"Excluding corridor edge {u}-{v} - within metro radius")
-                continue
-
-        # Assign risk groups to this corridor edge
-        for corridor_info in edge_data["corridor"]:
-            metro_a_id = corridor_info["metro_a"]
-            metro_b_id = corridor_info["metro_b"]
-            path_index = corridor_info["path_index"]
-
-            # Convert metro IDs to names for risk group naming
-            metro_a_name = metro_id_to_name[metro_a_id]
-            metro_b_name = metro_id_to_name[metro_b_id]
-
-            # Create unique risk group name for this corridor (using sanitized metro names)
-            if metro_a_name < metro_b_name:
-                risk_group_name = f"{corridors_config.risk_groups.group_prefix}_{metro_a_name}_{metro_b_name}"
-            else:
-                risk_group_name = f"{corridors_config.risk_groups.group_prefix}_{metro_b_name}_{metro_a_name}"
-
-            # Add path index if multiple paths exist
-            if path_index > 0:
-                risk_group_name += f"_path{path_index}"
-
-            # Store risk group assignment in edge data
-            if "risk_groups" not in edge_data:
-                edge_data["risk_groups"] = []
-
-            if risk_group_name not in edge_data["risk_groups"]:
-                edge_data["risk_groups"].append(risk_group_name)
-                assigned_counter += 1
-
-    logger.info(
-        f"Risk group assignment complete: "
-        f"Processed {corridor_counter} corridor edges, "
-        f"Excluded {excluded_counter} within metro radius, "
-        f"Assigned {assigned_counter} risk group tags"
-    )
-
-
-def extract_corridor_graph(
-    full_graph: nx.Graph, metros: list[MetroCluster]
-) -> nx.Graph:
-    """Extract corridor-level graph from integrated highway graph.
-
-    Creates a graph where:
-    - Nodes are metro clusters
-    - Edges represent corridor connections between metros
-    - Edge weights are shortest path lengths through highway network
-
-    Args:
-        full_graph: Complete integrated graph with highway network and corridor tags.
-        metros: List of metro clusters.
-
-    Returns:
-        Corridor-level graph with metro nodes and corridor edges.
-
-    Raises:
-        ValueError: If corridor graph extraction fails.
-    """
-    logger.info("Extracting corridor-level graph from integrated network")
-
-    # Create new graph for corridors
-    corridor_graph = nx.Graph()
-
-    # Add metro nodes
-    for metro in metros:
-        corridor_graph.add_node(
-            metro.node_key,
-            node_type="metro",
-            metro_id=metro.metro_id,
-            name=metro.name,
-            name_orig=metro.name_orig,
-            x=metro.centroid_x,
-            y=metro.centroid_y,
-            radius_km=metro.radius_km,
-            uac_code=metro.uac_code,
-            land_area_km2=metro.land_area_km2,
-        )
-
-    # Extract corridor connections from highway edges
-    metro_id_to_coords = {metro.metro_id: metro.node_key for metro in metros}
-    corridor_connections = {}  # (metro_a_id, metro_b_id) -> shortest_distance
-
-    # Scan corridor-tagged edges to find metro pairs
-    for _u, _v, data in full_graph.edges(data=True):
-        if "corridor" in data and data["corridor"]:
-            for corridor_info in data["corridor"]:
-                metro_a_id = corridor_info["metro_a"]
-                metro_b_id = corridor_info["metro_b"]
-                pair_distance = corridor_info["distance_km"]
-
-                # Create sorted tuple for consistent key
-                if metro_a_id != metro_b_id:
-                    key = tuple(sorted([metro_a_id, metro_b_id]))
-
-                    # Keep the shortest distance for this pair
-                    if (
-                        key not in corridor_connections
-                        or pair_distance < corridor_connections[key]
-                    ):
-                        corridor_connections[key] = pair_distance
-
-    # Add corridor edges to graph
-    edges_added = 0
-    for (metro_a_id, metro_b_id), distance_km in corridor_connections.items():
-        if metro_a_id in metro_id_to_coords and metro_b_id in metro_id_to_coords:
-            node_a = metro_id_to_coords[metro_a_id]
-            node_b = metro_id_to_coords[metro_b_id]
-
-            # Find risk groups from the full graph highway edges for this corridor
-            corridor_risk_groups = set()
-            for _u, _v, edge_data in full_graph.edges(data=True):
-                if "corridor" in edge_data and edge_data["corridor"]:
-                    for corridor_info in edge_data["corridor"]:
-                        if (
-                            corridor_info["metro_a"] in [metro_a_id, metro_b_id]
-                            and corridor_info["metro_b"] in [metro_a_id, metro_b_id]
-                            and corridor_info["metro_a"] != corridor_info["metro_b"]
-                        ):
-                            # This edge is part of our corridor
-                            if "risk_groups" in edge_data:
-                                corridor_risk_groups.update(edge_data["risk_groups"])
-
-            # Compute straight-line (Euclidean) distance between metro centroids
-            euclidean_km = Point(node_a).distance(Point(node_b)) / 1000.0
-            detour_ratio = (distance_km / euclidean_km) if euclidean_km > 0 else None
-
-            corridor_graph.add_edge(
-                node_a,
-                node_b,
-                edge_type="corridor",
-                length_km=distance_km,
-                metro_a=metro_a_id,
-                metro_b=metro_b_id,
-                euclidean_km=euclidean_km,
-                detour_ratio=detour_ratio,
-                risk_groups=list(corridor_risk_groups) if corridor_risk_groups else [],
-            )
-            edges_added += 1
-
-    logger.info(
-        f"Extracted corridor graph: {len(corridor_graph.nodes)} metro nodes, "
-        f"{edges_added} corridor edges from {len(corridor_connections)} unique pairs"
-    )
-
-    if edges_added == 0:
-        raise ValueError("Corridor graph extraction failed: no corridor edges found")
-
-    return corridor_graph
-
-
-def validate_corridor_graph(
-    corridor_graph: nx.Graph,
-    metros: list[MetroCluster],
-    validation_config: ValidationConfig,
-) -> None:
-    """Validate corridor-level graph connectivity and structure.
-
-    Args:
-        corridor_graph: Corridor-level graph to validate.
-        metros: List of metro clusters for validation.
-        validation_config: Validation configuration with connectivity requirements.
-
-    Raises:
-        ValueError: If corridor graph validation fails.
-    """
-    logger.info("Validating corridor-level graph")
-
-    # Basic structure validation
-    if len(corridor_graph.nodes) != len(metros):
-        raise ValueError(
-            f"Corridor graph node count mismatch: {len(corridor_graph.nodes)} nodes "
-            f"vs {len(metros)} metros"
-        )
-
-    if len(corridor_graph.edges) == 0:
-        raise ValueError(
-            "Corridor graph has no edges - network is completely disconnected"
-        )
-
-    # Connectivity analysis
-    if not nx.is_connected(corridor_graph):
-        components = list(nx.connected_components(corridor_graph))
-        component_sizes = [len(comp) for comp in components]
-        largest_component_size = max(component_sizes)
-        largest_component_fraction = largest_component_size / len(corridor_graph.nodes)
-
-        logger.warning(
-            f"Corridor graph is disconnected: {len(components)} components, "
-            f"largest has {largest_component_size}/{len(corridor_graph.nodes)} metros "
-            f"({largest_component_fraction:.1%})"
-        )
-
-        # Log component details for debugging
-        sorted_components = sorted(components, key=len, reverse=True)
-        for i, component in enumerate(sorted_components[:5]):  # Show top 5 components
-            metro_info = []
-            for node in component:
-                node_data = corridor_graph.nodes[node]
-                name = node_data.get("name", "Unknown")
-                metro_id = node_data.get("metro_id", "Unknown")
-                metro_info.append(f"{name} ({metro_id})")
-            logger.info(
-                f"Component {i + 1} ({len(component)} metros): {', '.join(metro_info[:3])}..."
-            )
-
-        # Check if disconnection violates validation requirements
-        if validation_config.require_connected:
-            raise ValueError(
-                f"Corridor graph connectivity validation failed: "
-                f"Graph has {len(components)} disconnected components, but require_connected=True. "
-                f"Largest component: {largest_component_size}/{len(corridor_graph.nodes)} metros ({largest_component_fraction:.1%})"
-            )
-
-        if (
-            largest_component_fraction
-            < validation_config.min_largest_component_fraction
-        ):
-            raise ValueError(
-                f"Corridor graph connectivity validation failed: "
-                f"Largest component fraction {largest_component_fraction:.1%} < "
-                f"required minimum {validation_config.min_largest_component_fraction:.1%}"
-            )
-    else:
-        logger.info("Corridor graph is connected")
-
-    # Edge validation
-    corridor_edges = 0
-    total_distance = 0.0
-
-    for _u, _v, data in corridor_graph.edges(data=True):
-        if data.get("edge_type") == "corridor":
-            corridor_edges += 1
-            total_distance += data.get("length_km", 0.0)
-
-    if corridor_edges != len(corridor_graph.edges):
-        raise ValueError(
-            f"Edge type validation failed: {corridor_edges} corridor edges "
-            f"vs {len(corridor_graph.edges)} total edges"
-        )
-
-    avg_distance = total_distance / corridor_edges if corridor_edges > 0 else 0.0
-
-    # Count corridors per metro for detailed reporting
-    metro_corridor_counts = {}
-    for node in corridor_graph.nodes():
-        node_data = corridor_graph.nodes[node]
-        metro_name = node_data.get("name", "Unknown")
-        metro_id = node_data.get("metro_id", "Unknown")
-        corridor_count = len(list(corridor_graph.neighbors(node)))
-        metro_corridor_counts[metro_name] = (metro_id, corridor_count)
-
-    # Sort metros by corridor count (descending) then alphabetically
-    sorted_metros = sorted(
-        metro_corridor_counts.items(), key=lambda x: (-x[1][1], x[0])
-    )
-
-    logger.info(
-        f"Corridor graph validation successful: {len(corridor_graph.nodes):,} metros, "
-        f"{corridor_edges:,} corridors, avg distance {avg_distance:.1f}km"
-    )
-
-    # Log detailed metro corridor connections
-    logger.info("Metro corridor connections:")
-    for metro_name, (metro_id, corridor_count) in sorted_metros:
-        logger.info(f"  {metro_name} ({metro_id}): {corridor_count} corridors")
-
-    # Summary statistics
-    corridor_counts = [count for _, count in metro_corridor_counts.values()]
-    avg_corridors = (
-        sum(corridor_counts) / len(corridor_counts) if corridor_counts else 0
-    )
-    min_corridors = min(corridor_counts) if corridor_counts else 0
-    max_corridors = max(corridor_counts) if corridor_counts else 0
-
-    logger.info(
-        f"Corridor connectivity - Avg: {avg_corridors:.1f}, Range: {min_corridors}-{max_corridors} per metro"
-    )
-
-
 def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
-    """Build integrated metro and highway graph.
+    """Build integrated metro and highway graph and return corridor graph.
 
     Args:
         config: Complete topology configuration object.
 
     Returns:
-        Integrated NetworkX Graph.
+        Corridor-level NetworkX graph whose nodes are metros and whose edges
+        represent metro-to-metro corridors. This is the graph expected by the
+        scenario builder.
 
     Raises:
         ValueError: If integration fails at any step.
+
+    Notes:
+        The full integrated highway + metro graph is an intermediate product.
+        If you need that graph, capture it prior to calling
+        ``extract_corridor_graph`` or adapt this function to return both.
     """
     logger.info("Building integrated metro and highway graph")
 
@@ -1125,7 +627,7 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
     add_corridors(G, anchors, metros, config.corridors)
 
     # Step 8.5: Assign risk groups to corridor edges
-    assign_risk_groups_to_corridors(G, metros, config.corridors)
+    assign_risk_groups(G, metros, config.corridors)
 
     # Step 9: Validate integration
     validate_integrated_graph(G, metros, config.validation)

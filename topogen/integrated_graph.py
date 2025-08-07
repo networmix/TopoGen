@@ -1085,9 +1085,16 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
 
         # Add metro node (merge if collision)
         if G.has_node(key):
+            # Merge full metro attributes into existing highway node
             G.nodes[key]["node_type"] = "metro+highway"
             G.nodes[key]["name"] = metro.name
+            G.nodes[key]["name_orig"] = metro.name_orig
             G.nodes[key]["radius_km"] = metro.radius_km
+            G.nodes[key]["metro_id"] = metro.metro_id
+            G.nodes[key]["x"] = metro.centroid_x
+            G.nodes[key]["y"] = metro.centroid_y
+            G.nodes[key]["uac_code"] = metro.uac_code
+            G.nodes[key]["land_area_km2"] = metro.land_area_km2
         else:
             G.add_node(
                 key,

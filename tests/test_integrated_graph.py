@@ -172,3 +172,110 @@ class TestComponentFiltering:
         # Should return the same graph
         assert len(result.nodes) == len(G.nodes)
         assert len(result.edges) == len(G.edges)
+
+
+class TestMetroMergeAttributes:
+    """Regression test for merging metro attributes onto existing highway node."""
+
+    def test_metro_highway_collision_sets_full_metro_attrs(self, monkeypatch):
+        # Build a tiny highway graph with nodes at both metro centroids
+        from topogen import integrated_graph as ig
+        from topogen.config import TopologyConfig
+        from topogen.integrated_graph import build_integrated_graph
+
+        def fake_build_highway_graph(*_args, **_kwargs):
+            G = nx.Graph()
+            metro_a = (1000.0, 2000.0)
+            metro_b = (3000.0, 4000.0)
+            G.add_node(metro_a, node_type="highway")
+            G.add_node(metro_b, node_type="highway")
+            # Connect metros so corridor discovery works
+            G.add_edge(metro_a, metro_b, length_km=10.0)
+            return G
+
+        def fake_load_metro_clusters(*_args, **_kwargs):
+            from topogen.metro_clusters import MetroCluster
+
+            return [
+                MetroCluster(
+                    metro_id="001",
+                    name="metro-a",
+                    name_orig="Metro A",
+                    uac_code="001",
+                    land_area_km2=123.0,
+                    centroid_x=1000.0,
+                    centroid_y=2000.0,
+                    radius_km=25.0,
+                ),
+                MetroCluster(
+                    metro_id="002",
+                    name="metro-b",
+                    name_orig="Metro B",
+                    uac_code="002",
+                    land_area_km2=456.0,
+                    centroid_x=3000.0,
+                    centroid_y=4000.0,
+                    radius_km=30.0,
+                ),
+            ]
+
+        captured_full_graphs: list[nx.Graph] = []
+
+        def fake_extract_corridor_graph(full_graph: nx.Graph, metros):
+            captured_full_graphs.append(full_graph.copy())
+            # Return minimal valid corridor graph
+            cg = nx.Graph()
+            a = (1000.0, 2000.0)
+            b = (3000.0, 4000.0)
+            cg.add_node(a, node_type="metro", metro_id="001", name="metro-a")
+            cg.add_node(b, node_type="metro", metro_id="002", name="metro-b")
+            cg.add_edge(a, b, edge_type="corridor", length_km=10.0)
+            return cg
+
+        # Monkeypatch heavy I/O and extraction capture
+        monkeypatch.setattr(ig, "build_highway_graph", fake_build_highway_graph)
+        monkeypatch.setattr(ig, "load_metro_clusters", fake_load_metro_clusters)
+        monkeypatch.setattr(ig, "extract_corridor_graph", fake_extract_corridor_graph)
+
+        # Use default config; relax validation to avoid noise
+        config = TopologyConfig()
+        config.highway_processing.filter_largest_component = False
+        config.validation.require_connected = False
+        config.corridors.k_paths = 1
+        config.corridors.k_nearest = 1
+        config.corridors.max_edge_km = 10000.0
+        config.corridors.max_corridor_distance_km = 10000.0
+        config.corridors.risk_groups.enabled = False
+        config.clustering.export_integrated_graph = False
+
+        # Build integrated graph (returns corridor graph, but capture full graph)
+        _ = build_integrated_graph(config)
+
+        assert captured_full_graphs, "Did not capture integrated graph"
+        full_graph = captured_full_graphs[-1]
+
+        key_a = (1000.0, 2000.0)
+        key_b = (3000.0, 4000.0)
+        assert key_a in full_graph.nodes
+        assert key_b in full_graph.nodes
+
+        node_a = full_graph.nodes[key_a]
+        node_b = full_graph.nodes[key_b]
+
+        assert node_a.get("node_type") in {"metro", "metro+highway"}
+        assert node_a["name"] == "metro-a"
+        assert node_a["name_orig"] == "Metro A"
+        assert node_a["metro_id"] == "001"
+        assert node_a["x"] == 1000.0
+        assert node_a["y"] == 2000.0
+        assert node_a["uac_code"] == "001"
+        assert node_a["land_area_km2"] == 123.0
+
+        assert node_b.get("node_type") in {"metro", "metro+highway"}
+        assert node_b["name"] == "metro-b"
+        assert node_b["name_orig"] == "Metro B"
+        assert node_b["metro_id"] == "002"
+        assert node_b["x"] == 3000.0
+        assert node_b["y"] == 4000.0
+        assert node_b["uac_code"] == "002"
+        assert node_b["land_area_km2"] == 456.0

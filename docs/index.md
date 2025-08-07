@@ -1,21 +1,30 @@
 # TopoGen
 
-TopoGen is a high-performance topology generation library written in modern Python.
+TopoGen builds realistic backbone graphs for the continental US and prepares analysis-ready scenarios for `NetGraph`.
 
-## Features
+## What it does
 
-- Network topology generation
-- Graph-based data structures
-- CLI interface for batch operations
-- Configurable scenarios and workflows
+- Generator: Constructs an integrated metro + highway graph from public datasets.
+- Builder: Converts the integrated graph into a `NetGraph` scenario YAML for analysis.
 
-## Quick Start
+## How it creates realistic graphs
 
-Install TopoGen and generate your first topology:
+- Uses Census Urban Areas (UAC20) to delineate metro regions and TIGER/Line primary roads for the backbone substrate.
+- Projects to an equal-area CRS (EPSG:5070), snaps nearby nodes, removes invalid geometry, and keeps the largest connected component.
+- Connects nearby metros via a k-nearest adjacency and computes highway-constrained paths to approximate long-haul corridors.
+- Validates connectivity and distance constraints, assigns risk groups, and attaches component blueprints before emitting YAML.
+
+## Quick start
 
 ```bash
-pip install topogen
-topogen --help
+# Inspect configuration and data availability
+python -m topogen info -c config.yml
+
+# Generate the integrated metro + highway graph
+python -m topogen generate -c config.yml
+
+# Build a NetGraph scenario YAML from the integrated graph
+python -m topogen build -c config.yml -o output/scenario.yaml
 ```
 
-See the [Installation](getting-started/installation.md) guide for setup instructions and the [CLI Reference](reference/cli.md) for available commands.
+See the [Installation](getting-started/installation.md) guide for setup and the [CLI Reference](reference/cli.md) for commands and options.

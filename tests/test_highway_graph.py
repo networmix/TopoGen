@@ -105,6 +105,61 @@ class TestGridSnapApproach:
         if junction_node in G.nodes:
             assert len(list(G.neighbors(junction_node))) == 3
 
+    def test_segment_length_calculation_horizontal_vertical(self):
+        """Segments should have accurate length_km for axis-aligned geometries."""
+        # 1000 meters horizontally => 1.0 km
+        # 2000 meters vertically => 2.0 km
+        lines = [
+            LineString([(0.0, 0.0), (1000.0, 0.0)]),
+            LineString([(0.0, 0.0), (0.0, 2000.0)]),
+        ]
+
+        edges = list(
+            _iter_snapped_edges(lines, snap_m=1.0)
+        )  # 1m snap preserves coordinates
+
+        # Normalize to set for order independence
+        got = {
+            ((sx, sy), (ex, ey), round(length_km, 6))
+            for (sx, sy), (ex, ey), length_km in edges
+        }
+        expected = {
+            ((0.0, 0.0), (1000.0, 0.0), 1.0),
+            ((0.0, 0.0), (0.0, 2000.0), 2.0),
+        }
+        assert got == expected
+
+    def test_segment_length_calculation_diagonal(self):
+        """Segments should have accurate length_km for diagonal geometries."""
+        # 3-4-5 triangle: 3000m x, 4000m y => 5000m => 5.0 km
+        lines = [LineString([(0.0, 0.0), (3000.0, 4000.0)])]
+        edges = list(_iter_snapped_edges(lines, snap_m=1.0))
+        assert len(edges) == 1
+        (_s, _e, length_km) = edges[0]
+        assert abs(length_km - 5.0) < 1e-6
+
+    def test_path_length_equals_sum_of_segments(self):
+        """Shortest path length should equal the sum of constituent segment lengths."""
+        # Build an L-shaped path: (0,0)->(3000,0)->(3000,4000)
+        # Expected path length = 3km + 4km = 7km
+        lines = [
+            LineString([(0.0, 0.0), (3000.0, 0.0)]),
+            LineString([(3000.0, 0.0), (3000.0, 4000.0)]),
+        ]
+        G = _build_intersection_graph(lines, snap_precision_m=1.0)
+
+        start = (0.0, 0.0)
+        end = (3000.0, 4000.0)
+        assert start in G.nodes and end in G.nodes
+
+        path = nx.shortest_path(G, start, end, weight="length_km")
+        total = 0.0
+        for i in range(len(path) - 1):
+            u, v = path[i], path[i + 1]
+            total += G[u][v]["length_km"]
+
+        assert abs(total - 7.0) < 1e-9
+
 
 class TestDataValidation:
     """Test data loading and validation functions."""

@@ -166,6 +166,65 @@ class TestCorridorDiscovery:
         assert 0 in path_indices
         assert 1 in path_indices
 
+    def test_corridor_distance_equals_path_length(self):
+        """Corridor distance should equal the shortest path length across highway edges."""
+        # Highway network: A -- B -- C, each edge 100 km
+        # Metro centroids: A at (0, 0), C at (100000, 0) => 100 km straight-line
+        # Shortest path A->C = 200 km (via B)
+        graph = nx.Graph()
+
+        A = (0.0, 0.0)
+        B = (60000.0, 80000.0)  # detour up (arbitrary coords, units in meters)
+        C = (100000.0, 0.0)
+
+        graph.add_edge(A, B, length_km=100.0)
+        graph.add_edge(B, C, length_km=100.0)
+
+        metros = [
+            MetroCluster(
+                "metroA", "metro-a", "Metro A", "001", 100.0, A[0], A[1], 25.0
+            ),
+            MetroCluster(
+                "metroC", "metro-c", "Metro C", "002", 100.0, C[0], C[1], 25.0
+            ),
+        ]
+
+        anchors = {
+            "metroA": A,
+            "metroC": C,
+        }
+
+        config = CorridorsConfig()
+        config.k_paths = 1
+        config.k_nearest = 1
+        config.max_edge_km = 1000.0
+        config.max_corridor_distance_km = 1000.0
+
+        # Run corridor discovery
+        add_corridors(graph, anchors, metros, config)
+
+        # Compute expected distances
+        euclidean_km = 100.0  # straight-line between A and C (100km)
+        # Sum of edge lengths along the shortest path (A->B->C)
+        path = nx.shortest_path(graph, A, C, weight="length_km")
+        path_km = sum(
+            graph[path[i]][path[i + 1]]["length_km"] for i in range(len(path) - 1)
+        )
+
+        assert path_km == 200.0  # sanity check for constructed graph
+
+        # Verify corridor tags recorded the path length, not the euclidean distance
+        tagged = 0
+        for _u, _v, data in graph.edges(data=True):
+            if "corridor" in data and data["corridor"]:
+                tagged += 1
+                info = data["corridor"][0]
+                assert info["distance_km"] == path_km
+                assert info["distance_km"] != euclidean_km
+
+        # Both highway edges should be tagged
+        assert tagged == 2
+
 
 class TestCorridorGraphExtraction:
     """Test corridor graph extraction functionality."""
@@ -237,6 +296,15 @@ class TestCorridorGraphExtraction:
         assert edge_data["metro_a"] == "001"
         assert edge_data["metro_b"] == "002"
         assert "corridor_risk_metro-a_metro-b" in edge_data["risk_groups"]
+
+        # Check euclidean and detour ratio are computed
+        # Coordinates are in meters; euclidean distance in km ~ 0.1414
+        assert "euclidean_km" in edge_data
+        expected_euclid_km = ((100.0**2 + 100.0**2) ** 0.5) / 1000.0
+        assert abs(edge_data["euclidean_km"] - expected_euclid_km) < 1e-3
+        assert "detour_ratio" in edge_data
+        # With length_km=141.4 and euclidean_km≈0.1414, detour ratio ≈ 1000
+        assert 900 < edge_data["detour_ratio"] < 1100
 
     def test_corridor_graph_aggregates_shortest_distance(self):
         """Test that corridor graph uses shortest distance between metro pairs."""

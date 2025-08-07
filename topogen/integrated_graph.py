@@ -605,9 +605,17 @@ def add_corridors(
             )
             continue
 
-        # Tag edges in all paths
+        # Tag edges in all paths using actual path distance (sum of edge lengths)
         successful_pairs += 1
         for path_idx, path in enumerate(paths):
+            # Compute path length from edge weights
+            path_length_km = 0.0
+            for i in range(len(path) - 1):
+                u, v = path[i], path[i + 1]
+                if not graph.has_edge(u, v):
+                    continue
+                path_length_km += float(graph[u][v].get("length_km", 0.0))
+
             for i in range(len(path) - 1):
                 u, v = path[i], path[i + 1]
 
@@ -621,7 +629,8 @@ def add_corridors(
                         "metro_a": metro_a_id,
                         "metro_b": metro_b_id,
                         "path_index": path_idx,
-                        "distance_km": pair_distance,
+                        # Use actual path length, not centroid separation
+                        "distance_km": path_length_km,
                     }
                     edge_data["corridor"].append(corridor_info)
                     corridor_count += 1
@@ -826,6 +835,10 @@ def extract_corridor_graph(
                             if "risk_groups" in edge_data:
                                 corridor_risk_groups.update(edge_data["risk_groups"])
 
+            # Compute straight-line (Euclidean) distance between metro centroids
+            euclidean_km = Point(node_a).distance(Point(node_b)) / 1000.0
+            detour_ratio = (distance_km / euclidean_km) if euclidean_km > 0 else None
+
             corridor_graph.add_edge(
                 node_a,
                 node_b,
@@ -833,6 +846,8 @@ def extract_corridor_graph(
                 length_km=distance_km,
                 metro_a=metro_a_id,
                 metro_b=metro_b_id,
+                euclidean_km=euclidean_km,
+                detour_ratio=detour_ratio,
                 risk_groups=list(corridor_risk_groups) if corridor_risk_groups else [],
             )
             edges_added += 1

@@ -9,8 +9,7 @@ version = "0.1.0"
 description = "A network topology generator."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
-license = "MIT"
-license-files = ["LICENSE"]
+license = { text = "MIT" }
 requires-python = ">=3.11"
 
 classifiers = [

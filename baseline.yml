@@ -11,6 +11,8 @@ build:
   build_defaults:
     sites_per_metro: 2
     site_blueprint: SingleRouter
+    dc_regions_per_metro: 2
+    dc_region_blueprint: DCRegion
     intra_metro_link:
       capacity: 400
       cost: 1
@@ -21,6 +23,11 @@ build:
       cost: 1
       attrs:
         link_type: inter_metro_corridor
+    dc_to_pop_link:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
 
   build_overrides: {}
 
@@ -28,6 +35,9 @@ components:
   assignments:
     core:
       hw_component: CoreRouter
+      optics: 100G-LR4
+    dc:
+      hw_component: DCNode
       optics: 100G-LR4
 
 failure_policies:

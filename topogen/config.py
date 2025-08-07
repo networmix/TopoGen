@@ -129,10 +129,13 @@ class BuildDefaults:
 
     Default settings for generating sites within metropolitan areas,
     including site count, blueprint assignments, and link parameters.
+    DC Regions are single-node groups connected to all local PoPs.
     """
 
     sites_per_metro: int = 2
     site_blueprint: str = "SingleRouter"
+    dc_regions_per_metro: int = 2
+    dc_region_blueprint: str = "DCRegion"
     intra_metro_link: LinkParams = field(
         default_factory=lambda: LinkParams(
             capacity=400, cost=1, attrs={"link_type": "intra_metro"}
@@ -141,6 +144,11 @@ class BuildDefaults:
     inter_metro_link: LinkParams = field(
         default_factory=lambda: LinkParams(
             capacity=100, cost=1, attrs={"link_type": "inter_metro_corridor"}
+        )
+    )
+    dc_to_pop_link: LinkParams = field(
+        default_factory=lambda: LinkParams(
+            capacity=400, cost=1, attrs={"link_type": "dc_to_pop"}
         )
     )
 
@@ -181,6 +189,7 @@ class ComponentAssignments:
     spine: ComponentAssignment = field(default_factory=ComponentAssignment)
     leaf: ComponentAssignment = field(default_factory=ComponentAssignment)
     core: ComponentAssignment = field(default_factory=ComponentAssignment)
+    dc: ComponentAssignment = field(default_factory=ComponentAssignment)
 
     # Per-blueprint overrides
     blueprint_overrides: dict[str, dict[str, ComponentAssignment]] = field(
@@ -459,11 +468,14 @@ class TopologyConfig:
         # Parse link parameter configurations
         intra_metro_link_dict = build_defaults_dict.get("intra_metro_link", {})
         inter_metro_link_dict = build_defaults_dict.get("inter_metro_link", {})
+        dc_to_pop_link_dict = build_defaults_dict.get("dc_to_pop_link", {})
 
         if not isinstance(intra_metro_link_dict, dict):
             raise ValueError("'build_defaults.intra_metro_link' must be a dictionary")
         if not isinstance(inter_metro_link_dict, dict):
             raise ValueError("'build_defaults.inter_metro_link' must be a dictionary")
+        if not isinstance(dc_to_pop_link_dict, dict):
+            raise ValueError("'build_defaults.dc_to_pop_link' must be a dictionary")
 
         # Create link parameter objects with defaults
         intra_metro_link = LinkParams(
@@ -482,13 +494,26 @@ class TopologyConfig:
                 **inter_metro_link_dict.get("attrs", {}),
             },
         )
+        dc_to_pop_link = LinkParams(
+            capacity=dc_to_pop_link_dict.get("capacity", 400),
+            cost=dc_to_pop_link_dict.get("cost", 1),
+            attrs={
+                **{"link_type": "dc_to_pop"},
+                **dc_to_pop_link_dict.get("attrs", {}),
+            },
+        )
 
         # Create BuildDefaults with explicit parameters
         build_defaults = BuildDefaults(
             sites_per_metro=build_defaults_dict.get("sites_per_metro", 2),
             site_blueprint=build_defaults_dict.get("site_blueprint", "SingleRouter"),
+            dc_regions_per_metro=build_defaults_dict.get("dc_regions_per_metro", 2),
+            dc_region_blueprint=build_defaults_dict.get(
+                "dc_region_blueprint", "DCRegion"
+            ),
             intra_metro_link=intra_metro_link,
             inter_metro_link=inter_metro_link,
+            dc_to_pop_link=dc_to_pop_link,
         )
         build = BuildConfig(
             build_defaults=build_defaults,
@@ -516,6 +541,7 @@ class TopologyConfig:
         spine_assignment = ComponentAssignment(**assignments_dict.get("spine", {}))
         leaf_assignment = ComponentAssignment(**assignments_dict.get("leaf", {}))
         core_assignment = ComponentAssignment(**assignments_dict.get("core", {}))
+        dc_assignment = ComponentAssignment(**assignments_dict.get("dc", {}))
 
         # Parse blueprint overrides
         blueprint_overrides_dict = assignments_dict.get("blueprint_overrides", {})
@@ -543,6 +569,7 @@ class TopologyConfig:
             spine=spine_assignment,
             leaf=leaf_assignment,
             core=core_assignment,
+            dc=dc_assignment,
             blueprint_overrides=blueprint_overrides,
         )
 

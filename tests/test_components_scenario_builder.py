@@ -36,6 +36,7 @@ class TestComponentsScenarioBuilder:
                 ),
                 leaf=ComponentAssignment(hw_component="LeafChassis", optics="400G-SR8"),
                 core=ComponentAssignment(hw_component="CoreRouter", optics="100G-LR4"),
+                dc=ComponentAssignment(hw_component="DCNode", optics="100G-LR4"),
                 blueprint_overrides={
                     "Clos_64_256": {
                         "spine": ComponentAssignment(

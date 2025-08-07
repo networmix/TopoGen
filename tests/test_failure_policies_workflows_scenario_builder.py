@@ -180,6 +180,8 @@ class TestBuildScenarioIntegration:
         config.build.build_defaults = Mock()
         config.build.build_defaults.sites_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
+        config.build.build_defaults.dc_regions_per_metro = 2
+        config.build.build_defaults.dc_region_blueprint = "DCRegion"
 
         # Link parameter defaults
         config.build.build_defaults.intra_metro_link = Mock()
@@ -196,6 +198,11 @@ class TestBuildScenarioIntegration:
             "link_type": "inter_metro_corridor"
         }
 
+        config.build.build_defaults.dc_to_pop_link = Mock()
+        config.build.build_defaults.dc_to_pop_link.capacity = 400
+        config.build.build_defaults.dc_to_pop_link.cost = 1
+        config.build.build_defaults.dc_to_pop_link.attrs = {"link_type": "dc_to_pop"}
+
         config.build.build_overrides = {}
 
         # Components configuration
@@ -205,6 +212,7 @@ class TestBuildScenarioIntegration:
         config.components.assignments.spine = Mock(hw_component="", optics="")
         config.components.assignments.leaf = Mock(hw_component="", optics="")
         config.components.assignments.core = Mock(hw_component="", optics="")
+        config.components.assignments.dc = Mock(hw_component="", optics="")
         config.components.assignments.blueprint_overrides = {}
 
         # Failure policies configuration

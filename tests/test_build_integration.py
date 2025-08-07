@@ -96,7 +96,7 @@ class TestBuildIntegration:
 
         # Validate blueprints section
         blueprints = scenario_data["blueprints"]
-        expected_blueprints = {"SingleRouter", "Clos_64_256", "FullMesh4"}
+        expected_blueprints = {"SingleRouter", "Clos_64_256", "FullMesh4", "DCRegion"}
         assert set(blueprints.keys()) == expected_blueprints
 
         # Validate network structure
@@ -104,14 +104,23 @@ class TestBuildIntegration:
         assert "groups" in network
         assert "adjacency" in network
 
-        # Should have 3 metro groups (3 metros)
+        # Should have 6 groups (3 metros x 2 types: PoPs + DC regions)
         groups = network["groups"]
-        assert len(groups) == 3
+        assert len(groups) == 6
+
+        # Separate PoP and DC groups
+        pop_groups = [g for g in groups.keys() if "/pop[" in g]
+        dc_groups = [g for g in groups.keys() if "/dc[" in g]
+        assert len(pop_groups) == 3  # One per metro
+        assert len(dc_groups) == 3  # One per metro
 
         # Check groups use bracket expansion
         for group_name, group_def in groups.items():
             assert "metro" in group_name
-            assert "pop[1-4]" in group_name  # Max sites is 4 (Denver)
+            if "/pop[" in group_name:
+                assert "pop[1-4]" in group_name  # Max sites is 4 (Denver)
+            elif "/dc[" in group_name:
+                assert "dc[1-2]" in group_name  # Default DC regions
             assert "use_blueprint" in group_def
             assert "attrs" in group_def
 
@@ -274,9 +283,14 @@ class TestBuildIntegration:
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Should have one metro group
+        # Should have two groups: one PoP group and one DC group
         groups = scenario_data["network"]["groups"]
-        assert len(groups) == 1
+        assert len(groups) == 2
+
+        pop_groups = [g for g in groups.keys() if "/pop[" in g]
+        dc_groups = [g for g in groups.keys() if "/dc[" in g]
+        assert len(pop_groups) == 1
+        assert len(dc_groups) == 1
 
         # Should have intra-metro adjacency but no inter-metro
         adjacency = scenario_data["network"]["adjacency"]

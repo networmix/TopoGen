@@ -106,7 +106,7 @@ def build_command(args: argparse.Namespace) -> None:
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
         print(f"❌ ERROR: {e}")
-        print("💡 Use --log-level debug for detailed error information")
+        print("💡 Use -v for detailed error information")
 
         sys.exit(1)  # Runtime error
 
@@ -173,7 +173,7 @@ def _run_pipeline(
     # Validate the generated scenario (unless just printing)
     if not print_yaml:
         try:
-            from ngraph.scenario import Scenario
+            from ngraph.scenario import Scenario  # type: ignore[import-untyped]
 
             print("🔄 Validating generated scenario...")
             scenario = Scenario.from_yaml(scenario_yaml)
@@ -224,37 +224,6 @@ def _run_generation(config: TopologyConfig) -> None:
     print(f"📊 Graph summary: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
     print("🔗 Ready for topology generation with:")
     print("   python -m topogen build --output output/topology.yaml")
-
-
-def validate_command(args: argparse.Namespace) -> None:
-    """Validate NetGraph scenario file.
-
-    Args:
-        args: Parsed command line arguments containing scenario file path.
-    """
-    scenario_path = Path(args.scenario)
-    print(f"🔍 Validating scenario: {scenario_path}")
-
-    if not scenario_path.exists():
-        print(f"❌ Scenario file not found: {scenario_path}")
-        sys.exit(1)
-
-    try:
-        # Validate using ngraph library
-        from ngraph.scenario import Scenario
-
-        print("🔄 Loading and validating scenario with ngraph...")
-        with open(scenario_path) as f:
-            scenario_content = f.read()
-
-        scenario = Scenario.from_yaml(scenario_content)
-        print("✅ Scenario validation passed")
-        print(f"   Network nodes: {len(scenario.network.nodes)}")
-        print(f"   Network links: {len(scenario.network.links)}")
-
-    except Exception as e:
-        print(f"❌ Validation failed: {e}")
-        sys.exit(1)
 
 
 def generate_command(args: argparse.Namespace) -> None:
@@ -356,8 +325,8 @@ def main() -> None:
     build_parser.add_argument(
         "-o",
         "--output",
-        default="output/us_backbone.yaml",
-        help="Output YAML scenario file (default: output/us_backbone.yaml)",
+        default="output/scenario.yaml",
+        help="Output YAML scenario file (default: output/scenario.yaml)",
     )
     build_parser.add_argument(
         "--print",
@@ -379,13 +348,6 @@ def main() -> None:
     )
 
     generate_parser.set_defaults(func=generate_command)
-
-    # Validate command
-    validate_parser = subparsers.add_parser(
-        "validate", help="Validate NetGraph scenario file"
-    )
-    validate_parser.add_argument("scenario", help="NetGraph scenario file to validate")
-    validate_parser.set_defaults(func=validate_command)
 
     # Info command
     info_parser = subparsers.add_parser(

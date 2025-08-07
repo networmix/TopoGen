@@ -39,6 +39,7 @@ def get_builtin_blueprints() -> dict[str, dict[str, Any]]:
         "SingleRouter": _single_router_blueprint(),
         "FullMesh4": _full_mesh_4_blueprint(),
         "Clos_64_256": _clos_64_256_blueprint(),
+        "DCRegion": _dc_region_blueprint(),
     }
 
 
@@ -140,4 +141,28 @@ def _clos_64_256_blueprint() -> dict[str, Any]:
                 },
             }
         ],
+    }
+
+
+def _dc_region_blueprint() -> dict[str, Any]:
+    """Data center region blueprint for single-node DC sites.
+
+    Creates a single DC node suitable for data center regions.
+    Each DC Region connects to all local PoPs in the same metro.
+
+    Returns:
+        Blueprint definition for a DC Region.
+    """
+    return {
+        "groups": {
+            "dc": {
+                "node_count": 1,
+                "name_template": "dc",
+                "attrs": {
+                    "role": "dc",
+                    "hw_type": "dc_node",
+                },
+            }
+        },
+        "adjacency": [],
     }

@@ -53,11 +53,21 @@ def build_scenario(
     max_sites = max(
         (settings["sites_per_metro"] for settings in metro_settings.values()), default=1
     )
+    max_dc_regions = max(
+        (settings["dc_regions_per_metro"] for settings in metro_settings.values()),
+        default=0,
+    )
     logger.info(f"Maximum sites per metro: {max_sites}")
+    logger.info(f"Maximum DC regions per metro: {max_dc_regions}")
 
     # Collect used blueprints
     used_blueprints = set(
         settings["site_blueprint"] for settings in metro_settings.values()
+    )
+    used_blueprints.update(
+        settings["dc_region_blueprint"]
+        for settings in metro_settings.values()
+        if settings["dc_regions_per_metro"] > 0
     )
     builtin_blueprints = get_builtin_blueprints()
 
@@ -78,7 +88,7 @@ def build_scenario(
 
     # 3. Network section
     scenario["network"] = _build_network_section(
-        metros, metro_settings, max_sites, graph
+        metros, metro_settings, max_sites, max_dc_regions, graph
     )
 
     # 4. Risk groups section (if risk groups are present)
@@ -274,6 +284,8 @@ def _determine_metro_settings(
         metro_settings = {
             "sites_per_metro": defaults.sites_per_metro,
             "site_blueprint": defaults.site_blueprint,
+            "dc_regions_per_metro": defaults.dc_regions_per_metro,
+            "dc_region_blueprint": defaults.dc_region_blueprint,
             "intra_metro_link": {
                 "capacity": defaults.intra_metro_link.capacity,
                 "cost": defaults.intra_metro_link.cost,
@@ -283,6 +295,11 @@ def _determine_metro_settings(
                 "capacity": defaults.inter_metro_link.capacity,
                 "cost": defaults.inter_metro_link.cost,
                 "attrs": defaults.inter_metro_link.attrs.copy(),
+            },
+            "dc_to_pop_link": {
+                "capacity": defaults.dc_to_pop_link.capacity,
+                "cost": defaults.dc_to_pop_link.cost,
+                "attrs": defaults.dc_to_pop_link.attrs.copy(),
             },
         }
 
@@ -314,6 +331,12 @@ def _determine_metro_settings(
                 metro_settings["sites_per_metro"] = override["sites_per_metro"]
             if "site_blueprint" in override:
                 metro_settings["site_blueprint"] = override["site_blueprint"]
+            if "dc_regions_per_metro" in override:
+                metro_settings["dc_regions_per_metro"] = override[
+                    "dc_regions_per_metro"
+                ]
+            if "dc_region_blueprint" in override:
+                metro_settings["dc_region_blueprint"] = override["dc_region_blueprint"]
             if "intra_metro_link" in override:
                 # Merge override with defaults (override takes precedence)
                 override_intra = override["intra_metro_link"]
@@ -338,11 +361,27 @@ def _determine_metro_settings(
                 for key, value in override_inter.items():
                     if key != "attrs":
                         metro_settings["inter_metro_link"][key] = value
+            if "dc_to_pop_link" in override:
+                # Merge override with defaults (override takes precedence)
+                override_dc_pop = override["dc_to_pop_link"]
+                # Handle attrs merging first to preserve defaults
+                if "attrs" in override_dc_pop:
+                    metro_settings["dc_to_pop_link"]["attrs"].update(
+                        override_dc_pop["attrs"]
+                    )
+                # Update other fields (excluding attrs to avoid overwriting merged attrs)
+                for key, value in override_dc_pop.items():
+                    if key != "attrs":
+                        metro_settings["dc_to_pop_link"][key] = value
 
         # Validate settings
         if metro_settings["sites_per_metro"] < 1:
             raise ValueError(
                 f"Metro '{metro_name}' has invalid sites_per_metro: {metro_settings['sites_per_metro']}"
+            )
+        if metro_settings["dc_regions_per_metro"] < 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid dc_regions_per_metro: {metro_settings['dc_regions_per_metro']}"
             )
 
         # Validate link parameters
@@ -366,6 +405,16 @@ def _determine_metro_settings(
                 f"Metro '{metro_name}' has invalid inter_metro_link cost: {inter_link['cost']}"
             )
 
+        dc_pop_link = metro_settings["dc_to_pop_link"]
+        if dc_pop_link["capacity"] <= 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid dc_to_pop_link capacity: {dc_pop_link['capacity']}"
+            )
+        if dc_pop_link["cost"] < 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid dc_to_pop_link cost: {dc_pop_link['cost']}"
+            )
+
         settings[metro_name] = metro_settings
 
     return settings
@@ -375,6 +424,7 @@ def _build_network_section(
     metros: list[dict[str, Any]],
     metro_settings: dict[str, dict[str, Any]],
     max_sites: int,
+    max_dc_regions: int,
     graph: nx.Graph,
 ) -> dict[str, Any]:
     """Build the network section of the NetGraph scenario.
@@ -383,6 +433,7 @@ def _build_network_section(
         metros: List of metro dictionaries.
         metro_settings: Per-metro configuration settings.
         max_sites: Maximum number of sites across all metros.
+        max_dc_regions: Maximum number of DC regions across all metros.
         graph: Original integrated graph for corridor extraction.
 
     Returns:
@@ -391,7 +442,9 @@ def _build_network_section(
     network = {}
 
     # Build groups section
-    network["groups"] = _build_groups_section(metros, metro_settings, max_sites)
+    network["groups"] = _build_groups_section(
+        metros, metro_settings, max_sites, max_dc_regions
+    )
 
     # Build adjacency section
     network["adjacency"] = _build_adjacency_section(metros, metro_settings, graph)
@@ -403,6 +456,7 @@ def _build_groups_section(
     metros: list[dict[str, Any]],
     metro_settings: dict[str, dict[str, Any]],
     max_sites: int,
+    max_dc_regions: int,
 ) -> dict[str, Any]:
     """Build the groups section defining site hierarchies.
 
@@ -410,6 +464,7 @@ def _build_groups_section(
         metros: List of metro dictionaries.
         metro_settings: Per-metro configuration settings.
         max_sites: Maximum number of sites to support.
+        max_dc_regions: Maximum number of DC regions to support.
 
     Returns:
         Groups section dictionary.
@@ -439,6 +494,25 @@ def _build_groups_section(
 
         # For metros with fewer sites than max, sites will be disabled later
         # This is handled by NetGraph's bracket expansion system
+
+        # Create DC region groups if enabled
+        if max_dc_regions > 0:
+            dc_blueprint_name = settings["dc_region_blueprint"]
+            dc_group_name = f"metro{idx}/dc[1-{max_dc_regions}]"
+            groups[dc_group_name] = {
+                "use_blueprint": dc_blueprint_name,
+                "attrs": {
+                    "metro_name": metro_name,  # Use sanitized name as primary
+                    "metro_name_orig": metro.get(
+                        "name_orig", metro_name
+                    ),  # Original name for display
+                    "metro_id": metro["metro_id"],
+                    "location_x": metro["x"],
+                    "location_y": metro["y"],
+                    "radius_km": metro["radius_km"],
+                    "node_type": "dc_region",
+                },
+            }
 
     return groups
 
@@ -482,6 +556,34 @@ def _build_adjacency_section(
                         "cost": settings["intra_metro_link"]["cost"],
                         "attrs": {
                             **settings["intra_metro_link"][
+                                "attrs"
+                            ],  # Start with configured attrs
+                            "metro_name": metro_name,  # Add metro-specific attrs
+                            "metro_name_orig": metro.get("name_orig", metro_name),
+                        },
+                    },
+                }
+            )
+
+    # Add DC-to-PoP connectivity (DC regions connect to all local PoPs)
+    for idx, metro in enumerate(metros, 1):
+        metro_name = metro["name"]
+        settings = metro_settings[metro_name]
+        sites_count = settings["sites_per_metro"]
+        dc_regions_count = settings["dc_regions_per_metro"]
+
+        if dc_regions_count > 0 and sites_count > 0:
+            # Connect all DC regions to all PoPs in the same metro
+            adjacency.append(
+                {
+                    "source": f"/metro{idx}/dc[1-{dc_regions_count}]",
+                    "target": f"/metro{idx}/pop[1-{sites_count}]",
+                    "pattern": "mesh",
+                    "link_params": {
+                        "capacity": settings["dc_to_pop_link"]["capacity"],
+                        "cost": settings["dc_to_pop_link"]["cost"],
+                        "attrs": {
+                            **settings["dc_to_pop_link"][
                                 "attrs"
                             ],  # Start with configured attrs
                             "metro_name": metro_name,  # Add metro-specific attrs
@@ -681,6 +783,8 @@ def _build_components_section(
         referenced_components.add(assignments.leaf.hw_component)
     if assignments.core.hw_component:
         referenced_components.add(assignments.core.hw_component)
+    if assignments.dc.hw_component:
+        referenced_components.add(assignments.dc.hw_component)
 
     # Add components referenced by blueprint overrides
     for blueprint_name in used_blueprints:
@@ -698,6 +802,8 @@ def _build_components_section(
         referenced_components.add(assignments.leaf.optics)
     if assignments.core.optics:
         referenced_components.add(assignments.core.optics)
+    if assignments.dc.optics:
+        referenced_components.add(assignments.dc.optics)
 
     for blueprint_name in used_blueprints:
         if blueprint_name in assignments.blueprint_overrides:

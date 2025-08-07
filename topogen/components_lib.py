@@ -40,6 +40,21 @@ _BUILTIN_COMPONENTS = {
             "model": "ER-800",
         },
     },
+    "DCNode": {
+        "component_type": "chassis",
+        "description": "Data center node for DC region connectivity",
+        "cost": 25000.0,
+        "power_watts": 1500.0,
+        "power_watts_max": 1800.0,
+        "capacity": 12800.0,  # Gbps
+        "ports": 24,
+        "attrs": {
+            "role": "dc",
+            "form_factor": "2RU",
+            "vendor": "Generic",
+            "model": "DC-1200",
+        },
+    },
     "SpineChassis": {
         "component_type": "chassis",
         "description": "High-capacity spine router chassis",

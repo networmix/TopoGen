@@ -87,6 +87,25 @@ def test_export_clusters_config() -> None:
     assert config.clustering.export_clusters is True
 
 
+def test_dc_regions_config_defaults() -> None:
+    """Test DC Region configuration defaults."""
+    config = TopologyConfig()
+
+    # Test build defaults
+    assert config.build.build_defaults.dc_regions_per_metro == 2
+    assert config.build.build_defaults.dc_region_blueprint == "DCRegion"
+
+    # Test dc_to_pop_link defaults
+    assert config.build.build_defaults.dc_to_pop_link.capacity == 400
+    assert config.build.build_defaults.dc_to_pop_link.cost == 1
+    assert config.build.build_defaults.dc_to_pop_link.attrs["link_type"] == "dc_to_pop"
+
+    # Test component assignments
+    assert hasattr(config.components.assignments, "dc")
+    assert config.components.assignments.dc.hw_component == ""
+    assert config.components.assignments.dc.optics == ""
+
+
 def test_config_validation_missing_files() -> None:
     """Test configuration validation with missing data files."""
     from topogen.config import DataSources

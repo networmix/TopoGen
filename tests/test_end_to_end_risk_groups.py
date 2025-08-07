@@ -173,12 +173,12 @@ class TestEndToEndRiskGroups:
         assert "corridor_risk_kansas-city_omaha" in risk_groups
         assert "corridor_risk_kansas-city_minneapolis-st-paul" in risk_groups
 
-        # Should have metro groups with correct naming
+        # Should have metro groups with correct naming (both PoPs and DC regions)
         groups = scenario_data["network"]["groups"]
         metro_groups = [
             g for g in groups.values() if "metro_name" in g.get("attrs", {})
         ]
-        assert len(metro_groups) == 4
+        assert len(metro_groups) == 8  # 4 metros x 2 types (PoPs + DC regions)
 
         # Check metro name attributes
         metro_names = {g["attrs"]["metro_name"] for g in metro_groups}

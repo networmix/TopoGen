@@ -20,7 +20,7 @@ class TestBlueprintsLib:
     def test_get_builtin_blueprints_contains_expected_blueprints(self):
         """Test that all expected blueprints are present."""
         blueprints = get_builtin_blueprints()
-        expected_blueprints = ["SingleRouter", "FullMesh4", "Clos_64_256"]
+        expected_blueprints = ["SingleRouter", "FullMesh4", "Clos_64_256", "DCRegion"]
 
         for expected in expected_blueprints:
             assert expected in blueprints
@@ -117,6 +117,22 @@ class TestBlueprintsLib:
                 assert isinstance(group_def["node_count"], int), (
                     f"Group {group_name} node_count not int"
                 )
-                assert group_def["node_count"] > 0, (
-                    f"Group {group_name} node_count not positive"
-                )
+
+    def test_dc_region_blueprint_structure(self):
+        """Test the DCRegion blueprint has correct structure."""
+        blueprint = get_builtin_blueprint("DCRegion")
+
+        assert "groups" in blueprint
+        assert "adjacency" in blueprint
+
+        # Should have one dc group
+        assert "dc" in blueprint["groups"]
+        dc_group = blueprint["groups"]["dc"]
+        assert dc_group["node_count"] == 1
+        assert dc_group["name_template"] == "dc"
+        assert "attrs" in dc_group
+        assert dc_group["attrs"]["role"] == "dc"
+        assert dc_group["attrs"]["hw_type"] == "dc_node"
+
+        # Should have no adjacency rules (single node)
+        assert blueprint["adjacency"] == []

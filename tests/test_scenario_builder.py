@@ -151,6 +151,56 @@ class TestScenarioBuilder:
         with pytest.raises(ValueError, match="invalid sites_per_metro"):
             _determine_metro_settings(metros, config)
 
+    def test_determine_metro_settings_dc_regions(self):
+        """Test metro settings with DC regions configuration."""
+        metros = [
+            {"name": "Denver", "metro_id": "metro_001"},
+            {"name": "Salt Lake City", "metro_id": "metro_002"},
+        ]
+
+        config = TopologyConfig()
+        config.build = BuildConfig(
+            build_defaults=BuildDefaults(
+                sites_per_metro=2,
+                site_blueprint="SingleRouter",
+                dc_regions_per_metro=2,
+                dc_region_blueprint="DCRegion",
+            ),
+            build_overrides={
+                "Denver": {
+                    "dc_regions_per_metro": 3,
+                    "dc_region_blueprint": "SingleRouter",  # Override to different blueprint
+                },
+            },
+        )
+
+        settings = _determine_metro_settings(metros, config)
+
+        # Denver should have DC region overrides
+        assert settings["Denver"]["dc_regions_per_metro"] == 3
+        assert settings["Denver"]["dc_region_blueprint"] == "SingleRouter"
+        assert "dc_to_pop_link" in settings["Denver"]
+
+        # Salt Lake City should have defaults
+        assert settings["Salt Lake City"]["dc_regions_per_metro"] == 2
+        assert settings["Salt Lake City"]["dc_region_blueprint"] == "DCRegion"
+        assert "dc_to_pop_link" in settings["Salt Lake City"]
+
+    def test_determine_metro_settings_invalid_dc_regions(self):
+        """Test metro settings fails for invalid dc_regions_per_metro."""
+        metros = [{"name": "Denver", "metro_id": "metro_001"}]
+
+        config = TopologyConfig()
+        config.build = BuildConfig(
+            build_defaults=BuildDefaults(),
+            build_overrides={
+                "Denver": {"dc_regions_per_metro": -1}  # Invalid
+            },
+        )
+
+        with pytest.raises(ValueError, match="invalid dc_regions_per_metro"):
+            _determine_metro_settings(metros, config)
+
     def test_extract_corridor_edges(self):
         """Test corridor edge extraction from graph."""
         graph = nx.Graph()
@@ -236,7 +286,10 @@ class TestScenarioBuilder:
 
         # Should have groups for metros
         groups = network["groups"]
-        assert len(groups) == 2  # Two metros
+        pop_groups = [g for g in groups.keys() if "/pop[" in g]
+        dc_groups = [g for g in groups.keys() if "/dc[" in g]
+        assert len(pop_groups) == 2  # Two metros with PoPs
+        assert len(dc_groups) == 2  # Two metros with DC regions
 
         # Groups should use bracket expansion
         group_names = list(groups.keys())
@@ -265,3 +318,73 @@ class TestScenarioBuilder:
             ValueError, match="Unknown blueprint 'NonExistentBlueprint'"
         ):
             build_scenario(graph, config)
+
+    def test_build_scenario_with_dc_regions(self):
+        """Test scenario building with DC regions enabled."""
+        # Create minimal test graph
+        graph = nx.Graph()
+        metro1 = (100.0, 200.0)
+        metro2 = (150.0, 250.0)
+
+        graph.add_node(
+            metro1,
+            node_type="metro",
+            name="Denver",
+            metro_id="metro_001",
+            x=100.0,
+            y=200.0,
+            radius_km=50.0,
+        )
+        graph.add_node(
+            metro2,
+            node_type="metro",
+            name="Salt Lake City",
+            metro_id="metro_002",
+            x=150.0,
+            y=250.0,
+            radius_km=40.0,
+        )
+        graph.add_edge(metro1, metro2, length_km=100.0, capacity=400)
+
+        # Create config with DC regions enabled
+        config = TopologyConfig()
+        config.build = BuildConfig(
+            build_defaults=BuildDefaults(
+                sites_per_metro=2,
+                site_blueprint="SingleRouter",
+                dc_regions_per_metro=2,
+                dc_region_blueprint="DCRegion",
+            )
+        )
+
+        scenario_yaml = build_scenario(graph, config)
+        scenario_dict = yaml.safe_load(scenario_yaml)
+
+        # Should have both PoP and DC region groups
+        groups = scenario_dict["network"]["groups"]
+        pop_groups = [g for g in groups.keys() if "/pop[" in g]
+        dc_groups = [g for g in groups.keys() if "/dc[" in g]
+
+        assert len(pop_groups) == 2  # One per metro
+        assert len(dc_groups) == 2  # One per metro
+
+        # DC groups should use DCRegion blueprint
+        for dc_group_name in dc_groups:
+            dc_group = groups[dc_group_name]
+            assert dc_group["use_blueprint"] == "DCRegion"
+            assert "node_type" in dc_group["attrs"]
+            assert dc_group["attrs"]["node_type"] == "dc_region"
+
+        # Should have DC-to-PoP adjacency rules
+        adjacency = scenario_dict["network"]["adjacency"]
+        dc_pop_links = [
+            adj
+            for adj in adjacency
+            if "/dc[" in adj["source"] and "/pop[" in adj["target"]
+        ]
+        assert len(dc_pop_links) == 2  # One per metro
+
+        # Verify DC-to-PoP link parameters
+        for link in dc_pop_links:
+            assert link["pattern"] == "mesh"
+            assert link["link_params"]["attrs"]["link_type"] == "dc_to_pop"

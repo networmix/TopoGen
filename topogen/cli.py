@@ -421,7 +421,7 @@ def main() -> None:
 
         builtins.print = lambda *args, **kwargs: None
 
-    if args.func is None:
+    if not hasattr(args, "func") or args.func is None:
         parser.print_help()
         sys.exit(1)
 

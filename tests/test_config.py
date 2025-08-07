@@ -46,11 +46,6 @@ def test_config_from_yaml(tmp_path: Path) -> None:
             "max_corridor_distance_km": 1000.0,
         },
         "output": {
-            "pop_blueprint": {
-                "sites_per_metro": 4,
-                "cores_per_pop": 2,
-                "internal_pattern": "mesh",
-            },
             "scenario_metadata": {
                 "title": "Test Topology",
                 "description": "Test description",
@@ -58,8 +53,6 @@ def test_config_from_yaml(tmp_path: Path) -> None:
             },
             "formatting": {
                 "json_indent": 2,
-                "distance_conversion_factor": 1000,
-                "area_conversion_factor": 1000000,
             },
         },
     }

@@ -5,7 +5,7 @@ in network scenarios. Components include routers, switches, optics, and other
 network hardware with realistic cost, power, and capacity characteristics.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 # Built-in component library
 _BUILTIN_COMPONENTS = {
@@ -164,7 +164,7 @@ _BUILTIN_COMPONENTS = {
 }
 
 
-def get_builtin_components() -> Dict[str, Dict[str, Any]]:
+def get_builtin_components() -> dict[str, dict[str, Any]]:
     """Get the complete built-in component library.
 
     Returns:
@@ -173,7 +173,7 @@ def get_builtin_components() -> Dict[str, Dict[str, Any]]:
     return _BUILTIN_COMPONENTS.copy()
 
 
-def get_builtin_component(name: str) -> Dict[str, Any]:
+def get_builtin_component(name: str) -> dict[str, Any]:
     """Get a specific built-in component by name.
 
     Args:
@@ -201,7 +201,7 @@ def list_builtin_component_names() -> list[str]:
     return list(_BUILTIN_COMPONENTS.keys())
 
 
-def get_components_by_type(component_type: str) -> Dict[str, Dict[str, Any]]:
+def get_components_by_type(component_type: str) -> dict[str, dict[str, Any]]:
     """Get all components of a specific type.
 
     Args:
@@ -217,7 +217,7 @@ def get_components_by_type(component_type: str) -> Dict[str, Dict[str, Any]]:
     }
 
 
-def get_components_by_role(role: str) -> Dict[str, Dict[str, Any]]:
+def get_components_by_role(role: str) -> dict[str, dict[str, Any]]:
     """Get all components that support a specific role.
 
     Args:

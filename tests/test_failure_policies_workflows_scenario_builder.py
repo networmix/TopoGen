@@ -180,6 +180,22 @@ class TestBuildScenarioIntegration:
         config.build.build_defaults = Mock()
         config.build.build_defaults.sites_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
+
+        # Link parameter defaults
+        config.build.build_defaults.intra_metro_link = Mock()
+        config.build.build_defaults.intra_metro_link.capacity = 400
+        config.build.build_defaults.intra_metro_link.cost = 1
+        config.build.build_defaults.intra_metro_link.attrs = {
+            "link_type": "intra_metro"
+        }
+
+        config.build.build_defaults.inter_metro_link = Mock()
+        config.build.build_defaults.inter_metro_link.capacity = 100
+        config.build.build_defaults.inter_metro_link.cost = 1
+        config.build.build_defaults.inter_metro_link.attrs = {
+            "link_type": "inter_metro_corridor"
+        }
+
         config.build.build_overrides = {}
 
         # Components configuration

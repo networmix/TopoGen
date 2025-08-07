@@ -161,11 +161,12 @@ def _iter_snapped_edges(lines: list, snap_m: float):
     to a grid, automatically creating shared nodes at intersections.
 
     Args:
-        lines: List of LineString geometries.
+        lines: List of LineString geometries (in EPSG:5070 meters).
         snap_m: Grid snap precision in meters.
 
     Yields:
         Tuples of (start_point, end_point, length_km) for each edge.
+        Edge lengths are converted from meters to kilometers.
     """
     for geom in lines:
         if geom is None or geom.is_empty:

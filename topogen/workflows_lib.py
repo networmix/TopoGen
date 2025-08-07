@@ -11,10 +11,10 @@ Example Usage:
     basic_analysis = workflows["basic_capacity_analysis"]
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 # Built-in workflow definitions
-_BUILTIN_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
+_BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
     "basic_capacity_analysis": [
         {"step_type": "NetworkStats", "name": "network_statistics"},
         {
@@ -129,7 +129,7 @@ _BUILTIN_WORKFLOWS: Dict[str, List[Dict[str, Any]]] = {
 }
 
 
-def get_builtin_workflows() -> Dict[str, List[Dict[str, Any]]]:
+def get_builtin_workflows() -> dict[str, list[dict[str, Any]]]:
     """Get all built-in workflow definitions.
 
     Returns:
@@ -141,7 +141,7 @@ def get_builtin_workflows() -> Dict[str, List[Dict[str, Any]]]:
     return copy.deepcopy(_BUILTIN_WORKFLOWS)
 
 
-def get_builtin_workflow(name: str) -> List[Dict[str, Any]]:
+def get_builtin_workflow(name: str) -> list[dict[str, Any]]:
     """Get a specific built-in workflow by name.
 
     Args:
@@ -172,7 +172,7 @@ def list_builtin_workflow_names() -> list[str]:
     return sorted(_BUILTIN_WORKFLOWS.keys())
 
 
-def get_workflows_by_step_type(step_type: str) -> Dict[str, List[Dict[str, Any]]]:
+def get_workflows_by_step_type(step_type: str) -> dict[str, list[dict[str, Any]]]:
     """Get workflows that include a specific step type.
 
     Args:
@@ -192,7 +192,7 @@ def get_workflows_by_step_type(step_type: str) -> Dict[str, List[Dict[str, Any]]
     return filtered_workflows
 
 
-def get_fast_workflows() -> Dict[str, List[Dict[str, Any]]]:
+def get_fast_workflows() -> dict[str, list[dict[str, Any]]]:
     """Get workflows designed for fast execution.
 
     Returns:
@@ -230,7 +230,7 @@ def get_fast_workflows() -> Dict[str, List[Dict[str, Any]]]:
     return fast_workflows
 
 
-def validate_workflow_steps(steps: List[Dict[str, Any]]) -> None:
+def validate_workflow_steps(steps: list[dict[str, Any]]) -> None:
     """Validate that a workflow definition is structurally correct.
 
     Args:

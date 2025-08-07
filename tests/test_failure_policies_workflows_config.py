@@ -155,11 +155,6 @@ class TestConfigurationParsing:
 
         if "output" not in config_dict:
             config_dict["output"] = {
-                "pop_blueprint": {
-                    "sites_per_metro": 4,
-                    "cores_per_pop": 2,
-                    "internal_pattern": "mesh",
-                },
                 "scenario_metadata": {
                     "title": "Continental US Backbone Topology",
                     "description": "Generated backbone topology based on population density and highway infrastructure",
@@ -167,8 +162,6 @@ class TestConfigurationParsing:
                 },
                 "formatting": {
                     "json_indent": 2,
-                    "distance_conversion_factor": 1000,
-                    "area_conversion_factor": 1000000,
                 },
             }
 

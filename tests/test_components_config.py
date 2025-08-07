@@ -49,7 +49,7 @@ class TestComponentsConfig:
             "highway_processing": {},
             "corridors": {},
             "validation": {},
-            "output": {"pop_blueprint": {}, "scenario_metadata": {}, "formatting": {}},
+            "output": {"scenario_metadata": {}, "formatting": {}},
             "components": {},
         }
 
@@ -77,7 +77,7 @@ class TestComponentsConfig:
             "highway_processing": {},
             "corridors": {},
             "validation": {},
-            "output": {"pop_blueprint": {}, "scenario_metadata": {}, "formatting": {}},
+            "output": {"scenario_metadata": {}, "formatting": {}},
             "components": {
                 "library": {
                     "CustomChassis": {
@@ -113,7 +113,7 @@ class TestComponentsConfig:
             "highway_processing": {},
             "corridors": {},
             "validation": {},
-            "output": {"pop_blueprint": {}, "scenario_metadata": {}, "formatting": {}},
+            "output": {"scenario_metadata": {}, "formatting": {}},
             "components": {
                 "assignments": {
                     "spine": {"hw_component": "SpineChassis", "optics": "400G-LR4"},
@@ -152,7 +152,7 @@ class TestComponentsConfig:
             "highway_processing": {},
             "corridors": {},
             "validation": {},
-            "output": {"pop_blueprint": {}, "scenario_metadata": {}, "formatting": {}},
+            "output": {"scenario_metadata": {}, "formatting": {}},
             "components": {
                 "assignments": {
                     "blueprint_overrides": {
@@ -205,7 +205,7 @@ class TestComponentsConfig:
             "highway_processing": {},
             "corridors": {},
             "validation": {},
-            "output": {"pop_blueprint": {}, "scenario_metadata": {}, "formatting": {}},
+            "output": {"scenario_metadata": {}, "formatting": {}},
             "components": {
                 "library": "invalid_type"  # Should be dict
             },
@@ -236,7 +236,7 @@ class TestComponentsConfig:
             "highway_processing": {},
             "corridors": {},
             "validation": {},
-            "output": {"pop_blueprint": {}, "scenario_metadata": {}, "formatting": {}},
+            "output": {"scenario_metadata": {}, "formatting": {}},
             "components": {
                 "assignments": "invalid_type"  # Should be dict
             },
@@ -269,7 +269,7 @@ highway_processing: {}
 corridors: {}
 validation: {}
 output:
-  pop_blueprint: {}
+
   scenario_metadata: {}
   formatting: {}
 components:

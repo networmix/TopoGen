@@ -226,8 +226,11 @@ class TestEndToEndRiskGroups:
         # Create highway network with edges near metro
         highway_graph = nx.Graph()
 
-        # Highway edge very close to metro center
-        close_edge = ((990.0, 1000.0), (1010.0, 1000.0))  # 20km from center
+        # Highway edge very close to metro center (passes through center at y=1000)
+        close_edge = (
+            (990.0, 1000.0),
+            (1010.0, 1000.0),
+        )  # EPSG:5070 coordinates in meters
 
         highway_graph.add_edge(*close_edge, length_km=20.0)
         highway_graph.add_edge(

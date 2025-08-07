@@ -96,7 +96,7 @@ class TestCorridorDiscovery:
 
         # Very long path: 5000km total
         for i in range(10):
-            start = (i * 500000.0, 0.0)  # 500km in meters
+            start = (i * 500000.0, 0.0)  # 500km intervals in EPSG:5070 meters
             end = ((i + 1) * 500000.0, 0.0)
             graph.add_edge(start, end, length_km=500.0)
 

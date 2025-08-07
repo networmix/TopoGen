@@ -15,7 +15,11 @@ logger = get_logger(__name__)
 
 @dataclass
 class DataSources:
-    """Data source configuration."""
+    """Data source configuration for topology generation.
+
+    Contains paths to required geospatial datasets including Urban Area Centroids,
+    TIGER/Line Primary Roads, and CONUS boundary files.
+    """
 
     uac_polygons: Path
     tiger_roads: Path
@@ -30,14 +34,22 @@ class DataSources:
 
 @dataclass
 class ProjectionConfig:
-    """Geographic projection configuration."""
+    """Geographic projection configuration for coordinate reference systems.
+
+    Defines the target coordinate reference system for spatial operations and
+    transformations during topology generation.
+    """
 
     target_crs: str = "EPSG:5070"
 
 
 @dataclass
 class HighwayProcessingConfig:
-    """Highway data processing configuration (lightweight approach)."""
+    """Highway data processing configuration for lightweight approach.
+
+    Contains parameters for filtering, simplifying, and processing highway network
+    data from TIGER/Line sources to create a backbone topology graph.
+    """
 
     min_edge_length_km: float = 0.05  # Minimum edge length in kilometers
     snap_precision_m: float = 10.0  # Grid snap precision in meters
@@ -53,7 +65,11 @@ class HighwayProcessingConfig:
 
 @dataclass
 class RiskGroupsConfig:
-    """Risk groups configuration."""
+    """Risk groups configuration for corridor edge assignment.
+
+    Defines how risk groups are created and assigned to corridor edges,
+    supporting failure scenario analysis across the network.
+    """
 
     enabled: bool = True  # Enable risk group assignment for corridor edges
     group_prefix: str = "corridor_risk"  # Prefix for generated risk group names
@@ -64,7 +80,11 @@ class RiskGroupsConfig:
 
 @dataclass
 class CorridorsConfig:
-    """Corridor discovery configuration."""
+    """Corridor discovery configuration for metro connectivity.
+
+    Parameters for discovering and tagging corridors between metropolitan areas,
+    including adjacency rules and risk group assignment settings.
+    """
 
     k_paths: int = 1  # Maximum number of diverse paths per adjacent metro pair (reduced for performance)
     k_nearest: int = 3  # Number of nearest neighbors per metro for adjacency
@@ -77,7 +97,11 @@ class CorridorsConfig:
 
 @dataclass
 class ValidationConfig:
-    """Validation parameters."""
+    """Validation parameters for topology generation quality checks.
+
+    Contains thresholds and requirements for validating the generated topology
+    meets connectivity and structural requirements.
+    """
 
     max_metro_highway_distance_km: float = 10.0
     require_connected: bool = True
@@ -87,25 +111,47 @@ class ValidationConfig:
 
 
 @dataclass
-class PopBlueprintConfig:
-    """PoP blueprint configuration."""
+class LinkParams:
+    """Link parameter configuration including capacity, cost, and attributes.
 
-    sites_per_metro: int = 4
-    cores_per_pop: int = 2
-    internal_pattern: str = "mesh"
+    Defines link properties with both functional parameters (capacity, cost)
+    and metadata attributes that appear in the generated scenario.
+    """
+
+    capacity: int
+    cost: int
+    attrs: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class BuildDefaults:
-    """Default configuration for build operations."""
+    """Default configuration for build operations and site generation.
+
+    Default settings for generating sites within metropolitan areas,
+    including site count, blueprint assignments, and link parameters.
+    """
 
     sites_per_metro: int = 2
     site_blueprint: str = "SingleRouter"
+    intra_metro_link: LinkParams = field(
+        default_factory=lambda: LinkParams(
+            capacity=400, cost=1, attrs={"link_type": "intra_metro"}
+        )
+    )
+    inter_metro_link: LinkParams = field(
+        default_factory=lambda: LinkParams(
+            capacity=100, cost=1, attrs={"link_type": "inter_metro_corridor"}
+        )
+    )
 
 
 @dataclass
 class BuildConfig:
-    """Configuration for the build process."""
+    """Configuration for the build process and metro customization.
+
+    Contains default build settings and per-metro overrides for
+    customizing site generation within metropolitan areas.
+    """
 
     build_defaults: BuildDefaults = field(default_factory=BuildDefaults)
     build_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -113,7 +159,11 @@ class BuildConfig:
 
 @dataclass
 class ComponentAssignment:
-    """Component assignment configuration for a role."""
+    """Component assignment configuration for a network role.
+
+    Defines hardware component and optics assignments for specific
+    roles within the network hierarchy (spine, leaf, core).
+    """
 
     hw_component: str = ""
     optics: str = ""
@@ -121,7 +171,11 @@ class ComponentAssignment:
 
 @dataclass
 class ComponentAssignments:
-    """Component assignments configuration."""
+    """Component assignments configuration for network roles and blueprints.
+
+    Manages hardware component assignments across different network roles
+    and blueprint-specific overrides for customized deployments.
+    """
 
     # Default role assignments
     spine: ComponentAssignment = field(default_factory=ComponentAssignment)
@@ -136,7 +190,11 @@ class ComponentAssignments:
 
 @dataclass
 class ComponentsConfig:
-    """Component library and assignment configuration."""
+    """Component library and assignment configuration for network hardware.
+
+    Contains hardware component definitions and role-based assignment rules
+    for building detailed network equipment specifications.
+    """
 
     library: dict[str, dict[str, Any]] = field(default_factory=dict)
     assignments: ComponentAssignments = field(default_factory=ComponentAssignments)
@@ -144,7 +202,11 @@ class ComponentsConfig:
 
 @dataclass
 class FailurePolicyAssignments:
-    """Failure policy assignment configuration."""
+    """Failure policy assignment configuration for scenarios.
+
+    Defines default failure policies and scenario-specific overrides
+    for network resilience testing and analysis.
+    """
 
     default: str = "single_random_link_failure"
     scenario_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -152,7 +214,11 @@ class FailurePolicyAssignments:
 
 @dataclass
 class FailurePoliciesConfig:
-    """Failure policy library and assignment configuration."""
+    """Failure policy library and assignment configuration for network analysis.
+
+    Manages failure policy definitions and their assignment to scenarios
+    for comprehensive network resilience testing.
+    """
 
     library: dict[str, dict[str, Any]] = field(default_factory=dict)
     assignments: FailurePolicyAssignments = field(
@@ -162,7 +228,11 @@ class FailurePoliciesConfig:
 
 @dataclass
 class WorkflowAssignments:
-    """Workflow assignment configuration."""
+    """Workflow assignment configuration for analysis execution.
+
+    Defines default analysis workflows and scenario-specific overrides
+    for customizing network analysis procedures.
+    """
 
     default: str = "basic_capacity_analysis"
     scenario_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -170,7 +240,11 @@ class WorkflowAssignments:
 
 @dataclass
 class WorkflowsConfig:
-    """Workflow library and assignment configuration."""
+    """Workflow library and assignment configuration for network analysis.
+
+    Contains workflow step definitions and assignment rules for executing
+    comprehensive network performance and resilience analysis.
+    """
 
     library: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     assignments: WorkflowAssignments = field(default_factory=WorkflowAssignments)
@@ -178,7 +252,11 @@ class WorkflowsConfig:
 
 @dataclass
 class ScenarioMetadata:
-    """NetGraph scenario metadata."""
+    """NetGraph scenario metadata for generated topologies.
+
+    Contains descriptive information about generated network scenarios
+    including title, description, and version information.
+    """
 
     title: str = "Continental US Backbone Topology"
     description: str = "Generated backbone topology based on population density and highway infrastructure"
@@ -187,7 +265,11 @@ class ScenarioMetadata:
 
 @dataclass
 class ClusteringConfig:
-    """Metro clustering configuration."""
+    """Metro clustering configuration for urban area processing.
+
+    Parameters for selecting and processing metropolitan areas from Census data,
+    including clustering parameters and visualization export settings.
+    """
 
     metro_clusters: int = 30  # Target number of metro clusters
     max_uac_radius_km: float = 100.0  # Maximum radius for UAC urban areas
@@ -206,25 +288,34 @@ class ClusteringConfig:
 
 @dataclass
 class FormattingConfig:
-    """Data formatting and precision configuration."""
+    """Data formatting and precision configuration for output generation.
+
+    Controls output formatting and precision settings for consistent
+    data representation across all generated files.
+    """
 
     json_indent: int = 2  # JSON output indentation
-    distance_conversion_factor: int = 1000  # Meters to kilometers conversion
-    area_conversion_factor: int = 1_000_000  # Square meters to square kilometers
 
 
 @dataclass
 class OutputConfig:
-    """Output configuration."""
+    """Output configuration for scenario generation and formatting.
 
-    pop_blueprint: PopBlueprintConfig = field(default_factory=PopBlueprintConfig)
+    Combines scenario metadata and formatting settings to control
+    how generated topologies are structured and presented.
+    """
+
     scenario_metadata: ScenarioMetadata = field(default_factory=ScenarioMetadata)
     formatting: FormattingConfig = field(default_factory=FormattingConfig)
 
 
 @dataclass
 class TopologyConfig:
-    """Complete topology generator configuration."""
+    """Complete topology generator configuration for backbone generation.
+
+    Main configuration class that aggregates all subsystem configurations
+    for comprehensive topology generation from raw data to NetGraph scenarios.
+    """
 
     # Configuration sections
     data_sources: DataSources = field(
@@ -335,8 +426,6 @@ class TopologyConfig:
         validation = ValidationConfig(**validation_dict)
 
         # Handle output configuration with strict validation
-        if "pop_blueprint" not in output_dict:
-            raise ValueError("Missing required 'pop_blueprint' in output configuration")
         if "scenario_metadata" not in output_dict:
             raise ValueError(
                 "Missing required 'scenario_metadata' in output configuration"
@@ -344,15 +433,12 @@ class TopologyConfig:
         if "formatting" not in output_dict:
             raise ValueError("Missing required 'formatting' in output configuration")
 
-        pop_blueprint_dict = output_dict["pop_blueprint"]
         scenario_metadata_dict = output_dict["scenario_metadata"]
         formatting_dict = output_dict["formatting"]
 
-        pop_blueprint = PopBlueprintConfig(**pop_blueprint_dict)
         scenario_metadata = ScenarioMetadata(**scenario_metadata_dict)
         formatting = FormattingConfig(**formatting_dict)
         output = OutputConfig(
-            pop_blueprint=pop_blueprint,
             scenario_metadata=scenario_metadata,
             formatting=formatting,
         )
@@ -370,7 +456,40 @@ class TopologyConfig:
         if not isinstance(build_overrides_dict, dict):
             raise ValueError("'build_overrides' must be a dictionary")
 
-        build_defaults = BuildDefaults(**build_defaults_dict)
+        # Parse link parameter configurations
+        intra_metro_link_dict = build_defaults_dict.get("intra_metro_link", {})
+        inter_metro_link_dict = build_defaults_dict.get("inter_metro_link", {})
+
+        if not isinstance(intra_metro_link_dict, dict):
+            raise ValueError("'build_defaults.intra_metro_link' must be a dictionary")
+        if not isinstance(inter_metro_link_dict, dict):
+            raise ValueError("'build_defaults.inter_metro_link' must be a dictionary")
+
+        # Create link parameter objects with defaults
+        intra_metro_link = LinkParams(
+            capacity=intra_metro_link_dict.get("capacity", 400),
+            cost=intra_metro_link_dict.get("cost", 1),
+            attrs={
+                **{"link_type": "intra_metro"},
+                **intra_metro_link_dict.get("attrs", {}),
+            },
+        )
+        inter_metro_link = LinkParams(
+            capacity=inter_metro_link_dict.get("capacity", 100),
+            cost=inter_metro_link_dict.get("cost", 1),
+            attrs={
+                **{"link_type": "inter_metro_corridor"},
+                **inter_metro_link_dict.get("attrs", {}),
+            },
+        )
+
+        # Create BuildDefaults with explicit parameters
+        build_defaults = BuildDefaults(
+            sites_per_metro=build_defaults_dict.get("sites_per_metro", 2),
+            site_blueprint=build_defaults_dict.get("site_blueprint", "SingleRouter"),
+            intra_metro_link=intra_metro_link,
+            inter_metro_link=inter_metro_link,
+        )
         build = BuildConfig(
             build_defaults=build_defaults,
             build_overrides=build_overrides_dict,

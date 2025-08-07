@@ -93,28 +93,23 @@ class MetroCluster:
             other: Target metro cluster.
 
         Returns:
-            Distance in coordinate units (typically meters for projected CRS).
+            Distance in meters (for EPSG:5070 projected coordinates).
         """
         dx = self.centroid_x - other.centroid_x
         dy = self.centroid_y - other.centroid_y
         return math.sqrt(dx * dx + dy * dy)
 
-    def overlaps_with(
-        self, other: MetroCluster, distance_conversion_factor: int = 1000
-    ) -> bool:
+    def overlaps_with(self, other: MetroCluster) -> bool:
         """Check if this metro cluster overlaps with another.
 
         Args:
             other: Target metro cluster.
-            distance_conversion_factor: Factor to convert km to meters.
 
         Returns:
             True if circular areas overlap.
         """
         distance_m = self.distance_to(other)
-        combined_radius_m = (
-            self.radius_km + other.radius_km
-        ) * distance_conversion_factor
+        combined_radius_m = (self.radius_km + other.radius_km) * 1000  # km to meters
         return distance_m < combined_radius_m
 
 
@@ -344,7 +339,7 @@ def load_metro_clusters(
 
     # Calculate equivalent circular radius from land area
     # This standardizes differently-shaped metro areas for fair comparison
-    land_areas_km2 = top_areas["ALAND20"] / formatting_config.area_conversion_factor
+    land_areas_km2 = top_areas["ALAND20"] / 1_000_000  # Convert m² to km²
     radii_km = np.clip(
         np.sqrt(land_areas_km2 / math.pi),
         a_min=None,

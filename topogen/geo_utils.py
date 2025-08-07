@@ -57,7 +57,7 @@ def bearing_to_offset(bearing_deg: float, radius_m: float) -> tuple[float, float
         radius_m: Distance in meters.
 
     Returns:
-        Tuple of (x_offset, y_offset) in meters.
+        Tuple of (x_offset, y_offset) in meters (projected coordinates).
     """
     bearing_rad = math.radians(bearing_deg)
     x_offset = radius_m * math.sin(bearing_rad)
@@ -71,12 +71,12 @@ def point_at_bearing(
     """Create a point at specified bearing and distance from center.
 
     Args:
-        center_point: Center point (should be in projected coordinates).
+        center_point: Center point (should be in EPSG:5070 projected coordinates).
         bearing_deg: Bearing in degrees (0=North, clockwise).
         distance_m: Distance in meters.
 
     Returns:
-        New Point at the specified bearing and distance.
+        New Point at the specified bearing and distance (in meters).
     """
     x_offset, y_offset = bearing_to_offset(bearing_deg, distance_m)
     return Point(center_point.x + x_offset, center_point.y + y_offset)

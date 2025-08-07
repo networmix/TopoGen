@@ -274,6 +274,16 @@ def _determine_metro_settings(
         metro_settings = {
             "sites_per_metro": defaults.sites_per_metro,
             "site_blueprint": defaults.site_blueprint,
+            "intra_metro_link": {
+                "capacity": defaults.intra_metro_link.capacity,
+                "cost": defaults.intra_metro_link.cost,
+                "attrs": defaults.intra_metro_link.attrs.copy(),
+            },
+            "inter_metro_link": {
+                "capacity": defaults.inter_metro_link.capacity,
+                "cost": defaults.inter_metro_link.cost,
+                "attrs": defaults.inter_metro_link.attrs.copy(),
+            },
         }
 
         # Apply overrides if present (flexible matching)
@@ -304,11 +314,56 @@ def _determine_metro_settings(
                 metro_settings["sites_per_metro"] = override["sites_per_metro"]
             if "site_blueprint" in override:
                 metro_settings["site_blueprint"] = override["site_blueprint"]
+            if "intra_metro_link" in override:
+                # Merge override with defaults (override takes precedence)
+                override_intra = override["intra_metro_link"]
+                # Handle attrs merging first to preserve defaults
+                if "attrs" in override_intra:
+                    metro_settings["intra_metro_link"]["attrs"].update(
+                        override_intra["attrs"]
+                    )
+                # Update other fields (excluding attrs to avoid overwriting merged attrs)
+                for key, value in override_intra.items():
+                    if key != "attrs":
+                        metro_settings["intra_metro_link"][key] = value
+            if "inter_metro_link" in override:
+                # Merge override with defaults (override takes precedence)
+                override_inter = override["inter_metro_link"]
+                # Handle attrs merging first to preserve defaults
+                if "attrs" in override_inter:
+                    metro_settings["inter_metro_link"]["attrs"].update(
+                        override_inter["attrs"]
+                    )
+                # Update other fields (excluding attrs to avoid overwriting merged attrs)
+                for key, value in override_inter.items():
+                    if key != "attrs":
+                        metro_settings["inter_metro_link"][key] = value
 
         # Validate settings
         if metro_settings["sites_per_metro"] < 1:
             raise ValueError(
                 f"Metro '{metro_name}' has invalid sites_per_metro: {metro_settings['sites_per_metro']}"
+            )
+
+        # Validate link parameters
+        intra_link = metro_settings["intra_metro_link"]
+        if intra_link["capacity"] <= 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid intra_metro_link capacity: {intra_link['capacity']}"
+            )
+        if intra_link["cost"] <= 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid intra_metro_link cost: {intra_link['cost']}"
+            )
+
+        inter_link = metro_settings["inter_metro_link"]
+        if inter_link["capacity"] <= 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid inter_metro_link capacity: {inter_link['capacity']}"
+            )
+        if inter_link["cost"] < 0:
+            raise ValueError(
+                f"Metro '{metro_name}' has invalid inter_metro_link cost: {inter_link['cost']}"
             )
 
         settings[metro_name] = metro_settings
@@ -423,14 +478,14 @@ def _build_adjacency_section(
                     "target": f"/metro{idx}/pop[1-{sites_count}]",
                     "pattern": "mesh",
                     "link_params": {
-                        "capacity": 400,
-                        "cost": 1,
+                        "capacity": settings["intra_metro_link"]["capacity"],
+                        "cost": settings["intra_metro_link"]["cost"],
                         "attrs": {
-                            "link_type": "intra_metro",
-                            "metro_name": metro_name,  # Use sanitized name as primary
-                            "metro_name_orig": metro.get(
-                                "name_orig", metro_name
-                            ),  # Original name for display
+                            **settings["intra_metro_link"][
+                                "attrs"
+                            ],  # Start with configured attrs
+                            "metro_name": metro_name,  # Add metro-specific attrs
+                            "metro_name_orig": metro.get("name_orig", metro_name),
                         },
                     },
                 }
@@ -455,20 +510,28 @@ def _build_adjacency_section(
         target_sites = metro_settings[target_metro["name"]]["sites_per_metro"]
 
         # Build link_params with risk groups if present
+        source_settings = metro_settings[source_metro["name"]]
+
+        # Use source metro's inter_metro_link settings for defaults
+        default_capacity = source_settings["inter_metro_link"]["capacity"]
+        base_cost = source_settings["inter_metro_link"]["cost"]
+
         link_params = {
-            "capacity": edge.get("capacity", 100),
-            "cost": round(edge.get("length_km", 100)),
+            "capacity": edge.get("capacity", default_capacity),
+            "cost": round(edge.get("length_km", base_cost)),
             "attrs": {
-                "link_type": "inter_metro_corridor",
+                **source_settings["inter_metro_link"][
+                    "attrs"
+                ],  # Start with configured attrs
                 "distance_km": edge.get("length_km", 0.0),
                 "source_metro": source_metro["name"],  # Use sanitized name as primary
                 "source_metro_orig": source_metro.get(
                     "name_orig", source_metro["name"]
-                ),  # Original name for display
+                ),
                 "target_metro": target_metro["name"],  # Use sanitized name as primary
                 "target_metro_orig": target_metro.get(
                     "name_orig", target_metro["name"]
-                ),  # Original name for display
+                ),
             },
         }
 

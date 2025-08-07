@@ -11,10 +11,10 @@ Example Usage:
     single_link = policies["single_random_link_failure"]
 """
 
-from typing import Any, Dict
+from typing import Any
 
 # Built-in failure policy definitions
-_BUILTIN_FAILURE_POLICIES: Dict[str, Dict[str, Any]] = {
+_BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
     "single_random_link_failure": {
         "attrs": {
             "description": "Fails exactly one random link to test network resilience"
@@ -55,7 +55,7 @@ _BUILTIN_FAILURE_POLICIES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_builtin_failure_policies() -> Dict[str, Dict[str, Any]]:
+def get_builtin_failure_policies() -> dict[str, dict[str, Any]]:
     """Get all built-in failure policy definitions.
 
     Returns:
@@ -64,7 +64,7 @@ def get_builtin_failure_policies() -> Dict[str, Dict[str, Any]]:
     return _BUILTIN_FAILURE_POLICIES.copy()
 
 
-def get_builtin_failure_policy(name: str) -> Dict[str, Any]:
+def get_builtin_failure_policy(name: str) -> dict[str, Any]:
     """Get a specific built-in failure policy by name.
 
     Args:
@@ -94,7 +94,7 @@ def list_builtin_failure_policy_names() -> list[str]:
     return sorted(_BUILTIN_FAILURE_POLICIES.keys())
 
 
-def get_failure_policies_by_type(entity_scope: str) -> Dict[str, Dict[str, Any]]:
+def get_failure_policies_by_type(entity_scope: str) -> dict[str, dict[str, Any]]:
     """Get failure policies that target a specific entity scope.
 
     Args:
@@ -113,7 +113,7 @@ def get_failure_policies_by_type(entity_scope: str) -> Dict[str, Dict[str, Any]]
     return filtered_policies
 
 
-def get_baseline_policies() -> Dict[str, Dict[str, Any]]:
+def get_baseline_policies() -> dict[str, dict[str, Any]]:
     """Get failure policies suitable for baseline analysis (no failures).
 
     Returns:

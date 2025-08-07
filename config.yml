@@ -125,17 +125,6 @@ validation:
 
 # Output configuration
 output:
-  # PoP blueprint configuration (legacy - use build section instead)
-  pop_blueprint:
-    # Number of PoP sites to place per metro area
-    sites_per_metro: 4
-
-    # Number of core routers per PoP site
-    cores_per_pop: 2
-
-    # Internal connectivity pattern within PoP sites
-    internal_pattern: "mesh"
-
   # NetGraph scenario metadata
   scenario_metadata:
     title: "Continental US Backbone Topology"
@@ -145,8 +134,6 @@ output:
   # Data formatting configuration
   formatting:
     json_indent: 2 # JSON output indentation
-    distance_conversion_factor: 1000 # Meters to kilometers conversion
-    area_conversion_factor: 1000000 # Square meters to square kilometers
 
 # Build configuration for generating NetGraph scenarios
 build:

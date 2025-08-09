@@ -242,10 +242,22 @@ class TestBuildScenarioIntegration:
 
         # Add metro nodes
         graph.add_node(
-            "metro_1", node_type="metro", name="Metro 1", metro_id="1", x=100, y=200
+            "metro_1",
+            node_type="metro",
+            name="Metro 1",
+            metro_id="1",
+            x=100,
+            y=200,
+            radius_km=20.0,
         )
         graph.add_node(
-            "metro_2", node_type="metro", name="Metro 2", metro_id="2", x=300, y=400
+            "metro_2",
+            node_type="metro",
+            name="Metro 2",
+            metro_id="2",
+            x=300,
+            y=400,
+            radius_km=25.0,
         )
 
         # Add corridor edge
@@ -363,8 +375,8 @@ class TestBuildScenarioIntegration:
             {
                 "step_type": "CapacityEnvelopeAnalysis",
                 "name": "test_analysis",
-                "source_path": "^core",
-                "sink_path": "^core",
+                "source_path": ".*(dc.+)",
+                "sink_path": ".*(dc.+)",
                 "mode": "pairwise",
                 "failure_policy": "test_policy",
             },

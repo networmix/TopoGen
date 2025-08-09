@@ -1,0 +1,3828 @@
+blueprints:
+  DCRegion:
+    groups:
+      dc:
+        node_count: 1
+        name_template: dc
+        attrs:
+          role: dc
+          hw_type: dc_node
+    adjacency: []
+  SingleRouter:
+    groups:
+      core:
+        node_count: 1
+        name_template: core
+        attrs:
+          role: core
+          hw_type: router_chassis
+          hw_component: CoreRouter
+    adjacency: []
+components:
+  100G-LR4:
+    component_type: optic
+    description: 100G LR4 pluggable optic
+    cost: 1200.0
+    power_watts: 3.5
+    power_watts_max: 4.0
+    capacity: 100.0
+    ports: 1
+    attrs:
+      reach: 10km
+      wavelength: 1310nm
+      form_factor: QSFP28
+      fiber_type: SMF
+  CoreRouter:
+    component_type: chassis
+    description: Core router for metro backbone
+    cost: 45000.0
+    power_watts: 2200.0
+    power_watts_max: 2500.0
+    capacity: 25600.0
+    ports: 32
+    attrs:
+      role: core
+      form_factor: 2RU
+      vendor: Generic
+      model: CR-2500
+network:
+  groups:
+    metro1/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: denver-aurora
+        metro_name_orig: Denver--Aurora, CO
+        metro_id: '23527'
+        location_x: -760756.9
+        location_y: 1892127.2
+        radius_km: 23.05
+    metro1/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: denver-aurora
+        metro_name_orig: Denver--Aurora, CO
+        metro_id: '23527'
+        location_x: -760756.9
+        location_y: 1892127.2
+        radius_km: 23.05
+        node_type: dc_region
+    metro2/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: minneapolis-st-paul
+        metro_name_orig: Minneapolis--St. Paul, MN
+        metro_id: '57628'
+        location_x: 216658.9
+        location_y: 2446119.4
+        radius_km: 28.92
+    metro2/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: minneapolis-st-paul
+        metro_name_orig: Minneapolis--St. Paul, MN
+        metro_id: '57628'
+        location_x: 216658.9
+        location_y: 2446119.4
+        radius_km: 28.92
+        node_type: dc_region
+    metro3/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: salt-lake-city
+        metro_name_orig: Salt Lake City, UT
+        metro_id: '78499'
+        location_x: -1327903.9
+        location_y: 2071577.6
+        radius_km: 15.74
+    metro3/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: salt-lake-city
+        metro_name_orig: Salt Lake City, UT
+        metro_id: '78499'
+        location_x: -1327903.9
+        location_y: 2071577.6
+        radius_km: 15.74
+        node_type: dc_region
+    metro4/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: las-vegas-henderson-paradise
+        metro_name_orig: Las Vegas--Henderson--Paradise, NV
+        metro_id: '47995'
+        location_x: -1698506.9
+        location_y: 1625369.7
+        radius_km: 18.94
+    metro4/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: las-vegas-henderson-paradise
+        metro_name_orig: Las Vegas--Henderson--Paradise, NV
+        metro_id: '47995'
+        location_x: -1698506.9
+        location_y: 1625369.7
+        radius_km: 18.94
+        node_type: dc_region
+    metro5/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: phoenix-mesa-scottsdale
+        metro_name_orig: Phoenix--Mesa--Scottsdale, AZ
+        metro_id: '69184'
+        location_x: -1474726.2
+        location_y: 1275489.8
+        radius_km: 30.26
+    metro5/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: phoenix-mesa-scottsdale
+        metro_name_orig: Phoenix--Mesa--Scottsdale, AZ
+        metro_id: '69184'
+        location_x: -1474726.2
+        location_y: 1275489.8
+        radius_km: 30.26
+        node_type: dc_region
+    metro6/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: atlanta
+        metro_name_orig: Atlanta, GA
+        metro_id: 03817
+        location_x: 1056698.7
+        location_y: 1255491.7
+        radius_km: 44.95
+    metro6/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: atlanta
+        metro_name_orig: Atlanta, GA
+        metro_id: 03817
+        location_x: 1056698.7
+        location_y: 1255491.7
+        radius_km: 44.95
+        node_type: dc_region
+    metro7/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: portland
+        metro_name_orig: Portland, OR--WA
+        metro_id: '71317'
+        location_x: -2056740.5
+        location_y: 2793405.8
+        radius_km: 20.69
+    metro7/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: portland
+        metro_name_orig: Portland, OR--WA
+        metro_id: '71317'
+        location_x: -2056740.5
+        location_y: 2793405.8
+        radius_km: 20.69
+        node_type: dc_region
+    metro8/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: omaha
+        metro_name_orig: Omaha, NE--IA
+        metro_id: '65269'
+        location_x: -4549.8
+        location_y: 2023543.2
+        radius_km: 14.94
+    metro8/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: omaha
+        metro_name_orig: Omaha, NE--IA
+        metro_id: '65269'
+        location_x: -4549.8
+        location_y: 2023543.2
+        radius_km: 14.94
+        node_type: dc_region
+    metro9/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: boise-city
+        metro_name_orig: Boise City, ID
+        metro_id: 08785
+        location_x: -1619385.4
+        location_y: 2464479.5
+        radius_km: 10.71
+    metro9/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: boise-city
+        metro_name_orig: Boise City, ID
+        metro_id: 08785
+        location_x: -1619385.4
+        location_y: 2464479.5
+        radius_km: 10.71
+        node_type: dc_region
+    metro10/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: albuquerque
+        metro_name_orig: Albuquerque, NM
+        metro_id: '01171'
+        location_x: -955631.5
+        location_y: 1397232.3
+        radius_km: 14.73
+    metro10/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: albuquerque
+        metro_name_orig: Albuquerque, NM
+        metro_id: '01171'
+        location_x: -955631.5
+        location_y: 1397232.3
+        radius_km: 14.73
+        node_type: dc_region
+    metro11/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: new-orleans
+        metro_name_orig: New Orleans, LA
+        metro_id: '62677'
+        location_x: 573347.4
+        location_y: 773723.2
+        radius_km: 14.05
+    metro11/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: new-orleans
+        metro_name_orig: New Orleans, LA
+        metro_id: '62677'
+        location_x: 573347.4
+        location_y: 773723.2
+        radius_km: 14.05
+        node_type: dc_region
+    metro12/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: buffalo
+        metro_name_orig: Buffalo, NY
+        metro_id: '11350'
+        location_x: 1389884.0
+        location_y: 2341144.7
+        radius_km: 16.75
+    metro12/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: buffalo
+        metro_name_orig: Buffalo, NY
+        metro_id: '11350'
+        location_x: 1389884.0
+        location_y: 2341144.7
+        radius_km: 16.75
+        node_type: dc_region
+    metro13/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: chicago
+        metro_name_orig: Chicago, IL--IN
+        metro_id: '16264'
+        location_x: 664412.8
+        location_y: 2133983.6
+        radius_km: 43.9
+    metro13/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: chicago
+        metro_name_orig: Chicago, IL--IN
+        metro_id: '16264'
+        location_x: 664412.8
+        location_y: 2133983.6
+        radius_km: 43.9
+        node_type: dc_region
+    metro14/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: dallas-fort-worth-arlington
+        metro_name_orig: Dallas--Fort Worth--Arlington, TX
+        metro_id: '22042'
+        location_x: -95143.3
+        location_y: 1083616.5
+        radius_km: 37.95
+    metro14/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: dallas-fort-worth-arlington
+        metro_name_orig: Dallas--Fort Worth--Arlington, TX
+        metro_id: '22042'
+        location_x: -95143.3
+        location_y: 1083616.5
+        radius_km: 37.95
+        node_type: dc_region
+    metro15/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: kansas-city
+        metro_name_orig: Kansas City, MO--KS
+        metro_id: '43912'
+        location_x: 126451.8
+        location_y: 1782826.7
+        radius_km: 24.26
+    metro15/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: kansas-city
+        metro_name_orig: Kansas City, MO--KS
+        metro_id: '43912'
+        location_x: 126451.8
+        location_y: 1782826.7
+        radius_km: 24.26
+        node_type: dc_region
+    metro16/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: st-louis
+        metro_name_orig: St. Louis, MO--IL
+        metro_id: '77770'
+        location_x: 484338.2
+        location_y: 1736132.1
+        radius_km: 27.4
+    metro16/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: st-louis
+        metro_name_orig: St. Louis, MO--IL
+        metro_id: '77770'
+        location_x: 484338.2
+        location_y: 1736132.1
+        radius_km: 27.4
+        node_type: dc_region
+    metro17/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: charlotte
+        metro_name_orig: Charlotte, NC--SC
+        metro_id: '15670'
+        location_x: 1361576.8
+        location_y: 1468042.1
+        radius_km: 23.28
+    metro17/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: charlotte
+        metro_name_orig: Charlotte, NC--SC
+        metro_id: '15670'
+        location_x: 1361576.8
+        location_y: 1468042.1
+        radius_km: 23.28
+        node_type: dc_region
+    metro18/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: nashville-davidson
+        metro_name_orig: Nashville-Davidson, TN
+        metro_id: '61273'
+        location_x: 823009.5
+        location_y: 1494117.0
+        radius_km: 21.96
+    metro18/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: nashville-davidson
+        metro_name_orig: Nashville-Davidson, TN
+        metro_id: '61273'
+        location_x: 823009.5
+        location_y: 1494117.0
+        radius_km: 21.96
+        node_type: dc_region
+    metro19/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: pittsburgh
+        metro_name_orig: Pittsburgh, PA
+        metro_id: '69697'
+        location_x: 1340925.7
+        location_y: 2048083.3
+        radius_km: 27.34
+    metro19/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: pittsburgh
+        metro_name_orig: Pittsburgh, PA
+        metro_id: '69697'
+        location_x: 1340925.7
+        location_y: 2048083.3
+        radius_km: 27.34
+        node_type: dc_region
+    metro20/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: sacramento
+        metro_name_orig: Sacramento, CA
+        metro_id: '77068'
+        location_x: -2157009.6
+        location_y: 2023856.1
+        radius_km: 19.63
+    metro20/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: sacramento
+        metro_name_orig: Sacramento, CA
+        metro_id: '77068'
+        location_x: -2157009.6
+        location_y: 2023856.1
+        radius_km: 19.63
+        node_type: dc_region
+    metro21/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: new-york-jersey-city-newark
+        metro_name_orig: New York--Jersey City--Newark, NY--NJ
+        metro_id: '63217'
+        location_x: 1815314.3
+        location_y: 2173703.3
+        radius_km: 51.75
+    metro21/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: new-york-jersey-city-newark
+        metro_name_orig: New York--Jersey City--Newark, NY--NJ
+        metro_id: '63217'
+        location_x: 1815314.3
+        location_y: 2173703.3
+        radius_km: 51.75
+        node_type: dc_region
+    metro22/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: philadelphia
+        metro_name_orig: Philadelphia, PA--NJ--DE--MD
+        metro_id: '69076'
+        location_x: 1750874.7
+        location_y: 2071177.2
+        radius_km: 39.56
+    metro22/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: philadelphia
+        metro_name_orig: Philadelphia, PA--NJ--DE--MD
+        metro_id: '69076'
+        location_x: 1750874.7
+        location_y: 2071177.2
+        radius_km: 39.56
+        node_type: dc_region
+    metro23/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: houston
+        metro_name_orig: Houston, TX
+        metro_id: '40429'
+        location_x: 50426.6
+        location_y: 745816.8
+        radius_km: 38.01
+    metro23/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: houston
+        metro_name_orig: Houston, TX
+        metro_id: '40429'
+        location_x: 50426.6
+        location_y: 745816.8
+        radius_km: 38.01
+        node_type: dc_region
+    metro24/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: boston
+        metro_name_orig: Boston, MA--NH
+        metro_id: 09271
+        location_x: 2011415.1
+        location_y: 2422273.7
+        radius_km: 36.95
+    metro24/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: boston
+        metro_name_orig: Boston, MA--NH
+        metro_id: 09271
+        location_x: 2011415.1
+        location_y: 2422273.7
+        radius_km: 36.95
+        node_type: dc_region
+    metro25/pop[1-2]:
+      use_blueprint: SingleRouter
+      attrs:
+        metro_name: los-angeles-long-beach-anaheim
+        metro_name_orig: Los Angeles--Long Beach--Anaheim, CA
+        metro_id: '51445'
+        location_x: -2020633.3
+        location_y: 1445338.9
+        radius_km: 36.73
+    metro25/dc[1-2]:
+      use_blueprint: DCRegion
+      attrs:
+        metro_name: los-angeles-long-beach-anaheim
+        metro_name_orig: Los Angeles--Long Beach--Anaheim, CA
+        metro_id: '51445'
+        location_x: -2020633.3
+        location_y: 1445338.9
+        radius_km: 36.73
+        node_type: dc_region
+  adjacency:
+  # Intra-metro adjacency (connectivity within each metro's sites)
+  - source: /metro1/pop[1-2]
+    target: /metro1/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 73
+      attrs:
+        link_type: intra_metro
+        metro_name: denver-aurora
+        metro_name_orig: Denver--Aurora, CO
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.05
+        sites_count: 2
+  - source: /metro2/pop[1-2]
+    target: /metro2/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 91
+      attrs:
+        link_type: intra_metro
+        metro_name: minneapolis-st-paul
+        metro_name_orig: Minneapolis--St. Paul, MN
+        distance_model: metro_circle_arc
+        circle_radius_km: 28.92
+        sites_count: 2
+  - source: /metro3/pop[1-2]
+    target: /metro3/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 50
+      attrs:
+        link_type: intra_metro
+        metro_name: salt-lake-city
+        metro_name_orig: Salt Lake City, UT
+        distance_model: metro_circle_arc
+        circle_radius_km: 15.74
+        sites_count: 2
+  - source: /metro4/pop[1-2]
+    target: /metro4/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 60
+      attrs:
+        link_type: intra_metro
+        metro_name: las-vegas-henderson-paradise
+        metro_name_orig: Las Vegas--Henderson--Paradise, NV
+        distance_model: metro_circle_arc
+        circle_radius_km: 18.94
+        sites_count: 2
+  - source: /metro5/pop[1-2]
+    target: /metro5/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 96
+      attrs:
+        link_type: intra_metro
+        metro_name: phoenix-mesa-scottsdale
+        metro_name_orig: Phoenix--Mesa--Scottsdale, AZ
+        distance_model: metro_circle_arc
+        circle_radius_km: 30.26
+        sites_count: 2
+  - source: /metro6/pop[1-2]
+    target: /metro6/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 142
+      attrs:
+        link_type: intra_metro
+        metro_name: atlanta
+        metro_name_orig: Atlanta, GA
+        distance_model: metro_circle_arc
+        circle_radius_km: 44.95
+        sites_count: 2
+  - source: /metro7/pop[1-2]
+    target: /metro7/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 65
+      attrs:
+        link_type: intra_metro
+        metro_name: portland
+        metro_name_orig: Portland, OR--WA
+        distance_model: metro_circle_arc
+        circle_radius_km: 20.69
+        sites_count: 2
+  - source: /metro8/pop[1-2]
+    target: /metro8/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 47
+      attrs:
+        link_type: intra_metro
+        metro_name: omaha
+        metro_name_orig: Omaha, NE--IA
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.94
+        sites_count: 2
+  - source: /metro9/pop[1-2]
+    target: /metro9/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 34
+      attrs:
+        link_type: intra_metro
+        metro_name: boise-city
+        metro_name_orig: Boise City, ID
+        distance_model: metro_circle_arc
+        circle_radius_km: 10.71
+        sites_count: 2
+  - source: /metro10/pop[1-2]
+    target: /metro10/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 47
+      attrs:
+        link_type: intra_metro
+        metro_name: albuquerque
+        metro_name_orig: Albuquerque, NM
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.73
+        sites_count: 2
+  - source: /metro11/pop[1-2]
+    target: /metro11/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 45
+      attrs:
+        link_type: intra_metro
+        metro_name: new-orleans
+        metro_name_orig: New Orleans, LA
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.05
+        sites_count: 2
+  - source: /metro12/pop[1-2]
+    target: /metro12/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 53
+      attrs:
+        link_type: intra_metro
+        metro_name: buffalo
+        metro_name_orig: Buffalo, NY
+        distance_model: metro_circle_arc
+        circle_radius_km: 16.75
+        sites_count: 2
+  - source: /metro13/pop[1-2]
+    target: /metro13/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 138
+      attrs:
+        link_type: intra_metro
+        metro_name: chicago
+        metro_name_orig: Chicago, IL--IN
+        distance_model: metro_circle_arc
+        circle_radius_km: 43.9
+        sites_count: 2
+  - source: /metro14/pop[1-2]
+    target: /metro14/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 120
+      attrs:
+        link_type: intra_metro
+        metro_name: dallas-fort-worth-arlington
+        metro_name_orig: Dallas--Fort Worth--Arlington, TX
+        distance_model: metro_circle_arc
+        circle_radius_km: 37.95
+        sites_count: 2
+  - source: /metro15/pop[1-2]
+    target: /metro15/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 77
+      attrs:
+        link_type: intra_metro
+        metro_name: kansas-city
+        metro_name_orig: Kansas City, MO--KS
+        distance_model: metro_circle_arc
+        circle_radius_km: 24.26
+        sites_count: 2
+  - source: /metro16/pop[1-2]
+    target: /metro16/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 87
+      attrs:
+        link_type: intra_metro
+        metro_name: st-louis
+        metro_name_orig: St. Louis, MO--IL
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.4
+        sites_count: 2
+  - source: /metro17/pop[1-2]
+    target: /metro17/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 74
+      attrs:
+        link_type: intra_metro
+        metro_name: charlotte
+        metro_name_orig: Charlotte, NC--SC
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.28
+        sites_count: 2
+  - source: /metro18/pop[1-2]
+    target: /metro18/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 69
+      attrs:
+        link_type: intra_metro
+        metro_name: nashville-davidson
+        metro_name_orig: Nashville-Davidson, TN
+        distance_model: metro_circle_arc
+        circle_radius_km: 21.96
+        sites_count: 2
+  - source: /metro19/pop[1-2]
+    target: /metro19/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 86
+      attrs:
+        link_type: intra_metro
+        metro_name: pittsburgh
+        metro_name_orig: Pittsburgh, PA
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.34
+        sites_count: 2
+  - source: /metro20/pop[1-2]
+    target: /metro20/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 62
+      attrs:
+        link_type: intra_metro
+        metro_name: sacramento
+        metro_name_orig: Sacramento, CA
+        distance_model: metro_circle_arc
+        circle_radius_km: 19.63
+        sites_count: 2
+  - source: /metro21/pop[1-2]
+    target: /metro21/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 163
+      attrs:
+        link_type: intra_metro
+        metro_name: new-york-jersey-city-newark
+        metro_name_orig: New York--Jersey City--Newark, NY--NJ
+        distance_model: metro_circle_arc
+        circle_radius_km: 51.75
+        sites_count: 2
+  - source: /metro22/pop[1-2]
+    target: /metro22/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 125
+      attrs:
+        link_type: intra_metro
+        metro_name: philadelphia
+        metro_name_orig: Philadelphia, PA--NJ--DE--MD
+        distance_model: metro_circle_arc
+        circle_radius_km: 39.56
+        sites_count: 2
+  - source: /metro23/pop[1-2]
+    target: /metro23/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 120
+      attrs:
+        link_type: intra_metro
+        metro_name: houston
+        metro_name_orig: Houston, TX
+        distance_model: metro_circle_arc
+        circle_radius_km: 38.01
+        sites_count: 2
+  - source: /metro24/pop[1-2]
+    target: /metro24/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 117
+      attrs:
+        link_type: intra_metro
+        metro_name: boston
+        metro_name_orig: Boston, MA--NH
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.95
+        sites_count: 2
+  - source: /metro25/pop[1-2]
+    target: /metro25/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 116
+      attrs:
+        link_type: intra_metro
+        metro_name: los-angeles-long-beach-anaheim
+        metro_name_orig: Los Angeles--Long Beach--Anaheim, CA
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.73
+        sites_count: 2
+  - source: /metro1/dc[1-2]
+    target: /metro1/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: denver-aurora
+        metro_name_orig: Denver--Aurora, CO
+  - source: /metro2/dc[1-2]
+    target: /metro2/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: minneapolis-st-paul
+        metro_name_orig: Minneapolis--St. Paul, MN
+  - source: /metro3/dc[1-2]
+    target: /metro3/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: salt-lake-city
+        metro_name_orig: Salt Lake City, UT
+  - source: /metro4/dc[1-2]
+    target: /metro4/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: las-vegas-henderson-paradise
+        metro_name_orig: Las Vegas--Henderson--Paradise, NV
+  - source: /metro5/dc[1-2]
+    target: /metro5/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: phoenix-mesa-scottsdale
+        metro_name_orig: Phoenix--Mesa--Scottsdale, AZ
+  - source: /metro6/dc[1-2]
+    target: /metro6/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: atlanta
+        metro_name_orig: Atlanta, GA
+  - source: /metro7/dc[1-2]
+    target: /metro7/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: portland
+        metro_name_orig: Portland, OR--WA
+  - source: /metro8/dc[1-2]
+    target: /metro8/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: omaha
+        metro_name_orig: Omaha, NE--IA
+  - source: /metro9/dc[1-2]
+    target: /metro9/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: boise-city
+        metro_name_orig: Boise City, ID
+  - source: /metro10/dc[1-2]
+    target: /metro10/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: albuquerque
+        metro_name_orig: Albuquerque, NM
+  - source: /metro11/dc[1-2]
+    target: /metro11/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: new-orleans
+        metro_name_orig: New Orleans, LA
+  - source: /metro12/dc[1-2]
+    target: /metro12/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: buffalo
+        metro_name_orig: Buffalo, NY
+  - source: /metro13/dc[1-2]
+    target: /metro13/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: chicago
+        metro_name_orig: Chicago, IL--IN
+  - source: /metro14/dc[1-2]
+    target: /metro14/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: dallas-fort-worth-arlington
+        metro_name_orig: Dallas--Fort Worth--Arlington, TX
+  - source: /metro15/dc[1-2]
+    target: /metro15/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: kansas-city
+        metro_name_orig: Kansas City, MO--KS
+  - source: /metro16/dc[1-2]
+    target: /metro16/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: st-louis
+        metro_name_orig: St. Louis, MO--IL
+  - source: /metro17/dc[1-2]
+    target: /metro17/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: charlotte
+        metro_name_orig: Charlotte, NC--SC
+  - source: /metro18/dc[1-2]
+    target: /metro18/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: nashville-davidson
+        metro_name_orig: Nashville-Davidson, TN
+  - source: /metro19/dc[1-2]
+    target: /metro19/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: pittsburgh
+        metro_name_orig: Pittsburgh, PA
+  - source: /metro20/dc[1-2]
+    target: /metro20/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: sacramento
+        metro_name_orig: Sacramento, CA
+  - source: /metro21/dc[1-2]
+    target: /metro21/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: new-york-jersey-city-newark
+        metro_name_orig: New York--Jersey City--Newark, NY--NJ
+  - source: /metro22/dc[1-2]
+    target: /metro22/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: philadelphia
+        metro_name_orig: Philadelphia, PA--NJ--DE--MD
+  - source: /metro23/dc[1-2]
+    target: /metro23/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: houston
+        metro_name_orig: Houston, TX
+  - source: /metro24/dc[1-2]
+    target: /metro24/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: boston
+        metro_name_orig: Boston, MA--NH
+  - source: /metro25/dc[1-2]
+    target: /metro25/pop[1-2]
+    pattern: mesh
+    link_params:
+      capacity: 400
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+        metro_name: los-angeles-long-beach-anaheim
+        metro_name_orig: Los Angeles--Long Beach--Anaheim, CA
+  - source: metro1/pop{src_idx}
+    target: metro15/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1019
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1019
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups:
+      - corridor_risk_dallas-fort-worth-arlington_kansas-city
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_denver-aurora_kansas-city
+  - source: metro1/pop{src_idx}
+    target: metro5/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1607
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1607
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups:
+      - corridor_risk_albuquerque_denver-aurora
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_albuquerque_phoenix-mesa-scottsdale
+      - corridor_risk_albuquerque_salt-lake-city
+      - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
+  - source: metro1/pop{src_idx}
+    target: metro3/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 935
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 935
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: salt-lake-city
+        target_metro_orig: Salt Lake City, UT
+      risk_groups:
+      - corridor_risk_albuquerque_salt-lake-city
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_salt-lake-city
+  - source: metro1/pop{src_idx}
+    target: metro8/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 905
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 905
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups:
+      - corridor_risk_denver-aurora_omaha
+  - source: metro1/pop{src_idx}
+    target: metro4/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1667
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1667
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups:
+      - corridor_risk_albuquerque_salt-lake-city
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_salt-lake-city
+      - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro1/pop{src_idx}
+    target: metro10/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 780
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 780
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups:
+      - corridor_risk_albuquerque_denver-aurora
+      - corridor_risk_albuquerque_salt-lake-city
+      - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
+  - source: metro2/pop{src_idx}
+    target: metro8/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 639
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 639
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups:
+      - corridor_risk_chicago_omaha
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_kansas-city_minneapolis-st-paul
+      - corridor_risk_kansas-city_omaha
+      - corridor_risk_minneapolis-st-paul_omaha
+      - corridor_risk_omaha_st-louis
+  - source: metro2/pop{src_idx}
+    target: metro15/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 739
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 739
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups:
+      - corridor_risk_chicago_kansas-city
+      - corridor_risk_kansas-city_minneapolis-st-paul
+      - corridor_risk_minneapolis-st-paul_omaha
+  - source: metro2/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1106
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1106
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_chicago_minneapolis-st-paul
+      - corridor_risk_chicago_st-louis
+      - corridor_risk_minneapolis-st-paul_st-louis
+  - source: metro2/pop{src_idx}
+    target: metro13/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 692
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 692
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups:
+      - corridor_risk_chicago_minneapolis-st-paul
+      - corridor_risk_minneapolis-st-paul_st-louis
+  - source: metro3/pop{src_idx}
+    target: metro10/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1714
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1714
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups:
+      - corridor_risk_albuquerque_denver-aurora
+      - corridor_risk_albuquerque_salt-lake-city
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
+      - corridor_risk_denver-aurora_salt-lake-city
+  - source: metro3/pop{src_idx}
+    target: metro5/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1666
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1666
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
+      - corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro3/pop{src_idx}
+    target: metro4/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 733
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 733
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups:
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro3/pop{src_idx}
+    target: metro25/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1208
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1208
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro3/pop{src_idx}
+    target: metro9/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 609
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 609
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups:
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_boise-city_sacramento
+      - corridor_risk_boise-city_salt-lake-city
+  - source: metro3/pop{src_idx}
+    target: metro20/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1137
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1137
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups:
+      - corridor_risk_boise-city_sacramento
+      - corridor_risk_sacramento_salt-lake-city
+  - source: metro4/pop{src_idx}
+    target: metro20/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1125
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1125
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_los-angeles-long-beach-anaheim_sacramento
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro4/pop{src_idx}
+    target: metro10/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1426
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1426
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_albuquerque_phoenix-mesa-scottsdale
+      - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro4/pop{src_idx}
+    target: metro5/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 934
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 934
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro4/pop{src_idx}
+    target: metro9/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1342
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1342
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups:
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_boise-city_sacramento
+      - corridor_risk_boise-city_salt-lake-city
+      - corridor_risk_denver-aurora_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro4/pop{src_idx}
+    target: metro25/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 475
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 475
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro5/pop{src_idx}
+    target: metro10/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 828
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 828
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups:
+      - corridor_risk_albuquerque_las-vegas-henderson-paradise
+      - corridor_risk_albuquerque_phoenix-mesa-scottsdale
+      - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
+  - source: metro5/pop{src_idx}
+    target: metro25/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 654
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 654
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups:
+      - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+      - corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
+      - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  - source: metro6/pop{src_idx}
+    target: metro11/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 865
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 865
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: new-orleans
+        target_metro_orig: New Orleans, LA
+      risk_groups:
+      - corridor_risk_atlanta_new-orleans
+      - corridor_risk_atlanta_st-louis
+      - corridor_risk_new-orleans_st-louis
+  - source: metro6/pop{src_idx}
+    target: metro19/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1341
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1341
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_atlanta_nashville-davidson
+      - corridor_risk_atlanta_pittsburgh
+      - corridor_risk_charlotte_nashville-davidson
+      - corridor_risk_charlotte_pittsburgh
+      - corridor_risk_nashville-davidson_pittsburgh
+  - source: metro6/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1153
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1153
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_atlanta_new-orleans
+      - corridor_risk_atlanta_st-louis
+      - corridor_risk_new-orleans_st-louis
+  - source: metro6/pop{src_idx}
+    target: metro13/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1299
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1299
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_atlanta_nashville-davidson
+      - corridor_risk_atlanta_pittsburgh
+      - corridor_risk_chicago_nashville-davidson
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_nashville-davidson_pittsburgh
+      - corridor_risk_nashville-davidson_st-louis
+  - source: metro6/pop{src_idx}
+    target: metro17/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 443
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 443
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups:
+      - corridor_risk_atlanta_charlotte
+      - corridor_risk_charlotte_nashville-davidson
+  - source: metro6/pop{src_idx}
+    target: metro18/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 442
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 442
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_atlanta_nashville-davidson
+      - corridor_risk_atlanta_pittsburgh
+  - source: metro7/pop{src_idx}
+    target: metro20/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1044
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1044
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups:
+      - corridor_risk_portland_sacramento
+  - source: metro7/pop{src_idx}
+    target: metro9/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 791
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 791
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups:
+      - corridor_risk_boise-city_portland
+  - source: metro8/pop{src_idx}
+    target: metro14/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1249
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1249
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups:
+      - corridor_risk_albuquerque_dallas-fort-worth-arlington
+      - corridor_risk_chicago_omaha
+      - corridor_risk_dallas-fort-worth-arlington_kansas-city
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_dallas-fort-worth-arlington_st-louis
+      - corridor_risk_denver-aurora_kansas-city
+      - corridor_risk_kansas-city_omaha
+      - corridor_risk_minneapolis-st-paul_omaha
+      - corridor_risk_omaha_st-louis
+  - source: metro8/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 738
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 738
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_chicago_omaha
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_kansas-city_omaha
+      - corridor_risk_kansas-city_st-louis
+      - corridor_risk_minneapolis-st-paul_omaha
+      - corridor_risk_omaha_st-louis
+  - source: metro8/pop{src_idx}
+    target: metro15/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 335
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 335
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups:
+      - corridor_risk_chicago_omaha
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_kansas-city_omaha
+      - corridor_risk_minneapolis-st-paul_omaha
+      - corridor_risk_omaha_st-louis
+  - source: metro8/pop{src_idx}
+    target: metro13/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 774
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 774
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups:
+      - corridor_risk_chicago_kansas-city
+      - corridor_risk_chicago_omaha
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_kansas-city_omaha
+      - corridor_risk_minneapolis-st-paul_omaha
+      - corridor_risk_omaha_st-louis
+  - source: metro9/pop{src_idx}
+    target: metro20/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1716
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1716
+        source_metro: boise-city
+        source_metro_orig: Boise City, ID
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups:
+      - corridor_risk_boise-city_las-vegas-henderson-paradise
+      - corridor_risk_boise-city_sacramento
+      - corridor_risk_boise-city_salt-lake-city
+      - corridor_risk_sacramento_salt-lake-city
+  - source: metro10/pop{src_idx}
+    target: metro14/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1261
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1261
+        source_metro: albuquerque
+        source_metro_orig: Albuquerque, NM
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups:
+      - corridor_risk_albuquerque_dallas-fort-worth-arlington
+      - corridor_risk_dallas-fort-worth-arlington_kansas-city
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_dallas-fort-worth-arlington_st-louis
+  - source: metro11/pop{src_idx}
+    target: metro14/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 928
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 928
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups:
+      - corridor_risk_dallas-fort-worth-arlington_new-orleans
+      - corridor_risk_houston_new-orleans
+  - source: metro11/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1213
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1213
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_atlanta_new-orleans
+      - corridor_risk_atlanta_st-louis
+      - corridor_risk_new-orleans_st-louis
+  - source: metro11/pop{src_idx}
+    target: metro23/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 610
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 610
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups:
+      - corridor_risk_dallas-fort-worth-arlington_new-orleans
+      - corridor_risk_houston_new-orleans
+  - source: metro12/pop{src_idx}
+    target: metro13/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 978
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 978
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups:
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_buffalo_chicago
+      - corridor_risk_buffalo_pittsburgh
+      - corridor_risk_chicago_pittsburgh
+  - source: metro12/pop{src_idx}
+    target: metro17/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1259
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1259
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups:
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_buffalo_chicago
+      - corridor_risk_buffalo_pittsburgh
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_charlotte_philadelphia
+      - corridor_risk_charlotte_pittsburgh
+      - corridor_risk_chicago_pittsburgh
+  - source: metro12/pop{src_idx}
+    target: metro22/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 718
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 718
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups:
+      - corridor_risk_boston_buffalo
+      - corridor_risk_buffalo_new-york-jersey-city-newark
+      - corridor_risk_buffalo_philadelphia
+  - source: metro12/pop{src_idx}
+    target: metro21/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 689
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 689
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups:
+      - corridor_risk_boston_buffalo
+      - corridor_risk_buffalo_new-york-jersey-city-newark
+      - corridor_risk_buffalo_philadelphia
+  - source: metro12/pop{src_idx}
+    target: metro24/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups:
+      - corridor_risk_boston_buffalo
+      - corridor_risk_boston_new-york-jersey-city-newark
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_buffalo_new-york-jersey-city-newark
+      - corridor_risk_buffalo_philadelphia
+  - source: metro12/pop{src_idx}
+    target: metro19/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 397
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 397
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups:
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_buffalo_chicago
+      - corridor_risk_buffalo_pittsburgh
+      - corridor_risk_chicago_pittsburgh
+  - source: metro13/pop{src_idx}
+    target: metro19/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 840
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 840
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups:
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_buffalo_chicago
+      - corridor_risk_buffalo_pittsburgh
+      - corridor_risk_chicago_pittsburgh
+  - source: metro13/pop{src_idx}
+    target: metro18/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 876
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 876
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_chicago_nashville-davidson
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_nashville-davidson_pittsburgh
+      - corridor_risk_nashville-davidson_st-louis
+  - source: metro13/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 539
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 539
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_chicago_st-louis
+      - corridor_risk_minneapolis-st-paul_st-louis
+  - source: metro13/pop{src_idx}
+    target: metro15/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 874
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 874
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups:
+      - corridor_risk_chicago_kansas-city
+      - corridor_risk_chicago_omaha
+      - corridor_risk_kansas-city_minneapolis-st-paul
+  - source: metro14/pop{src_idx}
+    target: metro15/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 958
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 958
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups:
+      - corridor_risk_albuquerque_dallas-fort-worth-arlington
+      - corridor_risk_dallas-fort-worth-arlington_kansas-city
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_dallas-fort-worth-arlington_st-louis
+      - corridor_risk_denver-aurora_kansas-city
+  - source: metro14/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1188
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1188
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_albuquerque_dallas-fort-worth-arlington
+      - corridor_risk_dallas-fort-worth-arlington_kansas-city
+      - corridor_risk_dallas-fort-worth-arlington_omaha
+      - corridor_risk_dallas-fort-worth-arlington_st-louis
+  - source: metro14/pop{src_idx}
+    target: metro23/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 446
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 446
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups:
+      - corridor_risk_dallas-fort-worth-arlington_houston
+  - source: metro15/pop{src_idx}
+    target: metro18/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1182
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1182
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_chicago_nashville-davidson
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_kansas-city_st-louis
+      - corridor_risk_nashville-davidson_pittsburgh
+      - corridor_risk_nashville-davidson_st-louis
+      - corridor_risk_omaha_st-louis
+  - source: metro15/pop{src_idx}
+    target: metro16/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 403
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 403
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups:
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_kansas-city_st-louis
+      - corridor_risk_omaha_st-louis
+  - source: metro16/pop{src_idx}
+    target: metro18/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: st-louis
+        source_metro_orig: St. Louis, MO--IL
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_chicago_nashville-davidson
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_nashville-davidson_pittsburgh
+      - corridor_risk_nashville-davidson_st-louis
+  - source: metro17/pop{src_idx}
+    target: metro18/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 769
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 769
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups:
+      - corridor_risk_atlanta_charlotte
+      - corridor_risk_atlanta_pittsburgh
+      - corridor_risk_charlotte_nashville-davidson
+  - source: metro17/pop{src_idx}
+    target: metro22/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1034
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1034
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups:
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_charlotte_philadelphia
+      - corridor_risk_charlotte_pittsburgh
+  - source: metro17/pop{src_idx}
+    target: metro21/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1160
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1160
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups:
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_charlotte_philadelphia
+      - corridor_risk_charlotte_pittsburgh
+      - corridor_risk_new-york-jersey-city-newark_philadelphia
+      - corridor_risk_new-york-jersey-city-newark_pittsburgh
+      - corridor_risk_philadelphia_pittsburgh
+  - source: metro17/pop{src_idx}
+    target: metro19/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 907
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 907
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups:
+      - corridor_risk_atlanta_pittsburgh
+      - corridor_risk_buffalo_charlotte
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_charlotte_philadelphia
+      - corridor_risk_charlotte_pittsburgh
+      - corridor_risk_nashville-davidson_pittsburgh
+  - source: metro18/pop{src_idx}
+    target: metro19/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1014
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1014
+        source_metro: nashville-davidson
+        source_metro_orig: Nashville-Davidson, TN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups:
+      - corridor_risk_atlanta_chicago
+      - corridor_risk_atlanta_pittsburgh
+      - corridor_risk_charlotte_pittsburgh
+      - corridor_risk_chicago_nashville-davidson
+      - corridor_risk_kansas-city_nashville-davidson
+      - corridor_risk_nashville-davidson_pittsburgh
+      - corridor_risk_nashville-davidson_st-louis
+  - source: metro19/pop{src_idx}
+    target: metro24/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 1092
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1092
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups:
+      - corridor_risk_boston_buffalo
+      - corridor_risk_boston_new-york-jersey-city-newark
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_new-york-jersey-city-newark_philadelphia
+      - corridor_risk_new-york-jersey-city-newark_pittsburgh
+      - corridor_risk_philadelphia_pittsburgh
+  - source: metro19/pop{src_idx}
+    target: metro21/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 674
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 674
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups:
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_new-york-jersey-city-newark_philadelphia
+      - corridor_risk_new-york-jersey-city-newark_pittsburgh
+      - corridor_risk_philadelphia_pittsburgh
+  - source: metro19/pop{src_idx}
+    target: metro22/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 557
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 557
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups:
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_new-york-jersey-city-newark_pittsburgh
+      - corridor_risk_philadelphia_pittsburgh
+  - source: metro20/pop{src_idx}
+    target: metro25/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 699
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 699
+        source_metro: sacramento
+        source_metro_orig: Sacramento, CA
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups:
+      - corridor_risk_las-vegas-henderson-paradise_sacramento
+      - corridor_risk_los-angeles-long-beach-anaheim_sacramento
+  - source: metro21/pop{src_idx}
+    target: metro24/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 419
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 419
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups:
+      - corridor_risk_boston_buffalo
+      - corridor_risk_boston_new-york-jersey-city-newark
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+  - source: metro21/pop{src_idx}
+    target: metro22/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 151
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 151
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups:
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_new-york-jersey-city-newark_philadelphia
+      - corridor_risk_new-york-jersey-city-newark_pittsburgh
+  - source: metro22/pop{src_idx}
+    target: metro24/pop{tgt_idx}
+    expand_vars:
+      src_idx:
+      - 1
+      - 2
+      tgt_idx:
+      - 1
+      - 2
+    expansion_mode: cartesian
+    pattern: one_to_one
+    link_params:
+      capacity: 100
+      cost: 569
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 569
+        source_metro: philadelphia
+        source_metro_orig: Philadelphia, PA--NJ--DE--MD
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups:
+      - corridor_risk_boston_buffalo
+      - corridor_risk_boston_new-york-jersey-city-newark
+      - corridor_risk_boston_philadelphia
+      - corridor_risk_boston_pittsburgh
+      - corridor_risk_charlotte_new-york-jersey-city-newark
+      - corridor_risk_new-york-jersey-city-newark_philadelphia
+      - corridor_risk_new-york-jersey-city-newark_pittsburgh
+  link_overrides:
+  - source: metro1/pop1
+    target: metro1/pop2
+    any_direction: true
+    link_params:
+      cost: 73
+      attrs:
+        distance_km: 73
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.05
+  - source: metro1/dc1
+    target: metro1/pop2
+    any_direction: true
+    link_params:
+      cost: 73
+      attrs:
+        distance_km: 73
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.05
+  - source: metro1/dc2
+    target: metro1/pop1
+    any_direction: true
+    link_params:
+      cost: 73
+      attrs:
+        distance_km: 73
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.05
+  - source: metro2/pop1
+    target: metro2/pop2
+    any_direction: true
+    link_params:
+      cost: 91
+      attrs:
+        distance_km: 91
+        distance_model: metro_circle_arc
+        circle_radius_km: 28.92
+  - source: metro2/dc1
+    target: metro2/pop2
+    any_direction: true
+    link_params:
+      cost: 91
+      attrs:
+        distance_km: 91
+        distance_model: metro_circle_arc
+        circle_radius_km: 28.92
+  - source: metro2/dc2
+    target: metro2/pop1
+    any_direction: true
+    link_params:
+      cost: 91
+      attrs:
+        distance_km: 91
+        distance_model: metro_circle_arc
+        circle_radius_km: 28.92
+  - source: metro3/pop1
+    target: metro3/pop2
+    any_direction: true
+    link_params:
+      cost: 50
+      attrs:
+        distance_km: 50
+        distance_model: metro_circle_arc
+        circle_radius_km: 15.74
+  - source: metro3/dc1
+    target: metro3/pop2
+    any_direction: true
+    link_params:
+      cost: 50
+      attrs:
+        distance_km: 50
+        distance_model: metro_circle_arc
+        circle_radius_km: 15.74
+  - source: metro3/dc2
+    target: metro3/pop1
+    any_direction: true
+    link_params:
+      cost: 50
+      attrs:
+        distance_km: 50
+        distance_model: metro_circle_arc
+        circle_radius_km: 15.74
+  - source: metro4/pop1
+    target: metro4/pop2
+    any_direction: true
+    link_params:
+      cost: 60
+      attrs:
+        distance_km: 60
+        distance_model: metro_circle_arc
+        circle_radius_km: 18.94
+  - source: metro4/dc1
+    target: metro4/pop2
+    any_direction: true
+    link_params:
+      cost: 60
+      attrs:
+        distance_km: 60
+        distance_model: metro_circle_arc
+        circle_radius_km: 18.94
+  - source: metro4/dc2
+    target: metro4/pop1
+    any_direction: true
+    link_params:
+      cost: 60
+      attrs:
+        distance_km: 60
+        distance_model: metro_circle_arc
+        circle_radius_km: 18.94
+  - source: metro5/pop1
+    target: metro5/pop2
+    any_direction: true
+    link_params:
+      cost: 96
+      attrs:
+        distance_km: 96
+        distance_model: metro_circle_arc
+        circle_radius_km: 30.26
+  - source: metro5/dc1
+    target: metro5/pop2
+    any_direction: true
+    link_params:
+      cost: 96
+      attrs:
+        distance_km: 96
+        distance_model: metro_circle_arc
+        circle_radius_km: 30.26
+  - source: metro5/dc2
+    target: metro5/pop1
+    any_direction: true
+    link_params:
+      cost: 96
+      attrs:
+        distance_km: 96
+        distance_model: metro_circle_arc
+        circle_radius_km: 30.26
+  - source: metro6/pop1
+    target: metro6/pop2
+    any_direction: true
+    link_params:
+      cost: 142
+      attrs:
+        distance_km: 142
+        distance_model: metro_circle_arc
+        circle_radius_km: 44.95
+  - source: metro6/dc1
+    target: metro6/pop2
+    any_direction: true
+    link_params:
+      cost: 142
+      attrs:
+        distance_km: 142
+        distance_model: metro_circle_arc
+        circle_radius_km: 44.95
+  - source: metro6/dc2
+    target: metro6/pop1
+    any_direction: true
+    link_params:
+      cost: 142
+      attrs:
+        distance_km: 142
+        distance_model: metro_circle_arc
+        circle_radius_km: 44.95
+  - source: metro7/pop1
+    target: metro7/pop2
+    any_direction: true
+    link_params:
+      cost: 65
+      attrs:
+        distance_km: 65
+        distance_model: metro_circle_arc
+        circle_radius_km: 20.69
+  - source: metro7/dc1
+    target: metro7/pop2
+    any_direction: true
+    link_params:
+      cost: 65
+      attrs:
+        distance_km: 65
+        distance_model: metro_circle_arc
+        circle_radius_km: 20.69
+  - source: metro7/dc2
+    target: metro7/pop1
+    any_direction: true
+    link_params:
+      cost: 65
+      attrs:
+        distance_km: 65
+        distance_model: metro_circle_arc
+        circle_radius_km: 20.69
+  - source: metro8/pop1
+    target: metro8/pop2
+    any_direction: true
+    link_params:
+      cost: 47
+      attrs:
+        distance_km: 47
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.94
+  - source: metro8/dc1
+    target: metro8/pop2
+    any_direction: true
+    link_params:
+      cost: 47
+      attrs:
+        distance_km: 47
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.94
+  - source: metro8/dc2
+    target: metro8/pop1
+    any_direction: true
+    link_params:
+      cost: 47
+      attrs:
+        distance_km: 47
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.94
+  - source: metro9/pop1
+    target: metro9/pop2
+    any_direction: true
+    link_params:
+      cost: 34
+      attrs:
+        distance_km: 34
+        distance_model: metro_circle_arc
+        circle_radius_km: 10.71
+  - source: metro9/dc1
+    target: metro9/pop2
+    any_direction: true
+    link_params:
+      cost: 34
+      attrs:
+        distance_km: 34
+        distance_model: metro_circle_arc
+        circle_radius_km: 10.71
+  - source: metro9/dc2
+    target: metro9/pop1
+    any_direction: true
+    link_params:
+      cost: 34
+      attrs:
+        distance_km: 34
+        distance_model: metro_circle_arc
+        circle_radius_km: 10.71
+  - source: metro10/pop1
+    target: metro10/pop2
+    any_direction: true
+    link_params:
+      cost: 47
+      attrs:
+        distance_km: 47
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.73
+  - source: metro10/dc1
+    target: metro10/pop2
+    any_direction: true
+    link_params:
+      cost: 47
+      attrs:
+        distance_km: 47
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.73
+  - source: metro10/dc2
+    target: metro10/pop1
+    any_direction: true
+    link_params:
+      cost: 47
+      attrs:
+        distance_km: 47
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.73
+  - source: metro11/pop1
+    target: metro11/pop2
+    any_direction: true
+    link_params:
+      cost: 45
+      attrs:
+        distance_km: 45
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.05
+  - source: metro11/dc1
+    target: metro11/pop2
+    any_direction: true
+    link_params:
+      cost: 45
+      attrs:
+        distance_km: 45
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.05
+  - source: metro11/dc2
+    target: metro11/pop1
+    any_direction: true
+    link_params:
+      cost: 45
+      attrs:
+        distance_km: 45
+        distance_model: metro_circle_arc
+        circle_radius_km: 14.05
+  - source: metro12/pop1
+    target: metro12/pop2
+    any_direction: true
+    link_params:
+      cost: 53
+      attrs:
+        distance_km: 53
+        distance_model: metro_circle_arc
+        circle_radius_km: 16.75
+  - source: metro12/dc1
+    target: metro12/pop2
+    any_direction: true
+    link_params:
+      cost: 53
+      attrs:
+        distance_km: 53
+        distance_model: metro_circle_arc
+        circle_radius_km: 16.75
+  - source: metro12/dc2
+    target: metro12/pop1
+    any_direction: true
+    link_params:
+      cost: 53
+      attrs:
+        distance_km: 53
+        distance_model: metro_circle_arc
+        circle_radius_km: 16.75
+  - source: metro13/pop1
+    target: metro13/pop2
+    any_direction: true
+    link_params:
+      cost: 138
+      attrs:
+        distance_km: 138
+        distance_model: metro_circle_arc
+        circle_radius_km: 43.9
+  - source: metro13/dc1
+    target: metro13/pop2
+    any_direction: true
+    link_params:
+      cost: 138
+      attrs:
+        distance_km: 138
+        distance_model: metro_circle_arc
+        circle_radius_km: 43.9
+  - source: metro13/dc2
+    target: metro13/pop1
+    any_direction: true
+    link_params:
+      cost: 138
+      attrs:
+        distance_km: 138
+        distance_model: metro_circle_arc
+        circle_radius_km: 43.9
+  - source: metro14/pop1
+    target: metro14/pop2
+    any_direction: true
+    link_params:
+      cost: 120
+      attrs:
+        distance_km: 120
+        distance_model: metro_circle_arc
+        circle_radius_km: 37.95
+  - source: metro14/dc1
+    target: metro14/pop2
+    any_direction: true
+    link_params:
+      cost: 120
+      attrs:
+        distance_km: 120
+        distance_model: metro_circle_arc
+        circle_radius_km: 37.95
+  - source: metro14/dc2
+    target: metro14/pop1
+    any_direction: true
+    link_params:
+      cost: 120
+      attrs:
+        distance_km: 120
+        distance_model: metro_circle_arc
+        circle_radius_km: 37.95
+  - source: metro15/pop1
+    target: metro15/pop2
+    any_direction: true
+    link_params:
+      cost: 77
+      attrs:
+        distance_km: 77
+        distance_model: metro_circle_arc
+        circle_radius_km: 24.26
+  - source: metro15/dc1
+    target: metro15/pop2
+    any_direction: true
+    link_params:
+      cost: 77
+      attrs:
+        distance_km: 77
+        distance_model: metro_circle_arc
+        circle_radius_km: 24.26
+  - source: metro15/dc2
+    target: metro15/pop1
+    any_direction: true
+    link_params:
+      cost: 77
+      attrs:
+        distance_km: 77
+        distance_model: metro_circle_arc
+        circle_radius_km: 24.26
+  - source: metro16/pop1
+    target: metro16/pop2
+    any_direction: true
+    link_params:
+      cost: 87
+      attrs:
+        distance_km: 87
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.4
+  - source: metro16/dc1
+    target: metro16/pop2
+    any_direction: true
+    link_params:
+      cost: 87
+      attrs:
+        distance_km: 87
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.4
+  - source: metro16/dc2
+    target: metro16/pop1
+    any_direction: true
+    link_params:
+      cost: 87
+      attrs:
+        distance_km: 87
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.4
+  - source: metro17/pop1
+    target: metro17/pop2
+    any_direction: true
+    link_params:
+      cost: 74
+      attrs:
+        distance_km: 74
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.28
+  - source: metro17/dc1
+    target: metro17/pop2
+    any_direction: true
+    link_params:
+      cost: 74
+      attrs:
+        distance_km: 74
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.28
+  - source: metro17/dc2
+    target: metro17/pop1
+    any_direction: true
+    link_params:
+      cost: 74
+      attrs:
+        distance_km: 74
+        distance_model: metro_circle_arc
+        circle_radius_km: 23.28
+  - source: metro18/pop1
+    target: metro18/pop2
+    any_direction: true
+    link_params:
+      cost: 69
+      attrs:
+        distance_km: 69
+        distance_model: metro_circle_arc
+        circle_radius_km: 21.96
+  - source: metro18/dc1
+    target: metro18/pop2
+    any_direction: true
+    link_params:
+      cost: 69
+      attrs:
+        distance_km: 69
+        distance_model: metro_circle_arc
+        circle_radius_km: 21.96
+  - source: metro18/dc2
+    target: metro18/pop1
+    any_direction: true
+    link_params:
+      cost: 69
+      attrs:
+        distance_km: 69
+        distance_model: metro_circle_arc
+        circle_radius_km: 21.96
+  - source: metro19/pop1
+    target: metro19/pop2
+    any_direction: true
+    link_params:
+      cost: 86
+      attrs:
+        distance_km: 86
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.34
+  - source: metro19/dc1
+    target: metro19/pop2
+    any_direction: true
+    link_params:
+      cost: 86
+      attrs:
+        distance_km: 86
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.34
+  - source: metro19/dc2
+    target: metro19/pop1
+    any_direction: true
+    link_params:
+      cost: 86
+      attrs:
+        distance_km: 86
+        distance_model: metro_circle_arc
+        circle_radius_km: 27.34
+  - source: metro20/pop1
+    target: metro20/pop2
+    any_direction: true
+    link_params:
+      cost: 62
+      attrs:
+        distance_km: 62
+        distance_model: metro_circle_arc
+        circle_radius_km: 19.63
+  - source: metro20/dc1
+    target: metro20/pop2
+    any_direction: true
+    link_params:
+      cost: 62
+      attrs:
+        distance_km: 62
+        distance_model: metro_circle_arc
+        circle_radius_km: 19.63
+  - source: metro20/dc2
+    target: metro20/pop1
+    any_direction: true
+    link_params:
+      cost: 62
+      attrs:
+        distance_km: 62
+        distance_model: metro_circle_arc
+        circle_radius_km: 19.63
+  - source: metro21/pop1
+    target: metro21/pop2
+    any_direction: true
+    link_params:
+      cost: 163
+      attrs:
+        distance_km: 163
+        distance_model: metro_circle_arc
+        circle_radius_km: 51.75
+  - source: metro21/dc1
+    target: metro21/pop2
+    any_direction: true
+    link_params:
+      cost: 163
+      attrs:
+        distance_km: 163
+        distance_model: metro_circle_arc
+        circle_radius_km: 51.75
+  - source: metro21/dc2
+    target: metro21/pop1
+    any_direction: true
+    link_params:
+      cost: 163
+      attrs:
+        distance_km: 163
+        distance_model: metro_circle_arc
+        circle_radius_km: 51.75
+  - source: metro22/pop1
+    target: metro22/pop2
+    any_direction: true
+    link_params:
+      cost: 125
+      attrs:
+        distance_km: 125
+        distance_model: metro_circle_arc
+        circle_radius_km: 39.56
+  - source: metro22/dc1
+    target: metro22/pop2
+    any_direction: true
+    link_params:
+      cost: 125
+      attrs:
+        distance_km: 125
+        distance_model: metro_circle_arc
+        circle_radius_km: 39.56
+  - source: metro22/dc2
+    target: metro22/pop1
+    any_direction: true
+    link_params:
+      cost: 125
+      attrs:
+        distance_km: 125
+        distance_model: metro_circle_arc
+        circle_radius_km: 39.56
+  - source: metro23/pop1
+    target: metro23/pop2
+    any_direction: true
+    link_params:
+      cost: 120
+      attrs:
+        distance_km: 120
+        distance_model: metro_circle_arc
+        circle_radius_km: 38.01
+  - source: metro23/dc1
+    target: metro23/pop2
+    any_direction: true
+    link_params:
+      cost: 120
+      attrs:
+        distance_km: 120
+        distance_model: metro_circle_arc
+        circle_radius_km: 38.01
+  - source: metro23/dc2
+    target: metro23/pop1
+    any_direction: true
+    link_params:
+      cost: 120
+      attrs:
+        distance_km: 120
+        distance_model: metro_circle_arc
+        circle_radius_km: 38.01
+  - source: metro24/pop1
+    target: metro24/pop2
+    any_direction: true
+    link_params:
+      cost: 117
+      attrs:
+        distance_km: 117
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.95
+  - source: metro24/dc1
+    target: metro24/pop2
+    any_direction: true
+    link_params:
+      cost: 117
+      attrs:
+        distance_km: 117
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.95
+  - source: metro24/dc2
+    target: metro24/pop1
+    any_direction: true
+    link_params:
+      cost: 117
+      attrs:
+        distance_km: 117
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.95
+  - source: metro25/pop1
+    target: metro25/pop2
+    any_direction: true
+    link_params:
+      cost: 116
+      attrs:
+        distance_km: 116
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.73
+  - source: metro25/dc1
+    target: metro25/pop2
+    any_direction: true
+    link_params:
+      cost: 116
+      attrs:
+        distance_km: 116
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.73
+  - source: metro25/dc2
+    target: metro25/pop1
+    any_direction: true
+    link_params:
+      cost: 116
+      attrs:
+        distance_km: 116
+        distance_model: metro_circle_arc
+        circle_radius_km: 36.73
+risk_groups:
+- name: corridor_risk_albuquerque_dallas-fort-worth-arlington
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_albuquerque_denver-aurora
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_albuquerque_las-vegas-henderson-paradise
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_albuquerque_phoenix-mesa-scottsdale
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_albuquerque_salt-lake-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_atlanta_charlotte
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_atlanta_chicago
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_atlanta_nashville-davidson
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_atlanta_new-orleans
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_atlanta_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_atlanta_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boise-city_las-vegas-henderson-paradise
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boise-city_portland
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boise-city_sacramento
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boise-city_salt-lake-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boston_buffalo
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boston_new-york-jersey-city-newark
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boston_philadelphia
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_boston_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_buffalo_charlotte
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_buffalo_chicago
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_buffalo_new-york-jersey-city-newark
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_buffalo_philadelphia
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_buffalo_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_charlotte_nashville-davidson
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_charlotte_new-york-jersey-city-newark
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_charlotte_philadelphia
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_charlotte_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_chicago_kansas-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_chicago_minneapolis-st-paul
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_chicago_nashville-davidson
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_chicago_omaha
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_chicago_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_chicago_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_dallas-fort-worth-arlington_houston
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_dallas-fort-worth-arlington_kansas-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_dallas-fort-worth-arlington_new-orleans
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_dallas-fort-worth-arlington_omaha
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_dallas-fort-worth-arlington_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_denver-aurora_kansas-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_denver-aurora_las-vegas-henderson-paradise
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_denver-aurora_omaha
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_denver-aurora_phoenix-mesa-scottsdale
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_denver-aurora_salt-lake-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_houston_new-orleans
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_kansas-city_minneapolis-st-paul
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_kansas-city_nashville-davidson
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_kansas-city_omaha
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_kansas-city_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_las-vegas-henderson-paradise_sacramento
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_las-vegas-henderson-paradise_salt-lake-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_los-angeles-long-beach-anaheim_sacramento
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_minneapolis-st-paul_omaha
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_minneapolis-st-paul_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_nashville-davidson_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_nashville-davidson_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_new-orleans_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_new-york-jersey-city-newark_philadelphia
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_new-york-jersey-city-newark_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_omaha_st-louis
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_philadelphia_pittsburgh
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_portland_sacramento
+  attrs:
+    type: corridor_risk
+- name: corridor_risk_sacramento_salt-lake-city
+  attrs:
+    type: corridor_risk
+failure_policy_set:
+  single_random_link_failure:
+    attrs:
+      description: Fails exactly one random link to test network resilience
+    rules:
+    - entity_scope: link
+      rule_type: choice
+      count: 1
+traffic_matrix_set:
+  default:
+  - source_path: .*(dc.+)
+    sink_path: .*(dc.+)
+    mode: pairwise
+    priority: 0
+    demand: 2250000.0
+  - source_path: .*(dc.+)
+    sink_path: .*(dc.+)
+    mode: pairwise
+    priority: 1
+    demand: 2250000.0
+  - source_path: .*(dc.+)
+    sink_path: .*(dc.+)
+    mode: pairwise
+    priority: 2
+    demand: 3000000.0
+workflow:
+- step_type: NetworkStats
+  name: network_statistics
+- step_type: CapacityEnvelopeAnalysis
+  name: capacity_envelope_baseline
+  source_path: .*(dc.+)
+  sink_path: .*(dc.+)
+  mode: pairwise
+  parallelism: 4
+  shortest_path: false
+  flow_placement: PROPORTIONAL
+  seed: 42
+  iterations: 100
+  baseline: true
+  failure_policy: single_random_link_failure

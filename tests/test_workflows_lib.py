@@ -238,8 +238,8 @@ class TestValidateWorkflowSteps:
             {"step_type": "NetworkStats", "name": "stats"},
             {
                 "step_type": "CapacityEnvelopeAnalysis",
-                "source_path": "^core",
-                "sink_path": "^core",
+                "source_path": ".*(dc.+)",
+                "sink_path": ".*(dc.+)",
                 "mode": "pairwise",
             },
         ]
@@ -254,8 +254,11 @@ class TestValidateWorkflowSteps:
 
     def test_non_list_workflow(self):
         """Test validation of non-list workflow."""
+        from typing import Any
+
+        not_a_list: Any = {"not": "a list"}
         with pytest.raises(ValueError, match="Workflow must be a list of steps"):
-            validate_workflow_steps({"not": "a list"})
+            validate_workflow_steps(not_a_list)
 
     def test_non_dict_step(self):
         """Test validation of non-dict step."""
@@ -289,7 +292,7 @@ class TestValidateWorkflowSteps:
         steps = [
             {
                 "step_type": "CapacityEnvelopeAnalysis",
-                "source_path": "^core",
+                "source_path": ".*(dc.+)",
                 # Missing sink_path and mode
             }
         ]
@@ -318,6 +321,9 @@ class TestBuiltinWorkflowContent:
         assert "sink_path" in envelope_step
         assert "mode" in envelope_step
         assert envelope_step["baseline"] is True
+        # Updated to DC-based patterns
+        assert envelope_step["source_path"] == ".*(dc.+)"
+        assert envelope_step["sink_path"] == ".*(dc.+)"
 
     def test_comprehensive_resilience_analysis_structure(self):
         """Test comprehensive_resilience_analysis workflow structure."""
@@ -354,6 +360,9 @@ class TestBuiltinWorkflowContent:
         mode = envelope_step.get("mode", "pairwise")
 
         assert iterations <= 100 or shortest_path or mode == "combine"
+        # Updated to DC-based patterns
+        assert envelope_step["source_path"] == ".*(dc.+)"
+        assert envelope_step["sink_path"] == ".*(dc.+)"
 
     def test_network_stats_only_structure(self):
         """Test network_stats_only workflow structure."""

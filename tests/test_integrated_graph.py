@@ -227,8 +227,12 @@ class TestMetroMergeAttributes:
             cg = nx.Graph()
             a = (1000.0, 2000.0)
             b = (3000.0, 4000.0)
-            cg.add_node(a, node_type="metro", metro_id="001", name="metro-a")
-            cg.add_node(b, node_type="metro", metro_id="002", name="metro-b")
+            cg.add_node(
+                a, node_type="metro", metro_id="001", name="metro-a", radius_km=10.0
+            )
+            cg.add_node(
+                b, node_type="metro", metro_id="002", name="metro-b", radius_km=20.0
+            )
             cg.add_edge(a, b, edge_type="corridor", length_km=10.0)
             return cg
 

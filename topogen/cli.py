@@ -91,7 +91,6 @@ def build_command(args: argparse.Namespace) -> None:
             print(scenario_yaml)
         else:
             print(f"🎉 SUCCESS! Generated topology: {output_path}")
-            print("Run validation: make check")
 
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
@@ -181,8 +180,8 @@ def _run_pipeline(
             print(f"   Network nodes: {len(scenario.network.nodes)}")
             print(f"   Network links: {len(scenario.network.links)}")
         except Exception as e:
-            print(f"⚠️  Scenario validation warning: {e}")
-            print("   Scenario file generated but may have issues")
+            print(f"❌ Scenario validation failed: {e}")
+            print("   Scenario file generated but has issues")
 
     return scenario_yaml
 

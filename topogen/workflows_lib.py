@@ -20,8 +20,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "capacity_envelope_baseline",
-            "source_path": "^(core_.+)",
-            "sink_path": "^(core_.+)",
+            "source_path": ".*(dc.+)",
+            "sink_path": ".*(dc.+)",
             "mode": "pairwise",
             "parallelism": 4,
             "shortest_path": False,
@@ -37,8 +37,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "baseline_capacity",
-            "source_path": "^(core_.+)",
-            "sink_path": "^(core_.+)",
+            "source_path": ".*(dc.+)",
+            "sink_path": ".*(dc.+)",
             "mode": "pairwise",
             "parallelism": 8,
             "shortest_path": False,
@@ -51,8 +51,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "single_link_failure_analysis",
-            "source_path": "^(core_.+)",
-            "sink_path": "^(core_.+)",
+            "source_path": ".*(dc.+)",
+            "sink_path": ".*(dc.+)",
             "mode": "pairwise",
             "parallelism": 8,
             "shortest_path": False,
@@ -65,8 +65,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "dual_link_failure_analysis",
-            "source_path": "^(core_.+)",
-            "sink_path": "^(core_.+)",
+            "source_path": ".*(dc.+)",
+            "sink_path": ".*(dc.+)",
             "mode": "pairwise",
             "parallelism": 8,
             "shortest_path": False,
@@ -82,8 +82,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "fast_capacity_check",
-            "source_path": "^(core_.+)",
-            "sink_path": "^(core_.+)",
+            "source_path": ".*(dc.+)",
+            "sink_path": ".*(dc.+)",
             "mode": "combine",  # Faster than pairwise
             "parallelism": 2,
             "shortest_path": True,  # Faster than full flow
@@ -99,8 +99,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "baseline_capacity",
-            "source_path": "^(core_.+)",
-            "sink_path": "^(core_.+)",
+            "source_path": ".*(dc.+)",
+            "sink_path": ".*(dc.+)",
             "mode": "pairwise",
             "parallelism": 8,
             "shortest_path": False,

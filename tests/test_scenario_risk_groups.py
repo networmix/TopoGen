@@ -24,9 +24,19 @@ class TestScenarioRiskGroups:
         metro2 = (200.0, 300.0)
 
         graph.add_node(
-            metro1, node_type="metro", name="denver-aurora", metro_id="23527"
+            metro1,
+            node_type="metro",
+            name="denver-aurora",
+            metro_id="23527",
+            radius_km=30.0,
         )
-        graph.add_node(metro2, node_type="metro", name="kansas-city", metro_id="43912")
+        graph.add_node(
+            metro2,
+            node_type="metro",
+            name="kansas-city",
+            metro_id="43912",
+            radius_km=25.0,
+        )
 
         # Add corridor edge with risk groups
         graph.add_edge(
@@ -47,7 +57,6 @@ class TestScenarioRiskGroups:
         rg = risk_groups[0]
         assert rg["name"] == "corridor_risk_denver-aurora_kansas-city"
         assert rg["attrs"]["type"] == "corridor_risk"
-        assert rg["attrs"]["auto_generated"] is True
 
     def test_risk_groups_in_scenario_yaml(self):
         """Test that risk groups appear in generated scenario YAML."""
@@ -202,8 +211,12 @@ class TestScenarioRiskGroups:
         metro1 = (100.0, 200.0)
         metro2 = (200.0, 300.0)
 
-        graph.add_node(metro1, node_type="metro", name="metro1", metro_id="001")
-        graph.add_node(metro2, node_type="metro", name="metro2", metro_id="002")
+        graph.add_node(
+            metro1, node_type="metro", name="metro1", metro_id="001", radius_km=25.0
+        )
+        graph.add_node(
+            metro2, node_type="metro", name="metro2", metro_id="002", radius_km=25.0
+        )
         graph.add_edge(metro1, metro2, edge_type="corridor", length_km=100.0)
 
         config = TopologyConfig()
@@ -234,8 +247,12 @@ class TestScenarioRiskGroups:
         metro2 = (200.0, 300.0)
         highway = (300.0, 400.0)
 
-        graph.add_node(metro1, node_type="metro", name="metro1", metro_id="001")
-        graph.add_node(metro2, node_type="metro", name="metro2", metro_id="002")
+        graph.add_node(
+            metro1, node_type="metro", name="metro1", metro_id="001", radius_km=20.0
+        )
+        graph.add_node(
+            metro2, node_type="metro", name="metro2", metro_id="002", radius_km=20.0
+        )
         graph.add_node(highway, node_type="highway")  # Not a metro
 
         # Metro-to-metro edge with risk groups

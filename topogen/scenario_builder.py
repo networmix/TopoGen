@@ -6,6 +6,7 @@ by expanding metro nodes into detailed site hierarchies using blueprint template
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
@@ -93,7 +94,7 @@ def build_scenario(
 
     # 3. Network section
     scenario["network"] = _build_network_section(
-        metros, metro_settings, max_sites, max_dc_regions, graph
+        metros, metro_settings, max_sites, max_dc_regions, graph, config
     )
 
     # 4. Risk groups section (if risk groups are present)
@@ -104,7 +105,12 @@ def build_scenario(
     # 5. Failure policy set section
     scenario["failure_policy_set"] = _build_failure_policy_set_section(config)
 
-    # 6. Workflow section
+    # 6. Traffic matrix section (optional)
+    traffic_section = _build_traffic_matrix_section(metro_settings, config)
+    if traffic_section:
+        scenario["traffic_matrix_set"] = traffic_section
+
+    # 7. Workflow section
     scenario["workflow"] = _build_workflow_section(config)
 
     # Convert to YAML with custom formatting for comments
@@ -193,7 +199,7 @@ def _extract_metros_from_graph(graph: nx.Graph) -> list[dict[str, Any]]:
     for node, data in graph.nodes(data=True):
         if data.get("node_type") in ["metro", "metro+highway"]:
             # Validate required attributes
-            required_attrs = ["name", "metro_id"]
+            required_attrs = ["name", "metro_id", "radius_km"]
             for attr in required_attrs:
                 if attr not in data:
                     raise ValueError(
@@ -210,7 +216,7 @@ def _extract_metros_from_graph(graph: nx.Graph) -> list[dict[str, Any]]:
                     "metro_id": data["metro_id"],
                     "x": data.get("x", 0.0),
                     "y": data.get("y", 0.0),
-                    "radius_km": data.get("radius_km", 50.0),
+                    "radius_km": data["radius_km"],
                 }
             )
 
@@ -431,6 +437,7 @@ def _build_network_section(
     max_sites: int,
     max_dc_regions: int,
     graph: nx.Graph,
+    config: "TopologyConfig",
 ) -> dict[str, Any]:
     """Build the network section of the NetGraph scenario.
 
@@ -452,7 +459,14 @@ def _build_network_section(
     )
 
     # Build adjacency section
-    network["adjacency"] = _build_adjacency_section(metros, metro_settings, graph)
+    network["adjacency"] = _build_adjacency_section(
+        metros, metro_settings, graph, config
+    )
+
+    # Build link_overrides with circle-based intra-metro costs
+    overrides = _build_intra_metro_link_overrides(metros, metro_settings, config)
+    if overrides:
+        network["link_overrides"] = overrides
 
     return network
 
@@ -526,6 +540,7 @@ def _build_adjacency_section(
     metros: list[dict[str, Any]],
     metro_settings: dict[str, dict[str, Any]],
     graph: nx.Graph,
+    config: "TopologyConfig",
 ) -> list[dict[str, Any]]:
     """Build the adjacency section defining inter-metro connectivity.
 
@@ -551,6 +566,13 @@ def _build_adjacency_section(
 
         if sites_count > 1:
             # Create mesh connectivity between sites within metro
+            # Compute circle-based cost estimate along shortest arc.
+            radius_km = float(metro.get("radius_km", 0.0))
+            circle_frac = 1.0
+            # Fallback to 0 if radius missing
+            ring_radius_km = max(0.0, radius_km * circle_frac)
+
+            # Precompute base cost info for attrs
             adjacency.append(
                 {
                     "source": f"/metro{idx}/pop[1-{sites_count}]",
@@ -558,13 +580,25 @@ def _build_adjacency_section(
                     "pattern": "mesh",
                     "link_params": {
                         "capacity": settings["intra_metro_link"]["capacity"],
-                        "cost": settings["intra_metro_link"]["cost"],
+                        # Use average nearest-neighbor arc as representative base cost.
+                        # Nearest neighbor steps = 1 => 2*pi*R/n
+                        "cost": int(
+                            math.ceil(
+                                ((2.0 * math.pi * ring_radius_km) / float(sites_count))
+                                if ring_radius_km > 0.0 and sites_count > 0
+                                else settings["intra_metro_link"]["cost"]
+                            )
+                        ),
                         "attrs": {
                             **settings["intra_metro_link"][
                                 "attrs"
                             ],  # Start with configured attrs
                             "metro_name": metro_name,  # Add metro-specific attrs
                             "metro_name_orig": metro.get("name_orig", metro_name),
+                            "distance_model": "metro_circle_arc",
+                            "circle_radius_km": ring_radius_km,
+                            "sites_count": int(sites_count),
+                            # No fraction parameter; using full metro radius
                         },
                     },
                 }
@@ -625,12 +659,12 @@ def _build_adjacency_section(
 
         link_params = {
             "capacity": edge.get("capacity", default_capacity),
-            "cost": round(edge.get("length_km", base_cost)),
+            "cost": math.ceil(edge.get("length_km", base_cost)),
             "attrs": {
                 **source_settings["inter_metro_link"][
                     "attrs"
                 ],  # Start with configured attrs
-                "distance_km": edge.get("length_km", 0.0),
+                "distance_km": math.ceil(edge.get("length_km", 0.0)),
                 "source_metro": source_metro["name"],  # Use sanitized name as primary
                 "source_metro_orig": source_metro.get(
                     "name_orig", source_metro["name"]
@@ -663,6 +697,170 @@ def _build_adjacency_section(
         )
 
     return adjacency
+
+
+def _build_intra_metro_link_overrides(
+    metros: list[dict[str, Any]],
+    metro_settings: dict[str, dict[str, Any]],
+    config: "TopologyConfig",
+) -> list[dict[str, Any]]:
+    """Create link_overrides assigning circle-arc distances as per-pair costs.
+
+    For each metro, place PoPs and DC regions on a circle of radius
+    metro.radius_km * config.build.build_defaults.metro_circle_radius_fraction and
+    set cost for PoP-PoP and DC-PoP links to the shortest arc distance in km (ceil).
+
+    Args:
+        metros: List of metro dicts.
+        metro_settings: Per-metro settings.
+        config: Topology configuration for circle fraction.
+
+    Returns:
+        List of link_overrides entries.
+    """
+    overrides: list[dict[str, Any]] = []
+    circle_frac = 1.0
+
+    for idx, metro in enumerate(metros, 1):
+        metro_name = metro["name"]
+        settings = metro_settings[metro_name]
+        sites_count = int(settings["sites_per_metro"])
+        dc_count = int(settings["dc_regions_per_metro"])
+        if sites_count <= 0:
+            continue
+
+        ring_radius_km = max(0.0, float(metro.get("radius_km", 0.0)) * circle_frac)
+        if ring_radius_km <= 0.0:
+            continue
+
+        def arc_ceil(
+            n: int, i: int, j: int, *, _radius_km: float = ring_radius_km
+        ) -> int:
+            if n <= 1:
+                return 0
+            delta = abs(i - j) % n
+            steps = min(delta, n - delta)
+            arc = steps * ((2.0 * math.pi * _radius_km) / float(n))
+            return int(math.ceil(arc))
+
+        # PoP-PoP overrides
+        if sites_count > 1:
+            for i in range(1, sites_count + 1):
+                for j in range(i + 1, sites_count + 1):
+                    cost_ij = arc_ceil(sites_count, i, j)
+                    if cost_ij <= 0:
+                        continue
+                    overrides.append(
+                        {
+                            "source": f"metro{idx}/pop{i}",
+                            "target": f"metro{idx}/pop{j}",
+                            "any_direction": True,
+                            "link_params": {
+                                "cost": cost_ij,
+                                "attrs": {
+                                    "distance_km": cost_ij,
+                                    "distance_model": "metro_circle_arc",
+                                    "circle_radius_km": ring_radius_km,
+                                    # No fraction parameter; using full metro radius
+                                },
+                            },
+                        }
+                    )
+
+        # DC-PoP overrides
+        if dc_count > 0 and sites_count > 0:
+            # Place DCs interleaved across same circle
+            for d in range(1, dc_count + 1):
+                for p in range(1, sites_count + 1):
+                    # Model DCs as evenly spaced too using same n for arc steps,
+                    # aligning DC index to pop index space by uniform spread.
+                    # Effective step distance is min over two nearest pop slots.
+                    # Simpler: treat DC positions as at indices spaced by n/dc_count,
+                    # compute arc relative to pop index p.
+                    # Map d to fractional index and compute integer distance.
+                    n = sites_count
+                    frac_index = (d - 1) * (n / max(dc_count, 1))
+                    # Evaluate arc to nearest integer pop positions around frac_index
+                    cand_idxs = {
+                        int(math.floor(frac_index)) % n + 1,
+                        int(math.ceil(frac_index)) % n + 1,
+                    }
+                    cost_dp = min(arc_ceil(n, p, c) for c in cand_idxs)
+                    if cost_dp <= 0:
+                        continue
+                    overrides.append(
+                        {
+                            "source": f"metro{idx}/dc{d}",
+                            "target": f"metro{idx}/pop{p}",
+                            "any_direction": True,
+                            "link_params": {
+                                "cost": cost_dp,
+                                "attrs": {
+                                    "distance_km": cost_dp,
+                                    "distance_model": "metro_circle_arc",
+                                    "circle_radius_km": ring_radius_km,
+                                    # No fraction parameter; using full metro radius
+                                },
+                            },
+                        }
+                    )
+
+    return overrides
+
+
+def _build_traffic_matrix_section(
+    metro_settings: dict[str, dict[str, Any]], config: TopologyConfig
+) -> dict[str, list[dict[str, Any]]]:
+    """Build the traffic_matrix_set section if enabled in configuration.
+
+    Generates DC→DC pairwise demands across all DC regions, with volumes based on
+    total DC power and priority class ratios.
+
+    Args:
+        metro_settings: Per-metro settings including dc_regions_per_metro.
+        config: Topology configuration with traffic parameters.
+
+    Returns:
+        Mapping from matrix name to list of TrafficDemand dicts, or empty dict if disabled.
+    """
+    traffic_cfg = getattr(config, "traffic", None)
+    if not traffic_cfg or not getattr(traffic_cfg, "enabled", False):
+        return {}
+
+    # Count total DC regions across all metros
+    total_dc_regions = 0
+    for _metro_name, settings in metro_settings.items():
+        total_dc_regions += int(settings.get("dc_regions_per_metro", 0))
+
+    if total_dc_regions <= 0:
+        # Nothing to do
+        return {}
+
+    # Offered load in Gbps
+    offered_gbps = (
+        float(traffic_cfg.gbps_per_mw)
+        * float(traffic_cfg.mw_per_dc_region)
+        * float(total_dc_regions)
+    )
+
+    # Build class demands with pairwise DC selection using regex labels
+    source_regex = ".*(dc.+)"
+    sink_regex = ".*(dc.+)"
+
+    demands: list[dict[str, Any]] = []
+    for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
+        class_demand = offered_gbps * float(ratio)
+        demands.append(
+            {
+                "source_path": source_regex,
+                "sink_path": sink_regex,
+                "mode": "pairwise",
+                "priority": int(priority),
+                "demand": float(class_demand),
+            }
+        )
+
+    return {traffic_cfg.matrix_name: demands}
 
 
 def _extract_corridor_edges(graph: nx.Graph) -> list[dict[str, Any]]:
@@ -746,7 +944,6 @@ def _build_risk_groups_section(
                 "name": rg_name,
                 "attrs": {
                     "type": "corridor_risk",
-                    "auto_generated": True,
                 },
             }
         )

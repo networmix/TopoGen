@@ -35,6 +35,7 @@ dependencies = [
     "pyproj",
     "geopandas",
     "shapely",
+    "scipy",
     "scikit-learn",
     "networkx",
     "contextily",
@@ -74,7 +75,7 @@ topogen = "topogen.cli:main"
 # ---------------------------------------------------------------------
 # Pytest flags
 [tool.pytest.ini_options]
-addopts = "--cov=./topogen --cov-fail-under=30 --cov-report term-missing --benchmark-disable-gc --benchmark-min-rounds=5 --benchmark-warmup=on"
+addopts = "--cov=./topogen --cov-fail-under=50 --cov-report term-missing --benchmark-disable-gc --benchmark-min-rounds=5 --benchmark-warmup=on"
 timeout = 30
 markers = [
     "slow: marks integration tests as slow (deselect with '-m \"not slow\"')",

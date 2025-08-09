@@ -260,6 +260,29 @@ class WorkflowsConfig:
 
 
 @dataclass
+class TrafficConfig:
+    """Traffic generation configuration for scenario build.
+
+    Defines parameters for generating DC-to-DC traffic matrices.
+
+    Attributes:
+        enabled: Whether to generate and include a traffic matrix.
+        gbps_per_mw: Offered traffic per MW of DC power (Gbps/MW).
+        mw_per_dc_region: Power per DC region (MW).
+        priority_ratios: Mapping from priority class to ratio. Values must sum to 1.0.
+        matrix_name: Name of the traffic matrix in the scenario.
+    """
+
+    enabled: bool = True
+    gbps_per_mw: float = 1000.0
+    mw_per_dc_region: float = 150.0
+    priority_ratios: dict[int, float] = field(
+        default_factory=lambda: {0: 0.3, 1: 0.3, 2: 0.4}
+    )
+    matrix_name: str = "default"
+
+
+@dataclass
 class ScenarioMetadata:
     """NetGraph scenario metadata for generated topologies.
 
@@ -348,6 +371,7 @@ class TopologyConfig:
         default_factory=FailurePoliciesConfig
     )
     workflows: WorkflowsConfig = field(default_factory=WorkflowsConfig)
+    traffic: TrafficConfig = field(default_factory=TrafficConfig)
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> TopologyConfig:
@@ -648,6 +672,50 @@ class TopologyConfig:
             assignments=wf_assignments,
         )
 
+        # Handle optional traffic configuration
+        traffic_dict = config_dict.get("traffic", {})
+        if traffic_dict is None:
+            traffic_dict = {}
+        if not isinstance(traffic_dict, dict):
+            raise ValueError("'traffic' configuration section must be a dictionary")
+
+        # Normalize ratios to int keys if strings were provided by YAML loader
+        ratios_input = traffic_dict.get("priority_ratios")
+        if ratios_input is not None:
+            if not isinstance(ratios_input, dict):
+                raise ValueError("'traffic.priority_ratios' must be a dictionary")
+            normalized_ratios: dict[int, float] = {}
+            for k, v in ratios_input.items():
+                try:
+                    key_int = int(k)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "'traffic.priority_ratios' keys must be integers"
+                    ) from exc
+                normalized_ratios[key_int] = float(v)
+            traffic_dict = {**traffic_dict, "priority_ratios": normalized_ratios}
+
+        traffic = TrafficConfig(**traffic_dict)
+
+        # Validate traffic configuration
+        if traffic.enabled:
+            if traffic.gbps_per_mw < 0:
+                raise ValueError("traffic.gbps_per_mw must be non-negative")
+            if traffic.mw_per_dc_region < 0:
+                raise ValueError("traffic.mw_per_dc_region must be non-negative")
+            if not traffic.priority_ratios:
+                raise ValueError("traffic.priority_ratios must not be empty")
+            # Require contiguous classes from 0..N-1
+            classes = sorted(traffic.priority_ratios.keys())
+            expected = list(range(len(classes)))
+            if classes != expected:
+                raise ValueError(
+                    "traffic.priority_ratios must have contiguous integer keys from 0..N-1"
+                )
+            total_ratio = sum(traffic.priority_ratios.values())
+            if abs(total_ratio - 1.0) > 1e-9:
+                raise ValueError("traffic.priority_ratios values must sum to 1.0")
+
         # Create main configuration
         return cls(
             data_sources=data_sources,
@@ -661,6 +729,7 @@ class TopologyConfig:
             components=components,
             failure_policies=failure_policies,
             workflows=workflows,
+            traffic=traffic,
         )
 
     def validate(self) -> None:

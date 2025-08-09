@@ -271,8 +271,8 @@ class TestConfigurationParsing:
                         {
                             "step_type": "CapacityEnvelopeAnalysis",
                             "name": "custom_analysis",
-                            "source_path": "^core",
-                            "sink_path": "^core",
+                            "source_path": ".*(dc.+)",
+                            "sink_path": ".*(dc.+)",
                             "mode": "pairwise",
                             "iterations": 50,
                         },

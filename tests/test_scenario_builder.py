@@ -65,6 +65,7 @@ class TestScenarioBuilder:
             # Missing 'name' and 'metro_id'
             x=100.0,
             y=200.0,
+            radius_km=10.0,
         )
 
         with pytest.raises(ValueError, match="missing required attribute"):
@@ -210,7 +211,7 @@ class TestScenarioBuilder:
         metro2 = (150.0, 250.0)
         highway = (200.0, 300.0)
 
-        graph.add_node(metro1, node_type="metro", name="Metro1")
+        graph.add_node(metro1, node_type="metro", name="Metro1", radius_km=10.0)
         graph.add_node(metro2, node_type="metro+highway", name="Metro2")
         graph.add_node(highway, node_type="highway")
 
@@ -306,6 +307,7 @@ class TestScenarioBuilder:
             metro_id="metro_001",
             x=100.0,
             y=200.0,
+            radius_km=10.0,
         )
 
         config = TopologyConfig()

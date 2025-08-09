@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 import numpy as np
@@ -33,6 +33,7 @@ from scipy.spatial import KDTree  # type: ignore[import-untyped]
 from shapely.geometry import Point
 
 from topogen.corridors import (
+    CorridorPath,  # for JSON (type hints only)
     add_corridors,
     assign_risk_groups,
     extract_corridor_graph,
@@ -99,6 +100,19 @@ def _contract_degree2_chains(
     visited = set()
     processed_nodes = set()  # Track all nodes that were part of contracted paths
 
+    def _segment_id(u: tuple[float, float], v: tuple[float, float]) -> str:
+        """Return deterministic segment id based on sorted integerized endpoints.
+
+        Endpoints are snapped to a grid in upstream processing, so integerization
+        via round() is stable.
+        """
+        (ux, uy) = (int(round(u[0])), int(round(u[1])))
+        (vx, vy) = (int(round(v[0])), int(round(v[1])))
+        a = (ux, uy)
+        b = (vx, vy)
+        a, b = (a, b) if a <= b else (b, a)
+        return f"{a[0]}_{a[1]}__{b[0]}_{b[1]}"
+
     def is_contractible(node):
         """Check if a node can be contracted (degree-2 and not protected)."""
         return len(list(G.neighbors(node))) == 2 and node not in protected_nodes
@@ -127,7 +141,13 @@ def _contract_degree2_chains(
                     prev, curr = curr, nxt
 
                 # path now contains [start_junction, intermediate_nodes..., end_junction] without duplication
-                contracted.add_edge(path[0], path[-1], length_km=length, geometry=path)
+                contracted.add_edge(
+                    path[0],
+                    path[-1],
+                    length_km=length,
+                    geometry=path,
+                    segment_id=_segment_id(path[0], path[-1]),
+                )
                 # Track all nodes in this path as processed
                 processed_nodes.update(path)
                 chains_contracted += 1
@@ -194,6 +214,7 @@ def _contract_degree2_chains(
                     mid_node,
                     length_km=cycle_length,
                     geometry=cycle_nodes + [cycle_nodes[0]],
+                    segment_id=_segment_id(start_node, mid_node),
                 )  # Close the loop
 
     if contracted.number_of_edges() == 0:
@@ -618,6 +639,7 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
             anchor,
             edge_type="metro_anchor",
             length_km=dist_km,
+            geometry=[key, anchor],  # straight line from metro centroid to anchor
         )
 
     logger.info(f"Added {len(metros)} metro nodes with anchor connections")
@@ -655,6 +677,7 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
                 output_path=visualization_path,
                 conus_boundary_path=config.data_sources.conus_boundary,
                 target_crs=config.projection.target_crs,
+                use_real_geometry=getattr(config, "_use_real_corridor_geometry", False),
             )
         except Exception as e:
             raise RuntimeError(
@@ -766,11 +789,21 @@ def save_to_json(
     """
     logger.info(f"Saving integrated graph to JSON: {path}")
 
-    def _to_python(obj):
-        """Convert NumPy scalars to built-in Python types for JSON serialization."""
-        return obj.item() if isinstance(obj, (np.floating, np.integer)) else obj
+    def _to_python(obj: Any):
+        """Convert common non-JSON types to JSON-friendly Python types."""
+        if isinstance(obj, (np.floating, np.integer)):
+            return obj.item()
+        if isinstance(obj, set):
+            # Sort for determinism when possible
+            try:
+                return sorted(list(obj))
+            except Exception:
+                return list(obj)
+        if isinstance(obj, tuple):
+            return list(obj)
+        return obj
 
-    out = {"target_crs": crs, "nodes": [], "edges": []}
+    out: dict[str, Any] = {"target_crs": crs, "nodes": [], "edges": []}
 
     # Serialize nodes
     for node, data in graph.nodes(data=True):
@@ -789,6 +822,42 @@ def save_to_json(
             **{k: _to_python(v) for k, v in data.items()},
         }
         out["edges"].append(edge_data)
+
+    # Serialize corridor path registry if present
+    registry = graph.graph.get("corridor_paths")
+    if registry:
+        serialized_paths: list[dict[str, Any]] = []
+        # registry may be a dict keyed by PathId or already a list; normalize to dict iteration
+        if isinstance(registry, dict):
+            items = registry.items()
+        else:  # pragma: no cover - defensive
+            try:
+                items = list(enumerate(registry))  # type: ignore[assignment]
+            except Exception:
+                items = []
+        for _key, cp in items:  # type: ignore[misc]
+            # cp may be a CorridorPath dataclass or a plain dict
+            if hasattr(cp, "metros") and hasattr(cp, "geometry"):
+                # Likely a CorridorPath
+                metros_tuple = cp.metros
+                path_index = int(cp.path_index)
+                length_km = float(cp.length_km)
+                segment_ids = list(cp.segment_ids)
+                geometry = [(float(p[0]), float(p[1])) for p in cp.geometry]
+                serialized_paths.append(
+                    {
+                        "metro_a": metros_tuple[0],
+                        "metro_b": metros_tuple[1],
+                        "path_index": path_index,
+                        "length_km": length_km,
+                        "segment_ids": segment_ids,
+                        "geometry": [list(p) for p in geometry],
+                    }
+                )
+            elif isinstance(cp, dict):
+                # Assume already in serializable form
+                serialized_paths.append(cp)
+        out["corridor_paths"] = serialized_paths
 
     # Save to file
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -827,6 +896,41 @@ def load_from_json(path: Path) -> tuple[nx.Graph, str]:
         graph.add_edge(u, v, **edge_data)
 
     crs = data["target_crs"]
+
+    # Rebuild corridor path registry if present
+    try:
+        raw_paths = data.get("corridor_paths")
+    except Exception:  # pragma: no cover - defensive
+        raw_paths = None
+    if raw_paths:
+        registry: dict[tuple[str, str, int], CorridorPath] = {}
+        for entry in raw_paths:
+            try:
+                metro_a = str(entry["metro_a"])
+                metro_b = str(entry["metro_b"])
+                path_index = int(entry["path_index"])
+                length_km = float(entry.get("length_km", 0.0))
+                segment_ids = list(entry.get("segment_ids", []))
+                geometry = [
+                    (float(p[0]), float(p[1]))
+                    for p in entry.get("geometry", [])
+                    if isinstance(p, (list, tuple)) and len(p) >= 2
+                ]
+                metros = tuple(sorted((metro_a, metro_b)))  # type: ignore[assignment]
+                cp = CorridorPath(
+                    metros=metros,  # type: ignore[arg-type]
+                    path_index=path_index,
+                    nodes=[],
+                    edges=[],
+                    segment_ids=segment_ids,
+                    length_km=length_km,
+                    geometry=geometry,
+                )
+                registry[(metros[0], metros[1], path_index)] = cp
+            except Exception:  # pragma: no cover - robust to partial data
+                continue
+        if registry:
+            graph.graph["corridor_paths"] = registry
     logger.info(
         f"Loaded integrated graph: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges"
     )

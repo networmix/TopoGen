@@ -4,7 +4,11 @@ import networkx as nx
 import pytest
 
 from topogen.config import CorridorsConfig
-from topogen.corridors import add_corridors, extract_corridor_graph
+from topogen.corridors import (
+    CorridorPath,
+    add_corridors,
+    extract_corridor_graph,
+)
 from topogen.metro_clusters import MetroCluster
 
 
@@ -356,6 +360,23 @@ class TestCorridorGraphExtraction:
             MetroCluster("002", "metro-b", "Metro B", "002", 100.0, 200.0, 300.0, 25.0),
         ]
 
+        # Populate corridor path registry and tag edges with path id
+        path_id = ("001", "002", 0)
+        full_graph.graph["corridor_paths"] = {
+            path_id: CorridorPath(
+                metros=("001", "002"),
+                path_index=0,
+                nodes=[metro1_coords, metro2_coords],
+                edges=[(metro1_coords, metro2_coords)],
+                segment_ids=[],
+                length_km=141.4,
+                geometry=[metro1_coords, metro2_coords],
+            )
+        }
+        # Mark the single edge as part of the chosen path
+        e = full_graph[(150.0, 220.0)][(180.0, 280.0)]
+        e["corridor_path_ids"] = {path_id}
+
         # Extract corridor graph
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
@@ -429,6 +450,32 @@ class TestCorridorGraphExtraction:
             MetroCluster("002", "metro2", "Metro 2", "002", 100.0, 100.0, 100.0, 25.0),
         ]
 
+        # Build two alternative paths and tag edges accordingly
+        reg = {}
+        pid_long = ("001", "002", 0)
+        pid_short = ("001", "002", 1)
+        reg[pid_long] = CorridorPath(
+            metros=("001", "002"),
+            path_index=0,
+            nodes=[metro1_coords, metro2_coords],
+            edges=[((10.0, 10.0), (20.0, 20.0))],
+            segment_ids=[],
+            length_km=150.0,
+            geometry=[metro1_coords, metro2_coords],
+        )
+        reg[pid_short] = CorridorPath(
+            metros=("001", "002"),
+            path_index=1,
+            nodes=[metro1_coords, metro2_coords],
+            edges=[((30.0, 30.0), (40.0, 40.0))],
+            segment_ids=[],
+            length_km=120.0,
+            geometry=[metro1_coords, metro2_coords],
+        )
+        full_graph.graph["corridor_paths"] = reg
+        full_graph[(10.0, 10.0)][(20.0, 20.0)]["corridor_path_ids"] = {pid_long}
+        full_graph[(30.0, 30.0)][(40.0, 40.0)]["corridor_path_ids"] = {pid_short}
+
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
         # Should use shortest distance
@@ -481,6 +528,22 @@ class TestCorridorGraphExtraction:
             MetroCluster("001", "metro1", "Metro 1", "001", 100.0, 0.0, 0.0, 25.0),
             MetroCluster("002", "metro2", "Metro 2", "002", 100.0, 100.0, 100.0, 25.0),
         ]
+
+        # Registry and edge tagging for the path
+        pid = ("001", "002", 0)
+        full_graph.graph["corridor_paths"] = {
+            pid: CorridorPath(
+                metros=("001", "002"),
+                path_index=0,
+                nodes=[metro1_coords, metro2_coords],
+                edges=[((10.0, 10.0), (20.0, 20.0)), ((30.0, 30.0), (40.0, 40.0))],
+                segment_ids=[],
+                length_km=100.0,
+                geometry=[metro1_coords, metro2_coords],
+            )
+        }
+        full_graph[(10.0, 10.0)][(20.0, 20.0)]["corridor_path_ids"] = {pid}
+        full_graph[(30.0, 30.0)][(40.0, 40.0)]["corridor_path_ids"] = {pid}
 
         corridor_graph = extract_corridor_graph(full_graph, metros)
 

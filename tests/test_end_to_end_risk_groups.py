@@ -10,8 +10,13 @@ from topogen.config import (
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.corridors import assign_risk_groups as assign_risk_groups_to_corridors
-from topogen.corridors import extract_corridor_graph
+from topogen.corridors import (
+    CorridorPath,
+    extract_corridor_graph,
+)
+from topogen.corridors import (
+    assign_risk_groups as assign_risk_groups_to_corridors,
+)
 from topogen.metro_clusters import MetroCluster
 from topogen.scenario_builder import build_scenario
 
@@ -145,7 +150,51 @@ class TestEndToEndRiskGroups:
 
         assign_risk_groups_to_corridors(highway_graph, metros, config)
 
-        # Step 6: Extract corridor graph
+        # Step 6: Prepare minimal registry for extraction (one shortest path per pair)
+        registry = {}
+        # metro1-metro2 via two edges total 1000km
+        pid_12 = ("metro1", "metro2", 0)
+        registry[pid_12] = CorridorPath(
+            metros=("metro1", "metro2"),
+            path_index=0,
+            nodes=[metros[0].node_key, metros[1].node_key],
+            edges=[((0.0, 0.0), (500.0, 0.0)), ((500.0, 0.0), (1000.0, 0.0))],
+            segment_ids=[],
+            length_km=1000.0,
+            geometry=[metros[0].node_key, metros[1].node_key],
+        )
+        # metro2-metro3 via one edge 500km
+        pid_23 = ("metro2", "metro3", 0)
+        registry[pid_23] = CorridorPath(
+            metros=("metro2", "metro3"),
+            path_index=0,
+            nodes=[metros[1].node_key, metros[2].node_key],
+            edges=[((1000.0, 0.0), (1500.0, 0.0))],
+            segment_ids=[],
+            length_km=500.0,
+            geometry=[metros[1].node_key, metros[2].node_key],
+        )
+        # metro2-metro4 via 2 edges ~707km
+        pid_24 = ("metro2", "metro4", 0)
+        registry[pid_24] = CorridorPath(
+            metros=("metro2", "metro4"),
+            path_index=0,
+            nodes=[metros[1].node_key, metros[3].node_key],
+            edges=[((500.0, 0.0), (1000.0, 0.0)), ((500.0, 0.0), (500.0, 500.0))],
+            segment_ids=[],
+            length_km=707.0,
+            geometry=[metros[1].node_key, metros[3].node_key],
+        )
+        highway_graph.graph["corridor_paths"] = registry
+        # Tag edges with path membership for risk aggregation
+        highway_graph[(0.0, 0.0)][(500.0, 0.0)]["corridor_path_ids"] = {pid_12}
+        highway_graph[(500.0, 0.0)][(1000.0, 0.0)]["corridor_path_ids"] = {
+            pid_12,
+            pid_24,
+        }
+        highway_graph[(1000.0, 0.0)][(1500.0, 0.0)]["corridor_path_ids"] = {pid_23}
+        highway_graph[(500.0, 0.0)][(500.0, 500.0)]["corridor_path_ids"] = {pid_24}
+
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
         # Step 7: Generate scenario
@@ -293,7 +342,24 @@ class TestEndToEndRiskGroups:
         assert "risk_groups" in far_edge_data
         assert len(far_edge_data["risk_groups"]) > 0
 
-        # Extract corridor graph and generate scenario
+        # Minimal registry for this pair
+        pid = ("metro1", "metro2", 0)
+        highway_graph.graph["corridor_paths"] = {
+            pid: CorridorPath(
+                metros=("metro1", "metro2"),
+                path_index=0,
+                nodes=[metros[0].node_key, metros[1].node_key],
+                edges=[(close_edge[0], close_edge[1])],
+                segment_ids=[],
+                length_km=1010.0,
+                geometry=[metros[0].node_key, metros[1].node_key],
+            )
+        }
+        # Tag only far edge with path membership to keep its risks
+        highway_graph[(1200000.0, 1000.0)][(2000000.0, 1000.0)]["corridor_path_ids"] = {
+            pid
+        }
+
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
         scenario_config = TopologyConfig()
@@ -407,6 +473,53 @@ class TestEndToEndRiskGroups:
         )
 
         assign_risk_groups_to_corridors(highway_graph, metros, config)
+        # Registry for shared-risk paths
+        pid_12_0 = ("01171", "23527", 0)
+        pid_12_1 = ("01171", "23527", 1)
+        pid_23_1 = ("23527", "43912", 1)
+        highway_graph.graph["corridor_paths"] = {
+            pid_12_0: CorridorPath(
+                metros=("01171", "23527"),
+                path_index=0,
+                nodes=[metros[0].node_key, metros[1].node_key],
+                edges=[((100000.0, 0.0), (900000.0, 0.0))],
+                segment_ids=[],
+                length_km=1000.0,
+                geometry=[metros[0].node_key, metros[1].node_key],
+            ),
+            pid_12_1: CorridorPath(
+                metros=("01171", "23527"),
+                path_index=1,
+                nodes=[metros[0].node_key, metros[1].node_key],
+                edges=[((500000.0, 0.0), (1500000.0, 0.0))],
+                segment_ids=[],
+                length_km=1000.0,
+                geometry=[metros[0].node_key, metros[1].node_key],
+            ),
+            pid_23_1: CorridorPath(
+                metros=("23527", "43912"),
+                path_index=1,
+                nodes=[metros[1].node_key, metros[2].node_key],
+                edges=[((500000.0, 0.0), (1500000.0, 0.0))],
+                segment_ids=[],
+                length_km=1000.0,
+                geometry=[metros[1].node_key, metros[2].node_key],
+            ),
+        }
+
+        # Tag edges for chosen paths
+        highway_graph[(100000.0, 0.0)][(900000.0, 0.0)]["corridor_path_ids"] = {
+            pid_12_0
+        }
+        highway_graph[(1100000.0, 0.0)][(1900000.0, 0.0)]["corridor_path_ids"] = {
+            pid_23_1
+        }
+        # Shared edge carries both second paths
+        highway_graph[(500000.0, 0.0)][(1500000.0, 0.0)]["corridor_path_ids"] = {
+            pid_12_1,
+            pid_23_1,
+        }
+
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
         scenario_config = TopologyConfig()

@@ -173,6 +173,8 @@ def export_integrated_graph_map(
     output_path: Path,
     conus_boundary_path: Path,
     target_crs: str,
+    *,
+    use_real_geometry: bool = False,
 ) -> None:
     """Export JPEG preview map of integrated graph with metro clusters and corridors.
 
@@ -230,17 +232,31 @@ def export_integrated_graph_map(
         )
 
         if is_corridor_graph:
-            # Direct corridor graph - extract pairs from edges
+            # Direct corridor graph - construct linestrings from edge geometry when available
             logger.debug("Processing corridor graph (direct metro-to-metro edges)")
             for _u, _v, data in graph.edges(data=True):
-                if data.get("edge_type") == "corridor":
-                    corridor_edges_found += 1
-                    # Extract metro IDs from edge data
+                if data.get("edge_type") != "corridor":
+                    continue
+                corridor_edges_found += 1
+
+                if use_real_geometry:
+                    geom = data.get("geometry")
+                    if not (isinstance(geom, list) and len(geom) >= 2):
+                        raise ValueError(
+                            "Configured to use real geometry, but corridor edge missing geometry"
+                        )
+                    try:
+                        coords = [(float(x), float(y)) for (x, y) in geom]
+                    except Exception as e:
+                        raise ValueError(
+                            f"Invalid corridor geometry coordinates: {e}"
+                        ) from e
+                    corridor_lines.append(LineString(coords))
+                else:
+                    # Straight line required
                     metro_a_id = data.get("metro_a")
                     metro_b_id = data.get("metro_b")
-
                     if metro_a_id and metro_b_id:
-                        # Validate metro IDs exist
                         if metro_a_id not in metro_id_to_coords:
                             raise ValueError(
                                 f"Corridor references unknown metro ID: {metro_a_id}"
@@ -249,12 +265,13 @@ def export_integrated_graph_map(
                             raise ValueError(
                                 f"Corridor references unknown metro ID: {metro_b_id}"
                             )
-
-                        # Create sorted tuple to avoid duplicates
-                        pair = tuple(sorted([metro_a_id, metro_b_id]))
-                        corridor_pairs.add(pair)
+                        a_coords = metro_id_to_coords[metro_a_id]
+                        b_coords = metro_id_to_coords[metro_b_id]
+                        corridor_lines.append(LineString([a_coords, b_coords]))
                     else:
-                        logger.warning(f"Corridor edge missing metro IDs: {data}")
+                        raise ValueError(
+                            "Corridor edge missing metro IDs for straight-line rendering"
+                        )
         else:
             # Full highway graph - extract from corridor tags
             logger.debug(
@@ -292,11 +309,12 @@ def export_integrated_graph_map(
                                 f"Error processing corridor metadata: {e}"
                             ) from e
 
-        # Create LineString for each unique metro pair
-        for metro_a_id, metro_b_id in corridor_pairs:
-            coords_a = metro_id_to_coords[metro_a_id]
-            coords_b = metro_id_to_coords[metro_b_id]
-            corridor_lines.append(LineString([coords_a, coords_b]))
+        # For full graph, create LineString for each unique metro pair (straight line)
+        if not is_corridor_graph:
+            for metro_a_id, metro_b_id in corridor_pairs:
+                coords_a = metro_id_to_coords[metro_a_id]
+                coords_b = metro_id_to_coords[metro_b_id]
+                corridor_lines.append(LineString([coords_a, coords_b]))
 
         # Validate corridor discovery results
         if corridor_edges_found > 0 and len(corridor_lines) == 0:

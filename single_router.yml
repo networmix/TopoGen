@@ -48,6 +48,10 @@ workflows:
   assignments:
     default: "basic_capacity_analysis"
 
+visualization:
+  corridors:
+    use_real_geometry: true
+
 traffic:
   enabled: true
   model: gravity

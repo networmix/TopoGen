@@ -422,6 +422,10 @@ class TopologyConfig:
     corridors: CorridorsConfig = field(default_factory=CorridorsConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+
+    # Visualization settings
+    # Added as optional section; defaults preserve previous behavior (straight-line corridors)
+    # Parsed below after class definitions.
     build: BuildConfig = field(default_factory=BuildConfig)
     components: ComponentsConfig = field(default_factory=ComponentsConfig)
     failure_policies: FailurePoliciesConfig = field(
@@ -429,6 +433,8 @@ class TopologyConfig:
     )
     workflows: WorkflowsConfig = field(default_factory=WorkflowsConfig)
     traffic: TrafficConfig = field(default_factory=TrafficConfig)
+    # Visualization behavior; default False keeps previous straight-line rendering
+    _use_real_corridor_geometry: bool = False
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> TopologyConfig:
@@ -842,8 +848,21 @@ class TopologyConfig:
             if g.rounding_gbps < 0.0:
                 raise ValueError("traffic.gravity.rounding_gbps must be non-negative")
 
+        # Optional visualization flags
+        vis = config_dict.get("visualization", {}) or {}
+        if not isinstance(vis, dict):
+            raise ValueError(
+                "'visualization' configuration section must be a dictionary if provided"
+            )
+        vis_corridors = vis.get("corridors", {}) or {}
+        if not isinstance(vis_corridors, dict):
+            raise ValueError(
+                "'visualization.corridors' must be a dictionary if provided"
+            )
+        use_real_geometry = bool(vis_corridors.get("use_real_geometry", False))
+
         # Create main configuration
-        return cls(
+        cfg = cls(
             data_sources=data_sources,
             projection=projection,
             clustering=clustering,
@@ -857,6 +876,9 @@ class TopologyConfig:
             workflows=workflows,
             traffic=traffic,
         )
+        # Attach dynamic flag for visualization behavior; default False if unspecified
+        cfg._use_real_corridor_geometry = use_real_geometry
+        return cfg
 
     def validate(self) -> None:
         """Validate configuration parameters.

@@ -97,6 +97,20 @@ def build_scenario(
         metros, metro_settings, max_sites, max_dc_regions, graph, config
     )
 
+    # 3b. Hardware-aware capacity allocation (optional)
+    try:
+        ca_cfg = getattr(config.build, "capacity_allocation", None)
+    except Exception:
+        ca_cfg = None
+    if ca_cfg and getattr(ca_cfg, "enabled", False):
+        _apply_hw_capacity_allocation(
+            scenario,
+            metros,
+            metro_settings,
+            graph,
+            config,
+        )
+
     # 4. Risk groups section (if risk groups are present)
     risk_groups = _build_risk_groups_section(graph, config)
     if risk_groups:
@@ -113,8 +127,28 @@ def build_scenario(
     # 7. Workflow section
     scenario["workflow"] = _build_workflow_section(config)
 
-    # Convert to YAML with custom formatting for comments
-    yaml_output = yaml.safe_dump(scenario, sort_keys=False, default_flow_style=False)
+    # Convert to YAML; optionally disable anchors/aliases per formatting config
+    try:
+        emit_anchors = bool(config.output.formatting.yaml_anchors)
+    except Exception:
+        emit_anchors = True
+
+    if emit_anchors:
+        yaml_output = yaml.safe_dump(
+            scenario, sort_keys=False, default_flow_style=False
+        )
+    else:
+
+        class NoAliasDumper(yaml.SafeDumper):
+            def ignore_aliases(self, data):  # type: ignore[override]
+                return True
+
+        yaml_output = yaml.dump(
+            scenario,
+            Dumper=NoAliasDumper,
+            sort_keys=False,
+            default_flow_style=False,
+        )
 
     # Add section comments to adjacency section
     yaml_output = _add_adjacency_comments(yaml_output)
@@ -808,6 +842,291 @@ def _build_intra_metro_link_overrides(
     return overrides
 
 
+def _apply_hw_capacity_allocation(
+    scenario: dict[str, Any],
+    metros: list[dict[str, Any]],
+    metro_settings: dict[str, dict[str, Any]],
+    graph: nx.Graph,
+    config: "TopologyConfig",
+) -> None:
+    """Apply hardware-aware capacity allocation by updating inter-metro capacities.
+
+    Keeps configured capacities as minimums and distributes remaining platform
+    capacity to inter-metro POP-to-POP links using a round-robin strategy.
+
+    Raises:
+        ValueError: If base reservations exceed platform capacity.
+    """
+    # Build component lookup from scenario components (already merged built-ins)
+    components: dict[str, dict[str, Any]] = scenario.get("components", {})
+    blueprints: dict[str, dict[str, Any]] = scenario.get("blueprints", {})
+
+    # Map metro to index (1-based) consistent with adjacency build
+    metro_idx_map = {metro["name"]: idx for idx, metro in enumerate(metros, 1)}
+
+    # Determine platform capacity per POP and per DC node
+    pop_capacity: dict[tuple[int, int], float] = {}
+    dc_capacity: dict[tuple[int, int], float] = {}
+    pop_constrained: dict[tuple[int, int], bool] = {}
+    dc_constrained: dict[tuple[int, int], bool] = {}
+
+    for idx, metro in enumerate(metros, 1):
+        settings = metro_settings[metro["name"]]
+        sites_count = int(settings["pop_per_metro"])
+        dc_count = int(settings["dc_regions_per_metro"])
+
+        # POP platform capacity from blueprint core group hw_component
+        pop_bp_name = settings["site_blueprint"]
+        pop_bp = blueprints.get(pop_bp_name, {})
+        pop_groups = pop_bp.get("groups", {})
+        core_group = pop_groups.get("core", {})
+        core_attrs = core_group.get("attrs", {})
+        core_hw = core_attrs.get("hw_component")
+        comp_entry = components.get(core_hw, {}) if core_hw else {}
+        core_cap_val = comp_entry.get("capacity")
+        core_cap = float(core_cap_val) if core_cap_val is not None else float("inf")
+
+        for p in range(1, sites_count + 1):
+            key = (idx, p)
+            pop_capacity[key] = core_cap
+            pop_constrained[key] = core_cap != float("inf")
+
+        # DC platform capacity from blueprint dc group hw_component
+        if dc_count > 0:
+            dc_bp_name = settings["dc_region_blueprint"]
+            dc_bp = blueprints.get(dc_bp_name, {})
+            dc_groups = dc_bp.get("groups", {})
+            dc_group = dc_groups.get("dc", {})
+            dc_attrs = dc_group.get("attrs", {})
+            dc_hw = dc_attrs.get("hw_component")
+            comp_entry = components.get(dc_hw, {}) if dc_hw else {}
+            dc_cap_val = comp_entry.get("capacity")
+            dc_cap = float(dc_cap_val) if dc_cap_val is not None else float("inf")
+            for d in range(1, dc_count + 1):
+                key = (idx, d)
+                dc_capacity[key] = dc_cap
+                dc_constrained[key] = dc_cap != float("inf")
+
+    # Reserve base capacities against platform budgets
+    # Initialize budgets as remaining capacity
+    pop_budget: dict[tuple[int, int], float] = {k: v for k, v in pop_capacity.items()}
+    dc_budget: dict[tuple[int, int], float] = {k: v for k, v in dc_capacity.items()}
+
+    # Intra-metro reservations (PoP-PoP mesh)
+    for idx, metro in enumerate(metros, 1):
+        settings = metro_settings[metro["name"]]
+        s = int(settings["pop_per_metro"])
+        if s <= 1:
+            continue
+        c_intra = float(settings["intra_metro_link"]["capacity"])
+        reserve = max(0, s - 1) * c_intra
+        for p in range(1, s + 1):
+            key = (idx, p)
+            if key in pop_budget:
+                pop_budget[key] = pop_budget.get(key, float("inf")) - reserve
+
+    # DC-to-PoP reservations (mesh)
+    for idx, metro in enumerate(metros, 1):
+        settings = metro_settings[metro["name"]]
+        s = int(settings["pop_per_metro"])
+        d = int(settings["dc_regions_per_metro"])
+        if s <= 0 or d <= 0:
+            continue
+        c_dp = float(settings["dc_to_pop_link"]["capacity"])
+        # PoP reservations: d links per PoP
+        for p in range(1, s + 1):
+            key = (idx, p)
+            if key in pop_budget:
+                pop_budget[key] = pop_budget.get(key, float("inf")) - d * c_dp
+        # DC reservations: s links per DC
+        for dc in range(1, d + 1):
+            key = (idx, dc)
+            if key in dc_budget:
+                dc_budget[key] = dc_budget.get(key, float("inf")) - s * c_dp
+
+    # Inter-metro reservations per corridor
+    corridor_edges = _extract_corridor_edges(graph)
+    # Build quick lookup of site counts per metro
+    sites_per_metro: dict[int, int] = {
+        metro_idx_map[m["name"]]: int(metro_settings[m["name"]]["pop_per_metro"])  # type: ignore[index]
+        for m in metros
+    }
+
+    for edge in corridor_edges:
+        source = edge["source"]
+        target = edge["target"]
+        src_metro = next(m for m in metros if m["node_key"] == source)
+        tgt_metro = next(m for m in metros if m["node_key"] == target)
+        s_idx = metro_idx_map[src_metro["name"]]
+        t_idx = metro_idx_map[tgt_metro["name"]]
+        s_sites = sites_per_metro[s_idx]
+        t_sites = sites_per_metro[t_idx]
+
+        # Base capacity per POP pair: use explicit corridor capacity if set
+        src_settings = metro_settings[src_metro["name"]]
+        default_c = float(src_settings["inter_metro_link"]["capacity"])
+        base_c = float(edge.get("capacity", default_c))
+
+        # Reserve for source POPs
+        for p in range(1, s_sites + 1):
+            key = (s_idx, p)
+            if key in pop_budget:
+                pop_budget[key] = pop_budget.get(key, float("inf")) - t_sites * base_c
+        # Reserve for target POPs
+        for q in range(1, t_sites + 1):
+            key = (t_idx, q)
+            if key in pop_budget:
+                pop_budget[key] = pop_budget.get(key, float("inf")) - s_sites * base_c
+
+    # Validate budgets (always raise on overcommit)
+    for (idx, p), remaining in pop_budget.items():
+        if remaining < -1e-9:  # allow tiny epsilon
+            metro_name = next(
+                m["name"] for m in metros if metro_idx_map[m["name"]] == idx
+            )
+            raise ValueError(
+                f"Base capacities exceed platform at metro {metro_name} pop{p}: remaining {remaining:.0f} Gbps < 0"
+            )
+    for (idx, d), remaining in dc_budget.items():
+        if remaining < -1e-9:
+            metro_name = next(
+                m["name"] for m in metros if metro_idx_map[m["name"]] == idx
+            )
+            raise ValueError(
+                f"Base capacities exceed platform at metro {metro_name} dc{d}: remaining {remaining:.0f} Gbps < 0"
+            )
+
+    # Distribute remaining POP budget to inter-metro links in round-robin
+    # Build candidate pairs with base capacity and step size
+    candidates: list[
+        tuple[int, int, int, int, float]
+    ] = []  # (s_idx, p, t_idx, q, step)
+
+    for edge in corridor_edges:
+        src_metro = next(m for m in metros if m["node_key"] == edge["source"])
+        tgt_metro = next(m for m in metros if m["node_key"] == edge["target"])
+        s_idx = metro_idx_map[src_metro["name"]]
+        t_idx = metro_idx_map[tgt_metro["name"]]
+        s_sites = sites_per_metro[s_idx]
+        t_sites = sites_per_metro[t_idx]
+
+        src_settings = metro_settings[src_metro["name"]]
+        default_c = float(src_settings["inter_metro_link"]["capacity"])
+        base_c = float(edge.get("capacity", default_c))
+        step = base_c
+
+        for p in range(1, s_sites + 1):
+            for q in range(1, t_sites + 1):
+                # Only consider pairs where at least one endpoint is constrained.
+                if pop_constrained.get((s_idx, p), False) or pop_constrained.get(
+                    (t_idx, q), False
+                ):
+                    candidates.append((s_idx, p, t_idx, q, step))
+
+    # Track increments per pair
+    increments: dict[tuple[int, int, int, int], int] = {}
+    if candidates:
+        progressed = True
+        while progressed:
+            progressed = False
+            for s_idx, p, t_idx, q, step in candidates:
+                key_s = (s_idx, p)
+                key_t = (t_idx, q)
+                # If an endpoint is unconstrained, skip its budget check.
+                need_s = pop_constrained.get(key_s, False)
+                need_t = pop_constrained.get(key_t, False)
+                b_s = pop_budget.get(key_s, float("inf"))
+                b_t = pop_budget.get(key_t, float("inf"))
+                ok_s = (not need_s) or (b_s >= step)
+                ok_t = (not need_t) or (b_t >= step)
+                if ok_s and ok_t:
+                    if need_s:
+                        pop_budget[key_s] = b_s - step
+                    if need_t:
+                        pop_budget[key_t] = b_t - step
+                    pair_key = (s_idx, p, t_idx, q)
+                    increments[pair_key] = increments.get(pair_key, 0) + 1
+                    progressed = True
+
+    # Compute final capacities for all POP pairs covered by corridor adjacencies
+    final_capacity: dict[tuple[int, int, int, int], int] = {}
+    for edge in corridor_edges:
+        src_metro = next(m for m in metros if m["node_key"] == edge["source"])
+        tgt_metro = next(m for m in metros if m["node_key"] == edge["target"])
+        s_idx = metro_idx_map[src_metro["name"]]
+        t_idx = metro_idx_map[tgt_metro["name"]]
+        s_sites = sites_per_metro[s_idx]
+        t_sites = sites_per_metro[t_idx]
+        src_settings = metro_settings[src_metro["name"]]
+        default_c = float(src_settings["inter_metro_link"]["capacity"])
+        base_c = float(edge.get("capacity", default_c))
+        for p in range(1, s_sites + 1):
+            for q in range(1, t_sites + 1):
+                k = increments.get((s_idx, p, t_idx, q), 0)
+                final_capacity[(s_idx, p, t_idx, q)] = int(base_c + k * base_c)
+
+    # Rewrite adjacency: replace inter-metro cartesian rule with per-pair entries
+    network = scenario.setdefault("network", {})
+    old_adj: list[dict[str, Any]] = network.get("adjacency", [])  # type: ignore[assignment]
+    new_adj: list[dict[str, Any]] = []
+
+    # Keep non inter-metro entries
+    for adj in old_adj:
+        try:
+            attrs = adj.get("link_params", {}).get("attrs", {})
+            if attrs.get("link_type") == "inter_metro_corridor":
+                # Skip; will be replaced with per-pair adjacencies
+                continue
+        except Exception:
+            pass
+        new_adj.append(adj)
+
+    # Append per-pair inter-metro adjacency entries with final capacities
+    for edge in corridor_edges:
+        src_metro = next(m for m in metros if m["node_key"] == edge["source"])
+        tgt_metro = next(m for m in metros if m["node_key"] == edge["target"])
+        s_idx = metro_idx_map[src_metro["name"]]
+        t_idx = metro_idx_map[tgt_metro["name"]]
+        s_sites = sites_per_metro[s_idx]
+        t_sites = sites_per_metro[t_idx]
+        src_settings = metro_settings[src_metro["name"]]
+        inter_attrs = dict(src_settings["inter_metro_link"]["attrs"])  # copy
+        base_cost = math.ceil(
+            edge.get("length_km", src_settings["inter_metro_link"]["cost"])
+        )
+        edge_risk_groups = edge.get("risk_groups", [])
+
+        for p in range(1, s_sites + 1):
+            for q in range(1, t_sites + 1):
+                cap = final_capacity[(s_idx, p, t_idx, q)]
+                entry = {
+                    "source": f"metro{s_idx}/pop{p}",
+                    "target": f"metro{t_idx}/pop{q}",
+                    "pattern": "one_to_one",
+                    "link_params": {
+                        "capacity": cap,
+                        "cost": base_cost,
+                        "attrs": {
+                            **inter_attrs,
+                            "distance_km": base_cost,
+                            "source_metro": src_metro["name"],
+                            "source_metro_orig": src_metro.get(
+                                "name_orig", src_metro["name"]
+                            ),
+                            "target_metro": tgt_metro["name"],
+                            "target_metro_orig": tgt_metro.get(
+                                "name_orig", tgt_metro["name"]
+                            ),
+                        },
+                    },
+                }
+                if edge_risk_groups:
+                    entry["link_params"]["risk_groups"] = edge_risk_groups
+                new_adj.append(entry)
+
+    network["adjacency"] = new_adj
+
+
 def _build_traffic_matrix_section(
     metro_settings: dict[str, dict[str, Any]], config: TopologyConfig
 ) -> dict[str, list[dict[str, Any]]]:
@@ -884,16 +1203,17 @@ def _extract_corridor_edges(graph: nx.Graph) -> list[dict[str, Any]]:
             "metro",
             "metro+highway",
         ] and target_data.get("node_type") in ["metro", "metro+highway"]:
-            corridor_edges.append(
-                {
-                    "source": source,
-                    "target": target,
-                    "length_km": data.get("length_km", 0.0),
-                    "capacity": data.get("capacity", 100),
-                    "edge_type": data.get("edge_type", "corridor"),
-                    "risk_groups": data.get("risk_groups", []),
-                }
-            )
+            edge_entry: dict[str, Any] = {
+                "source": source,
+                "target": target,
+                "length_km": data.get("length_km", 0.0),
+                "edge_type": data.get("edge_type", "corridor"),
+                "risk_groups": data.get("risk_groups", []),
+            }
+            # Only include capacity if explicitly set on the input edge.
+            if "capacity" in data:
+                edge_entry["capacity"] = data["capacity"]
+            corridor_edges.append(edge_entry)
 
     return corridor_edges
 

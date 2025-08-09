@@ -1,5 +1,7 @@
 """Integration tests for the build functionality."""
 
+import re
+
 import networkx as nx
 import pytest
 import yaml
@@ -166,6 +168,26 @@ class TestBuildIntegration:
         # Should have groups and adjacency subsections
         assert any(line.strip() == "groups:" for line in lines)
         assert any(line.strip() == "adjacency:" for line in lines)
+
+    def test_yaml_anchors_toggle(self, sample_integrated_graph, sample_config):
+        """Disabling yaml anchors should remove &/* alias tokens from YAML text."""
+        # Default: anchors enabled (may or may not appear depending on sharing)
+        yaml_with_default = build_scenario(sample_integrated_graph, sample_config)
+        assert yaml_with_default  # sanity
+
+        # Disable anchors
+        sample_config.output.formatting.yaml_anchors = False
+        yaml_no_anchors = build_scenario(sample_integrated_graph, sample_config)
+
+        # Basic sanity: valid YAML
+        data = yaml.safe_load(yaml_no_anchors)
+        assert data is not None
+
+        # Text should not contain YAML anchor/alias tokens (ignore regex '*' etc.)
+        alias_pat = re.compile(r"(^|[\s\[\{,])\*[A-Za-z_][\w-]*")
+        anchor_pat = re.compile(r"(^|[\s\[\{,])&[A-Za-z_][\w-]*")
+        assert anchor_pat.search(yaml_no_anchors) is None
+        assert alias_pat.search(yaml_no_anchors) is None
 
     def test_metro_override_application(self, sample_integrated_graph, sample_config):
         """Test that metro overrides are correctly applied."""

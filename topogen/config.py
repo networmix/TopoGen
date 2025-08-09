@@ -163,6 +163,28 @@ class BuildConfig:
 
     build_defaults: BuildDefaults = field(default_factory=BuildDefaults)
     build_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # Capacity allocation policy
+    # Hardware-aware capacity allocation is disabled by default for
+    # strict backward compatibility.
+    capacity_allocation: "BuildCapacityAllocationConfig" = field(  # type: ignore[name-defined]
+        default_factory=lambda: BuildCapacityAllocationConfig()
+    )
+
+
+@dataclass
+class BuildCapacityAllocationConfig:
+    """Hardware-aware capacity allocation settings.
+
+    When enabled, capacity allocation for dc_to_pop, intra_metro, and
+    inter_metro links becomes aware of platform capacities. Base capacities
+    from configuration are treated as minimums. Remaining capacity is
+    allocated to inter-metro links in discrete increments.
+
+    Attributes:
+        enabled: Turn on HW-aware allocation. Default False.
+    """
+
+    enabled: bool = False
 
 
 @dataclass
@@ -327,6 +349,7 @@ class FormattingConfig:
     """
 
     json_indent: int = 2  # JSON output indentation
+    yaml_anchors: bool = True  # Emit YAML anchors/aliases when dumping scenario YAML
 
 
 @dataclass
@@ -483,11 +506,16 @@ class TopologyConfig:
 
         build_defaults_dict = build_dict.get("build_defaults", {})
         build_overrides_dict = build_dict.get("build_overrides", {})
+        capacity_alloc_dict = build_dict.get("capacity_allocation", {})
 
         if not isinstance(build_defaults_dict, dict):
             raise ValueError("'build_defaults' must be a dictionary")
         if not isinstance(build_overrides_dict, dict):
             raise ValueError("'build_overrides' must be a dictionary")
+        if capacity_alloc_dict is None:
+            capacity_alloc_dict = {}
+        if not isinstance(capacity_alloc_dict, dict):
+            raise ValueError("'capacity_allocation' must be a dictionary if provided")
 
         # Parse link parameter configurations
         intra_metro_link_dict = build_defaults_dict.get("intra_metro_link", {})
@@ -539,9 +567,22 @@ class TopologyConfig:
             inter_metro_link=inter_metro_link,
             dc_to_pop_link=dc_to_pop_link,
         )
+        # Capacity allocation configuration
+        # Strictly allow only the supported key 'enabled'
+        _allowed_ca_keys = {"enabled"}
+        _extra_keys = set(capacity_alloc_dict.keys()) - _allowed_ca_keys
+        if _extra_keys:
+            raise ValueError(
+                f"Unknown keys in 'build.capacity_allocation': {_extra_keys}. Allowed keys: {_allowed_ca_keys}"
+            )
+        capacity_allocation = BuildCapacityAllocationConfig(
+            enabled=bool(capacity_alloc_dict.get("enabled", False))
+        )
+
         build = BuildConfig(
             build_defaults=build_defaults,
             build_overrides=build_overrides_dict,
+            capacity_allocation=capacity_allocation,
         )
 
         # Handle optional components configuration

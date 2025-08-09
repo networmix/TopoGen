@@ -134,6 +134,7 @@ output:
   # Data formatting configuration
   formatting:
     json_indent: 2 # JSON output indentation
+    yaml_anchors: true # Emit YAML anchors/aliases in scenario YAML
 
 # Build configuration for generating NetGraph scenarios
 build:

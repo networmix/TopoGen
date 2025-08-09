@@ -6,6 +6,7 @@ output:
 
   formatting:
     json_indent: 2
+    yaml_anchors: true
 
 build:
   build_defaults:
@@ -14,28 +15,30 @@ build:
     dc_regions_per_metro: 2
     dc_region_blueprint: DCRegion
     intra_metro_link:
-      capacity: 400
+      capacity: 12_800
       cost: 1
       attrs:
         link_type: intra_metro
     inter_metro_link:
-      capacity: 100
+      capacity: 3_200
       cost: 1
       attrs:
         link_type: inter_metro_corridor
     dc_to_pop_link:
-      capacity: 400
+      capacity: 25_600
       cost: 1
       attrs:
         link_type: dc_to_pop
-
   build_overrides: {}
+
+  capacity_allocation:
+    enabled: true
 
 components:
   assignments:
     core:
       hw_component: CoreRouter
-      optics: 100G-LR4
+      optics: 800G-ZR+
 
 failure_policies:
   assignments:
@@ -47,8 +50,8 @@ workflows:
 
 traffic:
   enabled: true
-  gbps_per_mw: 1000.0
-  mw_per_dc_region: 150.0
+  gbps_per_mw: 500.0
+  mw_per_dc_region: 50.0
   priority_ratios:
     0: 0.3
     1: 0.3

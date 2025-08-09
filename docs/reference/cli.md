@@ -56,3 +56,4 @@ Options:
 ## Notes
 
 - Configuration lives in `config.yml`. See the repository root for an example and `docs/` for details.
+- YAML formatting: set `output.formatting.yaml_anchors: false` to emit fully expanded YAML without anchors/aliases.

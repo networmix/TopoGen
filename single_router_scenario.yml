@@ -19,32 +19,25 @@ blueprints:
           hw_component: CoreRouter
     adjacency: []
 components:
-  100G-LR4:
+  800G-ZR+:
     component_type: optic
-    description: 100G LR4 pluggable optic
-    cost: 1200.0
-    power_watts: 3.5
-    power_watts_max: 4.0
-    capacity: 100.0
+    description: 800G ZR+ pluggable optic
+    cost: 10000.0
+    power_watts: 30.0
+    power_watts_max: 30.0
+    capacity: 800.0
     ports: 1
-    attrs:
-      reach: 10km
-      wavelength: 1310nm
-      form_factor: QSFP28
-      fiber_type: SMF
+    attrs: {}
   CoreRouter:
     component_type: chassis
     description: Core router for metro backbone
-    cost: 45000.0
-    power_watts: 2200.0
-    power_watts_max: 2500.0
-    capacity: 25600.0
-    ports: 32
+    cost: 650000.0
+    power_watts: 40000.0
+    power_watts_max: 50000.0
+    capacity: 460800.0
+    ports: 576
     attrs:
       role: core
-      form_factor: 2RU
-      vendor: Generic
-      model: CR-2500
 network:
   groups:
     metro1/pop[1-2]:
@@ -528,7 +521,7 @@ network:
     target: /metro1/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 73
       attrs:
         link_type: intra_metro
@@ -541,7 +534,7 @@ network:
     target: /metro2/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 91
       attrs:
         link_type: intra_metro
@@ -554,7 +547,7 @@ network:
     target: /metro3/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 50
       attrs:
         link_type: intra_metro
@@ -567,7 +560,7 @@ network:
     target: /metro4/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 60
       attrs:
         link_type: intra_metro
@@ -580,7 +573,7 @@ network:
     target: /metro5/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 96
       attrs:
         link_type: intra_metro
@@ -593,7 +586,7 @@ network:
     target: /metro6/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 142
       attrs:
         link_type: intra_metro
@@ -606,7 +599,7 @@ network:
     target: /metro7/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 65
       attrs:
         link_type: intra_metro
@@ -619,7 +612,7 @@ network:
     target: /metro8/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 47
       attrs:
         link_type: intra_metro
@@ -632,7 +625,7 @@ network:
     target: /metro9/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 34
       attrs:
         link_type: intra_metro
@@ -645,7 +638,7 @@ network:
     target: /metro10/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 47
       attrs:
         link_type: intra_metro
@@ -658,7 +651,7 @@ network:
     target: /metro11/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 45
       attrs:
         link_type: intra_metro
@@ -671,7 +664,7 @@ network:
     target: /metro12/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 53
       attrs:
         link_type: intra_metro
@@ -684,7 +677,7 @@ network:
     target: /metro13/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 138
       attrs:
         link_type: intra_metro
@@ -697,7 +690,7 @@ network:
     target: /metro14/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 120
       attrs:
         link_type: intra_metro
@@ -710,7 +703,7 @@ network:
     target: /metro15/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 77
       attrs:
         link_type: intra_metro
@@ -723,7 +716,7 @@ network:
     target: /metro16/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 87
       attrs:
         link_type: intra_metro
@@ -736,7 +729,7 @@ network:
     target: /metro17/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 74
       attrs:
         link_type: intra_metro
@@ -749,7 +742,7 @@ network:
     target: /metro18/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 69
       attrs:
         link_type: intra_metro
@@ -762,7 +755,7 @@ network:
     target: /metro19/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 86
       attrs:
         link_type: intra_metro
@@ -775,7 +768,7 @@ network:
     target: /metro20/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 62
       attrs:
         link_type: intra_metro
@@ -788,7 +781,7 @@ network:
     target: /metro21/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 163
       attrs:
         link_type: intra_metro
@@ -801,7 +794,7 @@ network:
     target: /metro22/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 125
       attrs:
         link_type: intra_metro
@@ -814,7 +807,7 @@ network:
     target: /metro23/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 120
       attrs:
         link_type: intra_metro
@@ -827,7 +820,7 @@ network:
     target: /metro24/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 117
       attrs:
         link_type: intra_metro
@@ -840,7 +833,7 @@ network:
     target: /metro25/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 12800
       cost: 116
       attrs:
         link_type: intra_metro
@@ -853,7 +846,7 @@ network:
     target: /metro1/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -863,7 +856,7 @@ network:
     target: /metro2/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -873,7 +866,7 @@ network:
     target: /metro3/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -883,7 +876,7 @@ network:
     target: /metro4/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -893,7 +886,7 @@ network:
     target: /metro5/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -903,7 +896,7 @@ network:
     target: /metro6/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -913,7 +906,7 @@ network:
     target: /metro7/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -923,7 +916,7 @@ network:
     target: /metro8/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -933,7 +926,7 @@ network:
     target: /metro9/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -943,7 +936,7 @@ network:
     target: /metro10/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -953,7 +946,7 @@ network:
     target: /metro11/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -963,7 +956,7 @@ network:
     target: /metro12/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -973,7 +966,7 @@ network:
     target: /metro13/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -983,7 +976,7 @@ network:
     target: /metro14/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -993,7 +986,7 @@ network:
     target: /metro15/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1003,7 +996,7 @@ network:
     target: /metro16/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1013,7 +1006,7 @@ network:
     target: /metro17/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1023,7 +1016,7 @@ network:
     target: /metro18/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1033,7 +1026,7 @@ network:
     target: /metro19/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1043,7 +1036,7 @@ network:
     target: /metro20/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1053,7 +1046,7 @@ network:
     target: /metro21/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1063,7 +1056,7 @@ network:
     target: /metro22/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1073,7 +1066,7 @@ network:
     target: /metro23/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1083,7 +1076,7 @@ network:
     target: /metro24/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
@@ -1093,25 +1086,18 @@ network:
     target: /metro25/pop[1-2]
     pattern: mesh
     link_params:
-      capacity: 400
+      capacity: 25600
       cost: 1
       attrs:
         link_type: dc_to_pop
         metro_name: los-angeles-long-beach-anaheim
         metro_name_orig: Los Angeles--Long Beach--Anaheim, CA
-  - source: metro1/pop{src_idx}
-    target: metro15/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  # Inter-metro corridor connectivity (backbone links between metros)
+  - source: metro1/pop1
+    target: metro15/pop1
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 32000
       cost: 1019
       attrs:
         link_type: inter_metro_corridor
@@ -1120,23 +1106,57 @@ network:
         source_metro_orig: Denver--Aurora, CO
         target_metro: kansas-city
         target_metro_orig: Kansas City, MO--KS
-      risk_groups:
+      risk_groups: &id001
       - corridor_risk_dallas-fort-worth-arlington_kansas-city
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_denver-aurora_kansas-city
-  - source: metro1/pop{src_idx}
-    target: metro5/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro1/pop1
+    target: metro15/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 32000
+      cost: 1019
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1019
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id001
+  - source: metro1/pop2
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
+      cost: 1019
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1019
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id001
+  - source: metro1/pop2
+    target: metro15/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
+      cost: 1019
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1019
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id001
+  - source: metro1/pop1
+    target: metro5/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
       cost: 1607
       attrs:
         link_type: inter_metro_corridor
@@ -1145,25 +1165,59 @@ network:
         source_metro_orig: Denver--Aurora, CO
         target_metro: phoenix-mesa-scottsdale
         target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
-      risk_groups:
+      risk_groups: &id002
       - corridor_risk_albuquerque_denver-aurora
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_albuquerque_phoenix-mesa-scottsdale
       - corridor_risk_albuquerque_salt-lake-city
       - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
-  - source: metro1/pop{src_idx}
-    target: metro3/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro1/pop1
+    target: metro5/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 38400
+      cost: 1607
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1607
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id002
+  - source: metro1/pop2
+    target: metro5/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 1607
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1607
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id002
+  - source: metro1/pop2
+    target: metro5/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 1607
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1607
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id002
+  - source: metro1/pop1
+    target: metro3/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 935
       attrs:
         link_type: inter_metro_corridor
@@ -1172,23 +1226,57 @@ network:
         source_metro_orig: Denver--Aurora, CO
         target_metro: salt-lake-city
         target_metro_orig: Salt Lake City, UT
-      risk_groups:
+      risk_groups: &id003
       - corridor_risk_albuquerque_salt-lake-city
       - corridor_risk_denver-aurora_las-vegas-henderson-paradise
       - corridor_risk_denver-aurora_salt-lake-city
-  - source: metro1/pop{src_idx}
-    target: metro8/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro1/pop1
+    target: metro3/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 935
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 935
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: salt-lake-city
+        target_metro_orig: Salt Lake City, UT
+      risk_groups: *id003
+  - source: metro1/pop2
+    target: metro3/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 935
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 935
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: salt-lake-city
+        target_metro_orig: Salt Lake City, UT
+      risk_groups: *id003
+  - source: metro1/pop2
+    target: metro3/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 935
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 935
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: salt-lake-city
+        target_metro_orig: Salt Lake City, UT
+      risk_groups: *id003
+  - source: metro1/pop1
+    target: metro8/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 905
       attrs:
         link_type: inter_metro_corridor
@@ -1197,21 +1285,55 @@ network:
         source_metro_orig: Denver--Aurora, CO
         target_metro: omaha
         target_metro_orig: Omaha, NE--IA
-      risk_groups:
+      risk_groups: &id004
       - corridor_risk_denver-aurora_omaha
-  - source: metro1/pop{src_idx}
-    target: metro4/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro1/pop1
+    target: metro8/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 905
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 905
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups: *id004
+  - source: metro1/pop2
+    target: metro8/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 905
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 905
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups: *id004
+  - source: metro1/pop2
+    target: metro8/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 905
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 905
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups: *id004
+  - source: metro1/pop1
+    target: metro4/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1667
       attrs:
         link_type: inter_metro_corridor
@@ -1220,7 +1342,7 @@ network:
         source_metro_orig: Denver--Aurora, CO
         target_metro: las-vegas-henderson-paradise
         target_metro_orig: Las Vegas--Henderson--Paradise, NV
-      risk_groups:
+      risk_groups: &id005
       - corridor_risk_albuquerque_salt-lake-city
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_denver-aurora_las-vegas-henderson-paradise
@@ -1228,19 +1350,53 @@ network:
       - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro1/pop{src_idx}
-    target: metro10/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro1/pop1
+    target: metro4/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1667
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1667
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups: *id005
+  - source: metro1/pop2
+    target: metro4/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1667
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1667
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups: *id005
+  - source: metro1/pop2
+    target: metro4/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1667
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1667
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups: *id005
+  - source: metro1/pop1
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 780
       attrs:
         link_type: inter_metro_corridor
@@ -1249,23 +1405,57 @@ network:
         source_metro_orig: Denver--Aurora, CO
         target_metro: albuquerque
         target_metro_orig: Albuquerque, NM
-      risk_groups:
+      risk_groups: &id006
       - corridor_risk_albuquerque_denver-aurora
       - corridor_risk_albuquerque_salt-lake-city
       - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
-  - source: metro2/pop{src_idx}
-    target: metro8/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro1/pop1
+    target: metro10/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 780
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 780
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id006
+  - source: metro1/pop2
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 780
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 780
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id006
+  - source: metro1/pop2
+    target: metro10/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 780
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 780
+        source_metro: denver-aurora
+        source_metro_orig: Denver--Aurora, CO
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id006
+  - source: metro2/pop1
+    target: metro8/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 44800
       cost: 639
       attrs:
         link_type: inter_metro_corridor
@@ -1274,26 +1464,60 @@ network:
         source_metro_orig: Minneapolis--St. Paul, MN
         target_metro: omaha
         target_metro_orig: Omaha, NE--IA
-      risk_groups:
+      risk_groups: &id007
       - corridor_risk_chicago_omaha
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_kansas-city_minneapolis-st-paul
       - corridor_risk_kansas-city_omaha
       - corridor_risk_minneapolis-st-paul_omaha
       - corridor_risk_omaha_st-louis
-  - source: metro2/pop{src_idx}
-    target: metro15/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro2/pop1
+    target: metro8/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 44800
+      cost: 639
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 639
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups: *id007
+  - source: metro2/pop2
+    target: metro8/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 44800
+      cost: 639
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 639
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups: *id007
+  - source: metro2/pop2
+    target: metro8/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 44800
+      cost: 639
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 639
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: omaha
+        target_metro_orig: Omaha, NE--IA
+      risk_groups: *id007
+  - source: metro2/pop1
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
       cost: 739
       attrs:
         link_type: inter_metro_corridor
@@ -1302,23 +1526,57 @@ network:
         source_metro_orig: Minneapolis--St. Paul, MN
         target_metro: kansas-city
         target_metro_orig: Kansas City, MO--KS
-      risk_groups:
+      risk_groups: &id008
       - corridor_risk_chicago_kansas-city
       - corridor_risk_kansas-city_minneapolis-st-paul
       - corridor_risk_minneapolis-st-paul_omaha
-  - source: metro2/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro2/pop1
+    target: metro15/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 32000
+      cost: 739
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 739
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id008
+  - source: metro2/pop2
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
+      cost: 739
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 739
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id008
+  - source: metro2/pop2
+    target: metro15/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
+      cost: 739
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 739
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id008
+  - source: metro2/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1106
       attrs:
         link_type: inter_metro_corridor
@@ -1327,23 +1585,57 @@ network:
         source_metro_orig: Minneapolis--St. Paul, MN
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id009
       - corridor_risk_chicago_minneapolis-st-paul
       - corridor_risk_chicago_st-louis
       - corridor_risk_minneapolis-st-paul_st-louis
-  - source: metro2/pop{src_idx}
-    target: metro13/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro2/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1106
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1106
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id009
+  - source: metro2/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1106
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1106
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id009
+  - source: metro2/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1106
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1106
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id009
+  - source: metro2/pop1
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 692
       attrs:
         link_type: inter_metro_corridor
@@ -1352,22 +1644,56 @@ network:
         source_metro_orig: Minneapolis--St. Paul, MN
         target_metro: chicago
         target_metro_orig: Chicago, IL--IN
-      risk_groups:
+      risk_groups: &id010
       - corridor_risk_chicago_minneapolis-st-paul
       - corridor_risk_minneapolis-st-paul_st-louis
-  - source: metro3/pop{src_idx}
-    target: metro10/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro2/pop1
+    target: metro13/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 692
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 692
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id010
+  - source: metro2/pop2
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 692
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 692
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id010
+  - source: metro2/pop2
+    target: metro13/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 692
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 692
+        source_metro: minneapolis-st-paul
+        source_metro_orig: Minneapolis--St. Paul, MN
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id010
+  - source: metro3/pop1
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1714
       attrs:
         link_type: inter_metro_corridor
@@ -1376,25 +1702,59 @@ network:
         source_metro_orig: Salt Lake City, UT
         target_metro: albuquerque
         target_metro_orig: Albuquerque, NM
-      risk_groups:
+      risk_groups: &id011
       - corridor_risk_albuquerque_denver-aurora
       - corridor_risk_albuquerque_salt-lake-city
       - corridor_risk_denver-aurora_las-vegas-henderson-paradise
       - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
       - corridor_risk_denver-aurora_salt-lake-city
-  - source: metro3/pop{src_idx}
-    target: metro5/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro3/pop1
+    target: metro10/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1714
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1714
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id011
+  - source: metro3/pop2
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1714
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1714
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id011
+  - source: metro3/pop2
+    target: metro10/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1714
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1714
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id011
+  - source: metro3/pop1
+    target: metro5/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1666
       attrs:
         link_type: inter_metro_corridor
@@ -1403,7 +1763,7 @@ network:
         source_metro_orig: Salt Lake City, UT
         target_metro: phoenix-mesa-scottsdale
         target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
-      risk_groups:
+      risk_groups: &id012
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_denver-aurora_las-vegas-henderson-paradise
@@ -1414,19 +1774,53 @@ network:
       - corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro3/pop{src_idx}
-    target: metro4/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro3/pop1
+    target: metro5/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1666
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1666
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id012
+  - source: metro3/pop2
+    target: metro5/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1666
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1666
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id012
+  - source: metro3/pop2
+    target: metro5/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1666
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1666
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id012
+  - source: metro3/pop1
+    target: metro4/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 733
       attrs:
         link_type: inter_metro_corridor
@@ -1435,25 +1829,59 @@ network:
         source_metro_orig: Salt Lake City, UT
         target_metro: las-vegas-henderson-paradise
         target_metro_orig: Las Vegas--Henderson--Paradise, NV
-      risk_groups:
+      risk_groups: &id013
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_denver-aurora_las-vegas-henderson-paradise
       - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro3/pop{src_idx}
-    target: metro25/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro3/pop1
+    target: metro4/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 733
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 733
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups: *id013
+  - source: metro3/pop2
+    target: metro4/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 733
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 733
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups: *id013
+  - source: metro3/pop2
+    target: metro4/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 733
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 733
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: las-vegas-henderson-paradise
+        target_metro_orig: Las Vegas--Henderson--Paradise, NV
+      risk_groups: *id013
+  - source: metro3/pop1
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1208
       attrs:
         link_type: inter_metro_corridor
@@ -1462,7 +1890,7 @@ network:
         source_metro_orig: Salt Lake City, UT
         target_metro: los-angeles-long-beach-anaheim
         target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
-      risk_groups:
+      risk_groups: &id014
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_denver-aurora_las-vegas-henderson-paradise
@@ -1472,19 +1900,53 @@ network:
       - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro3/pop{src_idx}
-    target: metro9/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro3/pop1
+    target: metro25/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1208
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1208
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id014
+  - source: metro3/pop2
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1208
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1208
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id014
+  - source: metro3/pop2
+    target: metro25/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1208
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1208
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id014
+  - source: metro3/pop1
+    target: metro9/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 609
       attrs:
         link_type: inter_metro_corridor
@@ -1493,23 +1955,57 @@ network:
         source_metro_orig: Salt Lake City, UT
         target_metro: boise-city
         target_metro_orig: Boise City, ID
-      risk_groups:
+      risk_groups: &id015
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_boise-city_sacramento
       - corridor_risk_boise-city_salt-lake-city
-  - source: metro3/pop{src_idx}
-    target: metro20/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro3/pop1
+    target: metro9/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 609
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 609
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id015
+  - source: metro3/pop2
+    target: metro9/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 609
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 609
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id015
+  - source: metro3/pop2
+    target: metro9/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 609
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 609
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id015
+  - source: metro3/pop1
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1137
       attrs:
         link_type: inter_metro_corridor
@@ -1518,22 +2014,56 @@ network:
         source_metro_orig: Salt Lake City, UT
         target_metro: sacramento
         target_metro_orig: Sacramento, CA
-      risk_groups:
+      risk_groups: &id016
       - corridor_risk_boise-city_sacramento
       - corridor_risk_sacramento_salt-lake-city
-  - source: metro4/pop{src_idx}
-    target: metro20/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro3/pop1
+    target: metro20/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1137
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1137
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id016
+  - source: metro3/pop2
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1137
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1137
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id016
+  - source: metro3/pop2
+    target: metro20/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1137
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1137
+        source_metro: salt-lake-city
+        source_metro_orig: Salt Lake City, UT
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id016
+  - source: metro4/pop1
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1125
       attrs:
         link_type: inter_metro_corridor
@@ -1542,7 +2072,7 @@ network:
         source_metro_orig: Las Vegas--Henderson--Paradise, NV
         target_metro: sacramento
         target_metro_orig: Sacramento, CA
-      risk_groups:
+      risk_groups: &id017
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
       - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
@@ -1550,19 +2080,53 @@ network:
       - corridor_risk_los-angeles-long-beach-anaheim_sacramento
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro4/pop{src_idx}
-    target: metro10/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro4/pop1
+    target: metro20/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1125
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1125
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id017
+  - source: metro4/pop2
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1125
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1125
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id017
+  - source: metro4/pop2
+    target: metro20/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1125
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1125
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id017
+  - source: metro4/pop1
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1426
       attrs:
         link_type: inter_metro_corridor
@@ -1571,7 +2135,7 @@ network:
         source_metro_orig: Las Vegas--Henderson--Paradise, NV
         target_metro: albuquerque
         target_metro_orig: Albuquerque, NM
-      risk_groups:
+      risk_groups: &id018
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_albuquerque_phoenix-mesa-scottsdale
       - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
@@ -1580,19 +2144,53 @@ network:
       - corridor_risk_las-vegas-henderson-paradise_sacramento
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro4/pop{src_idx}
-    target: metro5/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro4/pop1
+    target: metro10/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1426
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1426
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id018
+  - source: metro4/pop2
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1426
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1426
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id018
+  - source: metro4/pop2
+    target: metro10/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1426
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1426
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id018
+  - source: metro4/pop1
+    target: metro5/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 934
       attrs:
         link_type: inter_metro_corridor
@@ -1601,7 +2199,7 @@ network:
         source_metro_orig: Las Vegas--Henderson--Paradise, NV
         target_metro: phoenix-mesa-scottsdale
         target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
-      risk_groups:
+      risk_groups: &id019
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
       - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
@@ -1609,19 +2207,53 @@ network:
       - corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro4/pop{src_idx}
-    target: metro9/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro4/pop1
+    target: metro5/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 934
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 934
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id019
+  - source: metro4/pop2
+    target: metro5/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 934
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 934
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id019
+  - source: metro4/pop2
+    target: metro5/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 934
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 934
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: phoenix-mesa-scottsdale
+        target_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+      risk_groups: *id019
+  - source: metro4/pop1
+    target: metro9/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1342
       attrs:
         link_type: inter_metro_corridor
@@ -1630,7 +2262,7 @@ network:
         source_metro_orig: Las Vegas--Henderson--Paradise, NV
         target_metro: boise-city
         target_metro_orig: Boise City, ID
-      risk_groups:
+      risk_groups: &id020
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_boise-city_sacramento
       - corridor_risk_boise-city_salt-lake-city
@@ -1638,19 +2270,53 @@ network:
       - corridor_risk_las-vegas-henderson-paradise_salt-lake-city
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro4/pop{src_idx}
-    target: metro25/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro4/pop1
+    target: metro9/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1342
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1342
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id020
+  - source: metro4/pop2
+    target: metro9/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1342
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1342
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id020
+  - source: metro4/pop2
+    target: metro9/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1342
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1342
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id020
+  - source: metro4/pop1
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 475
       attrs:
         link_type: inter_metro_corridor
@@ -1659,26 +2325,60 @@ network:
         source_metro_orig: Las Vegas--Henderson--Paradise, NV
         target_metro: los-angeles-long-beach-anaheim
         target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
-      risk_groups:
+      risk_groups: &id021
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_las-vegas-henderson-paradise_los-angeles-long-beach-anaheim
       - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
       - corridor_risk_las-vegas-henderson-paradise_sacramento
       - corridor_risk_los-angeles-long-beach-anaheim_salt-lake-city
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro5/pop{src_idx}
-    target: metro10/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro4/pop1
+    target: metro25/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 475
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 475
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id021
+  - source: metro4/pop2
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 475
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 475
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id021
+  - source: metro4/pop2
+    target: metro25/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 475
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 475
+        source_metro: las-vegas-henderson-paradise
+        source_metro_orig: Las Vegas--Henderson--Paradise, NV
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id021
+  - source: metro5/pop1
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
       cost: 828
       attrs:
         link_type: inter_metro_corridor
@@ -1687,23 +2387,57 @@ network:
         source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
         target_metro: albuquerque
         target_metro_orig: Albuquerque, NM
-      risk_groups:
+      risk_groups: &id022
       - corridor_risk_albuquerque_las-vegas-henderson-paradise
       - corridor_risk_albuquerque_phoenix-mesa-scottsdale
       - corridor_risk_denver-aurora_phoenix-mesa-scottsdale
-  - source: metro5/pop{src_idx}
-    target: metro25/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro5/pop1
+    target: metro10/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 51200
+      cost: 828
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 828
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id022
+  - source: metro5/pop2
+    target: metro10/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 828
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 828
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id022
+  - source: metro5/pop2
+    target: metro10/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 828
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 828
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: albuquerque
+        target_metro_orig: Albuquerque, NM
+      risk_groups: *id022
+  - source: metro5/pop1
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
       cost: 654
       attrs:
         link_type: inter_metro_corridor
@@ -1712,23 +2446,57 @@ network:
         source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
         target_metro: los-angeles-long-beach-anaheim
         target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
-      risk_groups:
+      risk_groups: &id023
       - corridor_risk_las-vegas-henderson-paradise_phoenix-mesa-scottsdale
       - corridor_risk_los-angeles-long-beach-anaheim_phoenix-mesa-scottsdale
       - corridor_risk_phoenix-mesa-scottsdale_salt-lake-city
-  - source: metro6/pop{src_idx}
-    target: metro11/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro5/pop1
+    target: metro25/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 51200
+      cost: 654
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 654
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id023
+  - source: metro5/pop2
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 654
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 654
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id023
+  - source: metro5/pop2
+    target: metro25/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 654
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 654
+        source_metro: phoenix-mesa-scottsdale
+        source_metro_orig: Phoenix--Mesa--Scottsdale, AZ
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id023
+  - source: metro6/pop1
+    target: metro11/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 44800
       cost: 865
       attrs:
         link_type: inter_metro_corridor
@@ -1737,23 +2505,57 @@ network:
         source_metro_orig: Atlanta, GA
         target_metro: new-orleans
         target_metro_orig: New Orleans, LA
-      risk_groups:
+      risk_groups: &id024
       - corridor_risk_atlanta_new-orleans
       - corridor_risk_atlanta_st-louis
       - corridor_risk_new-orleans_st-louis
-  - source: metro6/pop{src_idx}
-    target: metro19/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro6/pop1
+    target: metro11/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 44800
+      cost: 865
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 865
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: new-orleans
+        target_metro_orig: New Orleans, LA
+      risk_groups: *id024
+  - source: metro6/pop2
+    target: metro11/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 44800
+      cost: 865
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 865
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: new-orleans
+        target_metro_orig: New Orleans, LA
+      risk_groups: *id024
+  - source: metro6/pop2
+    target: metro11/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 44800
+      cost: 865
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 865
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: new-orleans
+        target_metro_orig: New Orleans, LA
+      risk_groups: *id024
+  - source: metro6/pop1
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1341
       attrs:
         link_type: inter_metro_corridor
@@ -1762,26 +2564,60 @@ network:
         source_metro_orig: Atlanta, GA
         target_metro: pittsburgh
         target_metro_orig: Pittsburgh, PA
-      risk_groups:
+      risk_groups: &id025
       - corridor_risk_atlanta_chicago
       - corridor_risk_atlanta_nashville-davidson
       - corridor_risk_atlanta_pittsburgh
       - corridor_risk_charlotte_nashville-davidson
       - corridor_risk_charlotte_pittsburgh
       - corridor_risk_nashville-davidson_pittsburgh
-  - source: metro6/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro6/pop1
+    target: metro19/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1341
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1341
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id025
+  - source: metro6/pop2
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1341
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1341
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id025
+  - source: metro6/pop2
+    target: metro19/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1341
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1341
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id025
+  - source: metro6/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1153
       attrs:
         link_type: inter_metro_corridor
@@ -1790,23 +2626,57 @@ network:
         source_metro_orig: Atlanta, GA
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id026
       - corridor_risk_atlanta_new-orleans
       - corridor_risk_atlanta_st-louis
       - corridor_risk_new-orleans_st-louis
-  - source: metro6/pop{src_idx}
-    target: metro13/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro6/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1153
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1153
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id026
+  - source: metro6/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1153
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1153
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id026
+  - source: metro6/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1153
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1153
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id026
+  - source: metro6/pop1
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1299
       attrs:
         link_type: inter_metro_corridor
@@ -1815,7 +2685,7 @@ network:
         source_metro_orig: Atlanta, GA
         target_metro: chicago
         target_metro_orig: Chicago, IL--IN
-      risk_groups:
+      risk_groups: &id027
       - corridor_risk_atlanta_chicago
       - corridor_risk_atlanta_nashville-davidson
       - corridor_risk_atlanta_pittsburgh
@@ -1823,19 +2693,53 @@ network:
       - corridor_risk_kansas-city_nashville-davidson
       - corridor_risk_nashville-davidson_pittsburgh
       - corridor_risk_nashville-davidson_st-louis
-  - source: metro6/pop{src_idx}
-    target: metro17/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro6/pop1
+    target: metro13/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1299
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1299
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id027
+  - source: metro6/pop2
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1299
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1299
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id027
+  - source: metro6/pop2
+    target: metro13/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1299
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1299
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id027
+  - source: metro6/pop1
+    target: metro17/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 443
       attrs:
         link_type: inter_metro_corridor
@@ -1844,22 +2748,56 @@ network:
         source_metro_orig: Atlanta, GA
         target_metro: charlotte
         target_metro_orig: Charlotte, NC--SC
-      risk_groups:
+      risk_groups: &id028
       - corridor_risk_atlanta_charlotte
       - corridor_risk_charlotte_nashville-davidson
-  - source: metro6/pop{src_idx}
-    target: metro18/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro6/pop1
+    target: metro17/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 443
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 443
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups: *id028
+  - source: metro6/pop2
+    target: metro17/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 443
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 443
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups: *id028
+  - source: metro6/pop2
+    target: metro17/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 443
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 443
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups: *id028
+  - source: metro6/pop1
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 41600
       cost: 442
       attrs:
         link_type: inter_metro_corridor
@@ -1868,23 +2806,57 @@ network:
         source_metro_orig: Atlanta, GA
         target_metro: nashville-davidson
         target_metro_orig: Nashville-Davidson, TN
-      risk_groups:
+      risk_groups: &id029
       - corridor_risk_atlanta_chicago
       - corridor_risk_atlanta_nashville-davidson
       - corridor_risk_atlanta_pittsburgh
-  - source: metro7/pop{src_idx}
-    target: metro20/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro6/pop1
+    target: metro18/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 41600
+      cost: 442
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 442
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id029
+  - source: metro6/pop2
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 41600
+      cost: 442
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 442
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id029
+  - source: metro6/pop2
+    target: metro18/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 41600
+      cost: 442
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 442
+        source_metro: atlanta
+        source_metro_orig: Atlanta, GA
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id029
+  - source: metro7/pop1
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
       cost: 1044
       attrs:
         link_type: inter_metro_corridor
@@ -1893,21 +2865,55 @@ network:
         source_metro_orig: Portland, OR--WA
         target_metro: sacramento
         target_metro_orig: Sacramento, CA
-      risk_groups:
+      risk_groups: &id030
       - corridor_risk_portland_sacramento
-  - source: metro7/pop{src_idx}
-    target: metro9/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro7/pop1
+    target: metro20/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 48000
+      cost: 1044
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1044
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id030
+  - source: metro7/pop2
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
+      cost: 1044
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1044
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id030
+  - source: metro7/pop2
+    target: metro20/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
+      cost: 1044
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1044
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id030
+  - source: metro7/pop1
+    target: metro9/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 92800
       cost: 791
       attrs:
         link_type: inter_metro_corridor
@@ -1916,21 +2922,55 @@ network:
         source_metro_orig: Portland, OR--WA
         target_metro: boise-city
         target_metro_orig: Boise City, ID
-      risk_groups:
+      risk_groups: &id031
       - corridor_risk_boise-city_portland
-  - source: metro8/pop{src_idx}
-    target: metro14/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro7/pop1
+    target: metro9/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 92800
+      cost: 791
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 791
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id031
+  - source: metro7/pop2
+    target: metro9/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 92800
+      cost: 791
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 791
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id031
+  - source: metro7/pop2
+    target: metro9/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 92800
+      cost: 791
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 791
+        source_metro: portland
+        source_metro_orig: Portland, OR--WA
+        target_metro: boise-city
+        target_metro_orig: Boise City, ID
+      risk_groups: *id031
+  - source: metro8/pop1
+    target: metro14/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
       cost: 1249
       attrs:
         link_type: inter_metro_corridor
@@ -1939,7 +2979,7 @@ network:
         source_metro_orig: Omaha, NE--IA
         target_metro: dallas-fort-worth-arlington
         target_metro_orig: Dallas--Fort Worth--Arlington, TX
-      risk_groups:
+      risk_groups: &id032
       - corridor_risk_albuquerque_dallas-fort-worth-arlington
       - corridor_risk_chicago_omaha
       - corridor_risk_dallas-fort-worth-arlington_kansas-city
@@ -1949,19 +2989,53 @@ network:
       - corridor_risk_kansas-city_omaha
       - corridor_risk_minneapolis-st-paul_omaha
       - corridor_risk_omaha_st-louis
-  - source: metro8/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro8/pop1
+    target: metro14/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 38400
+      cost: 1249
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1249
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id032
+  - source: metro8/pop2
+    target: metro14/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 1249
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1249
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id032
+  - source: metro8/pop2
+    target: metro14/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 1249
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1249
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id032
+  - source: metro8/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 738
       attrs:
         link_type: inter_metro_corridor
@@ -1970,7 +3044,7 @@ network:
         source_metro_orig: Omaha, NE--IA
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id033
       - corridor_risk_chicago_omaha
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_kansas-city_nashville-davidson
@@ -1978,19 +3052,53 @@ network:
       - corridor_risk_kansas-city_st-louis
       - corridor_risk_minneapolis-st-paul_omaha
       - corridor_risk_omaha_st-louis
-  - source: metro8/pop{src_idx}
-    target: metro15/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro8/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 738
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 738
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id033
+  - source: metro8/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 738
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 738
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id033
+  - source: metro8/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 738
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 738
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id033
+  - source: metro8/pop1
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 335
       attrs:
         link_type: inter_metro_corridor
@@ -1999,25 +3107,59 @@ network:
         source_metro_orig: Omaha, NE--IA
         target_metro: kansas-city
         target_metro_orig: Kansas City, MO--KS
-      risk_groups:
+      risk_groups: &id034
       - corridor_risk_chicago_omaha
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_kansas-city_omaha
       - corridor_risk_minneapolis-st-paul_omaha
       - corridor_risk_omaha_st-louis
-  - source: metro8/pop{src_idx}
-    target: metro13/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro8/pop1
+    target: metro15/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 335
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 335
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id034
+  - source: metro8/pop2
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 335
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 335
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id034
+  - source: metro8/pop2
+    target: metro15/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 335
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 335
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id034
+  - source: metro8/pop1
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 774
       attrs:
         link_type: inter_metro_corridor
@@ -2026,26 +3168,60 @@ network:
         source_metro_orig: Omaha, NE--IA
         target_metro: chicago
         target_metro_orig: Chicago, IL--IN
-      risk_groups:
+      risk_groups: &id035
       - corridor_risk_chicago_kansas-city
       - corridor_risk_chicago_omaha
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_kansas-city_omaha
       - corridor_risk_minneapolis-st-paul_omaha
       - corridor_risk_omaha_st-louis
-  - source: metro9/pop{src_idx}
-    target: metro20/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro8/pop1
+    target: metro13/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 774
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 774
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id035
+  - source: metro8/pop2
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 774
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 774
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id035
+  - source: metro8/pop2
+    target: metro13/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 774
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 774
+        source_metro: omaha
+        source_metro_orig: Omaha, NE--IA
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id035
+  - source: metro9/pop1
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
       cost: 1716
       attrs:
         link_type: inter_metro_corridor
@@ -2054,24 +3230,58 @@ network:
         source_metro_orig: Boise City, ID
         target_metro: sacramento
         target_metro_orig: Sacramento, CA
-      risk_groups:
+      risk_groups: &id036
       - corridor_risk_boise-city_las-vegas-henderson-paradise
       - corridor_risk_boise-city_sacramento
       - corridor_risk_boise-city_salt-lake-city
       - corridor_risk_sacramento_salt-lake-city
-  - source: metro10/pop{src_idx}
-    target: metro14/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro9/pop1
+    target: metro20/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 48000
+      cost: 1716
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1716
+        source_metro: boise-city
+        source_metro_orig: Boise City, ID
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id036
+  - source: metro9/pop2
+    target: metro20/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
+      cost: 1716
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1716
+        source_metro: boise-city
+        source_metro_orig: Boise City, ID
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id036
+  - source: metro9/pop2
+    target: metro20/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
+      cost: 1716
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1716
+        source_metro: boise-city
+        source_metro_orig: Boise City, ID
+        target_metro: sacramento
+        target_metro_orig: Sacramento, CA
+      risk_groups: *id036
+  - source: metro10/pop1
+    target: metro14/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 1261
       attrs:
         link_type: inter_metro_corridor
@@ -2080,24 +3290,58 @@ network:
         source_metro_orig: Albuquerque, NM
         target_metro: dallas-fort-worth-arlington
         target_metro_orig: Dallas--Fort Worth--Arlington, TX
-      risk_groups:
+      risk_groups: &id037
       - corridor_risk_albuquerque_dallas-fort-worth-arlington
       - corridor_risk_dallas-fort-worth-arlington_kansas-city
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_dallas-fort-worth-arlington_st-louis
-  - source: metro11/pop{src_idx}
-    target: metro14/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro10/pop1
+    target: metro14/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 1261
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1261
+        source_metro: albuquerque
+        source_metro_orig: Albuquerque, NM
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id037
+  - source: metro10/pop2
+    target: metro14/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 1261
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1261
+        source_metro: albuquerque
+        source_metro_orig: Albuquerque, NM
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id037
+  - source: metro10/pop2
+    target: metro14/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 1261
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1261
+        source_metro: albuquerque
+        source_metro_orig: Albuquerque, NM
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id037
+  - source: metro11/pop1
+    target: metro14/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 928
       attrs:
         link_type: inter_metro_corridor
@@ -2106,22 +3350,56 @@ network:
         source_metro_orig: New Orleans, LA
         target_metro: dallas-fort-worth-arlington
         target_metro_orig: Dallas--Fort Worth--Arlington, TX
-      risk_groups:
+      risk_groups: &id038
       - corridor_risk_dallas-fort-worth-arlington_new-orleans
       - corridor_risk_houston_new-orleans
-  - source: metro11/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro11/pop1
+    target: metro14/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 928
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 928
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id038
+  - source: metro11/pop2
+    target: metro14/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 928
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 928
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id038
+  - source: metro11/pop2
+    target: metro14/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 928
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 928
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: dallas-fort-worth-arlington
+        target_metro_orig: Dallas--Fort Worth--Arlington, TX
+      risk_groups: *id038
+  - source: metro11/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1213
       attrs:
         link_type: inter_metro_corridor
@@ -2130,23 +3408,57 @@ network:
         source_metro_orig: New Orleans, LA
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id039
       - corridor_risk_atlanta_new-orleans
       - corridor_risk_atlanta_st-louis
       - corridor_risk_new-orleans_st-louis
-  - source: metro11/pop{src_idx}
-    target: metro23/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro11/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1213
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1213
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id039
+  - source: metro11/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1213
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1213
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id039
+  - source: metro11/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1213
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1213
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id039
+  - source: metro11/pop1
+    target: metro23/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 92800
       cost: 610
       attrs:
         link_type: inter_metro_corridor
@@ -2155,22 +3467,56 @@ network:
         source_metro_orig: New Orleans, LA
         target_metro: houston
         target_metro_orig: Houston, TX
-      risk_groups:
+      risk_groups: &id040
       - corridor_risk_dallas-fort-worth-arlington_new-orleans
       - corridor_risk_houston_new-orleans
-  - source: metro12/pop{src_idx}
-    target: metro13/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro11/pop1
+    target: metro23/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 92800
+      cost: 610
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 610
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups: *id040
+  - source: metro11/pop2
+    target: metro23/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 92800
+      cost: 610
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 610
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups: *id040
+  - source: metro11/pop2
+    target: metro23/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 92800
+      cost: 610
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 610
+        source_metro: new-orleans
+        source_metro_orig: New Orleans, LA
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups: *id040
+  - source: metro12/pop1
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 978
       attrs:
         link_type: inter_metro_corridor
@@ -2179,24 +3525,58 @@ network:
         source_metro_orig: Buffalo, NY
         target_metro: chicago
         target_metro_orig: Chicago, IL--IN
-      risk_groups:
+      risk_groups: &id041
       - corridor_risk_buffalo_charlotte
       - corridor_risk_buffalo_chicago
       - corridor_risk_buffalo_pittsburgh
       - corridor_risk_chicago_pittsburgh
-  - source: metro12/pop{src_idx}
-    target: metro17/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro12/pop1
+    target: metro13/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 978
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 978
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id041
+  - source: metro12/pop2
+    target: metro13/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 978
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 978
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id041
+  - source: metro12/pop2
+    target: metro13/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 978
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 978
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: chicago
+        target_metro_orig: Chicago, IL--IN
+      risk_groups: *id041
+  - source: metro12/pop1
+    target: metro17/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 1259
       attrs:
         link_type: inter_metro_corridor
@@ -2205,7 +3585,7 @@ network:
         source_metro_orig: Buffalo, NY
         target_metro: charlotte
         target_metro_orig: Charlotte, NC--SC
-      risk_groups:
+      risk_groups: &id042
       - corridor_risk_buffalo_charlotte
       - corridor_risk_buffalo_chicago
       - corridor_risk_buffalo_pittsburgh
@@ -2213,19 +3593,53 @@ network:
       - corridor_risk_charlotte_philadelphia
       - corridor_risk_charlotte_pittsburgh
       - corridor_risk_chicago_pittsburgh
-  - source: metro12/pop{src_idx}
-    target: metro22/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro12/pop1
+    target: metro17/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 1259
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1259
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups: *id042
+  - source: metro12/pop2
+    target: metro17/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 1259
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1259
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups: *id042
+  - source: metro12/pop2
+    target: metro17/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 1259
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1259
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: charlotte
+        target_metro_orig: Charlotte, NC--SC
+      risk_groups: *id042
+  - source: metro12/pop1
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
       cost: 718
       attrs:
         link_type: inter_metro_corridor
@@ -2234,23 +3648,57 @@ network:
         source_metro_orig: Buffalo, NY
         target_metro: philadelphia
         target_metro_orig: Philadelphia, PA--NJ--DE--MD
-      risk_groups:
+      risk_groups: &id043
       - corridor_risk_boston_buffalo
       - corridor_risk_buffalo_new-york-jersey-city-newark
       - corridor_risk_buffalo_philadelphia
-  - source: metro12/pop{src_idx}
-    target: metro21/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro12/pop1
+    target: metro22/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 38400
+      cost: 718
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 718
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id043
+  - source: metro12/pop2
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 718
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 718
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id043
+  - source: metro12/pop2
+    target: metro22/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 718
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 718
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id043
+  - source: metro12/pop1
+    target: metro21/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
       cost: 689
       attrs:
         link_type: inter_metro_corridor
@@ -2259,23 +3707,57 @@ network:
         source_metro_orig: Buffalo, NY
         target_metro: new-york-jersey-city-newark
         target_metro_orig: New York--Jersey City--Newark, NY--NJ
-      risk_groups:
+      risk_groups: &id044
       - corridor_risk_boston_buffalo
       - corridor_risk_buffalo_new-york-jersey-city-newark
       - corridor_risk_buffalo_philadelphia
-  - source: metro12/pop{src_idx}
-    target: metro24/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro12/pop1
+    target: metro21/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 38400
+      cost: 689
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 689
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id044
+  - source: metro12/pop2
+    target: metro21/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 689
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 689
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id044
+  - source: metro12/pop2
+    target: metro21/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 38400
+      cost: 689
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 689
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id044
+  - source: metro12/pop1
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 802
       attrs:
         link_type: inter_metro_corridor
@@ -2284,26 +3766,60 @@ network:
         source_metro_orig: Buffalo, NY
         target_metro: boston
         target_metro_orig: Boston, MA--NH
-      risk_groups:
+      risk_groups: &id045
       - corridor_risk_boston_buffalo
       - corridor_risk_boston_new-york-jersey-city-newark
       - corridor_risk_boston_philadelphia
       - corridor_risk_boston_pittsburgh
       - corridor_risk_buffalo_new-york-jersey-city-newark
       - corridor_risk_buffalo_philadelphia
-  - source: metro12/pop{src_idx}
-    target: metro19/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro12/pop1
+    target: metro24/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id045
+  - source: metro12/pop2
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id045
+  - source: metro12/pop2
+    target: metro24/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id045
+  - source: metro12/pop1
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 397
       attrs:
         link_type: inter_metro_corridor
@@ -2312,24 +3828,58 @@ network:
         source_metro_orig: Buffalo, NY
         target_metro: pittsburgh
         target_metro_orig: Pittsburgh, PA
-      risk_groups:
+      risk_groups: &id046
       - corridor_risk_buffalo_charlotte
       - corridor_risk_buffalo_chicago
       - corridor_risk_buffalo_pittsburgh
       - corridor_risk_chicago_pittsburgh
-  - source: metro13/pop{src_idx}
-    target: metro19/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro12/pop1
+    target: metro19/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 397
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 397
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id046
+  - source: metro12/pop2
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 397
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 397
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id046
+  - source: metro12/pop2
+    target: metro19/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 397
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 397
+        source_metro: buffalo
+        source_metro_orig: Buffalo, NY
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id046
+  - source: metro13/pop1
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 840
       attrs:
         link_type: inter_metro_corridor
@@ -2338,24 +3888,58 @@ network:
         source_metro_orig: Chicago, IL--IN
         target_metro: pittsburgh
         target_metro_orig: Pittsburgh, PA
-      risk_groups:
+      risk_groups: &id047
       - corridor_risk_buffalo_charlotte
       - corridor_risk_buffalo_chicago
       - corridor_risk_buffalo_pittsburgh
       - corridor_risk_chicago_pittsburgh
-  - source: metro13/pop{src_idx}
-    target: metro18/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro13/pop1
+    target: metro19/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 840
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 840
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id047
+  - source: metro13/pop2
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 840
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 840
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id047
+  - source: metro13/pop2
+    target: metro19/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 840
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 840
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id047
+  - source: metro13/pop1
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 876
       attrs:
         link_type: inter_metro_corridor
@@ -2364,25 +3948,59 @@ network:
         source_metro_orig: Chicago, IL--IN
         target_metro: nashville-davidson
         target_metro_orig: Nashville-Davidson, TN
-      risk_groups:
+      risk_groups: &id048
       - corridor_risk_atlanta_chicago
       - corridor_risk_chicago_nashville-davidson
       - corridor_risk_kansas-city_nashville-davidson
       - corridor_risk_nashville-davidson_pittsburgh
       - corridor_risk_nashville-davidson_st-louis
-  - source: metro13/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro13/pop1
+    target: metro18/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 876
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 876
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id048
+  - source: metro13/pop2
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 876
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 876
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id048
+  - source: metro13/pop2
+    target: metro18/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 876
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 876
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id048
+  - source: metro13/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
       cost: 539
       attrs:
         link_type: inter_metro_corridor
@@ -2391,22 +4009,56 @@ network:
         source_metro_orig: Chicago, IL--IN
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id049
       - corridor_risk_chicago_st-louis
       - corridor_risk_minneapolis-st-paul_st-louis
-  - source: metro13/pop{src_idx}
-    target: metro15/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro13/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 22400
+      cost: 539
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 539
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id049
+  - source: metro13/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 539
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 539
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id049
+  - source: metro13/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 539
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 539
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id049
+  - source: metro13/pop1
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
       cost: 874
       attrs:
         link_type: inter_metro_corridor
@@ -2415,23 +4067,57 @@ network:
         source_metro_orig: Chicago, IL--IN
         target_metro: kansas-city
         target_metro_orig: Kansas City, MO--KS
-      risk_groups:
+      risk_groups: &id050
       - corridor_risk_chicago_kansas-city
       - corridor_risk_chicago_omaha
       - corridor_risk_kansas-city_minneapolis-st-paul
-  - source: metro14/pop{src_idx}
-    target: metro15/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro13/pop1
+    target: metro15/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 22400
+      cost: 874
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 874
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id050
+  - source: metro13/pop2
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 874
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 874
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id050
+  - source: metro13/pop2
+    target: metro15/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 874
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 874
+        source_metro: chicago
+        source_metro_orig: Chicago, IL--IN
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id050
+  - source: metro14/pop1
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 958
       attrs:
         link_type: inter_metro_corridor
@@ -2440,25 +4126,59 @@ network:
         source_metro_orig: Dallas--Fort Worth--Arlington, TX
         target_metro: kansas-city
         target_metro_orig: Kansas City, MO--KS
-      risk_groups:
+      risk_groups: &id051
       - corridor_risk_albuquerque_dallas-fort-worth-arlington
       - corridor_risk_dallas-fort-worth-arlington_kansas-city
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_dallas-fort-worth-arlington_st-louis
       - corridor_risk_denver-aurora_kansas-city
-  - source: metro14/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro14/pop1
+    target: metro15/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 958
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 958
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id051
+  - source: metro14/pop2
+    target: metro15/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 958
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 958
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id051
+  - source: metro14/pop2
+    target: metro15/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 958
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 958
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: kansas-city
+        target_metro_orig: Kansas City, MO--KS
+      risk_groups: *id051
+  - source: metro14/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1188
       attrs:
         link_type: inter_metro_corridor
@@ -2467,24 +4187,58 @@ network:
         source_metro_orig: Dallas--Fort Worth--Arlington, TX
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id052
       - corridor_risk_albuquerque_dallas-fort-worth-arlington
       - corridor_risk_dallas-fort-worth-arlington_kansas-city
       - corridor_risk_dallas-fort-worth-arlington_omaha
       - corridor_risk_dallas-fort-worth-arlington_st-louis
-  - source: metro14/pop{src_idx}
-    target: metro23/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro14/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1188
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1188
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id052
+  - source: metro14/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1188
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1188
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id052
+  - source: metro14/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1188
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1188
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id052
+  - source: metro14/pop1
+    target: metro23/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 446
       attrs:
         link_type: inter_metro_corridor
@@ -2493,21 +4247,55 @@ network:
         source_metro_orig: Dallas--Fort Worth--Arlington, TX
         target_metro: houston
         target_metro_orig: Houston, TX
-      risk_groups:
+      risk_groups: &id053
       - corridor_risk_dallas-fort-worth-arlington_houston
-  - source: metro15/pop{src_idx}
-    target: metro18/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro14/pop1
+    target: metro23/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 446
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 446
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups: *id053
+  - source: metro14/pop2
+    target: metro23/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 446
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 446
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups: *id053
+  - source: metro14/pop2
+    target: metro23/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 446
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 446
+        source_metro: dallas-fort-worth-arlington
+        source_metro_orig: Dallas--Fort Worth--Arlington, TX
+        target_metro: houston
+        target_metro_orig: Houston, TX
+      risk_groups: *id053
+  - source: metro15/pop1
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
       cost: 1182
       attrs:
         link_type: inter_metro_corridor
@@ -2516,7 +4304,7 @@ network:
         source_metro_orig: Kansas City, MO--KS
         target_metro: nashville-davidson
         target_metro_orig: Nashville-Davidson, TN
-      risk_groups:
+      risk_groups: &id054
       - corridor_risk_atlanta_chicago
       - corridor_risk_chicago_nashville-davidson
       - corridor_risk_kansas-city_nashville-davidson
@@ -2524,19 +4312,53 @@ network:
       - corridor_risk_nashville-davidson_pittsburgh
       - corridor_risk_nashville-davidson_st-louis
       - corridor_risk_omaha_st-louis
-  - source: metro15/pop{src_idx}
-    target: metro16/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro15/pop1
+    target: metro18/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 28800
+      cost: 1182
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1182
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id054
+  - source: metro15/pop2
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1182
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1182
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id054
+  - source: metro15/pop2
+    target: metro18/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 28800
+      cost: 1182
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1182
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id054
+  - source: metro15/pop1
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 403
       attrs:
         link_type: inter_metro_corridor
@@ -2545,23 +4367,57 @@ network:
         source_metro_orig: Kansas City, MO--KS
         target_metro: st-louis
         target_metro_orig: St. Louis, MO--IL
-      risk_groups:
+      risk_groups: &id055
       - corridor_risk_kansas-city_nashville-davidson
       - corridor_risk_kansas-city_st-louis
       - corridor_risk_omaha_st-louis
-  - source: metro16/pop{src_idx}
-    target: metro18/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro15/pop1
+    target: metro16/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 403
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 403
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id055
+  - source: metro15/pop2
+    target: metro16/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 403
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 403
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id055
+  - source: metro15/pop2
+    target: metro16/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 403
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 403
+        source_metro: kansas-city
+        source_metro_orig: Kansas City, MO--KS
+        target_metro: st-louis
+        target_metro_orig: St. Louis, MO--IL
+      risk_groups: *id055
+  - source: metro16/pop1
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
       cost: 802
       attrs:
         link_type: inter_metro_corridor
@@ -2570,25 +4426,59 @@ network:
         source_metro_orig: St. Louis, MO--IL
         target_metro: nashville-davidson
         target_metro_orig: Nashville-Davidson, TN
-      risk_groups:
+      risk_groups: &id056
       - corridor_risk_atlanta_chicago
       - corridor_risk_chicago_nashville-davidson
       - corridor_risk_kansas-city_nashville-davidson
       - corridor_risk_nashville-davidson_pittsburgh
       - corridor_risk_nashville-davidson_st-louis
-  - source: metro17/pop{src_idx}
-    target: metro18/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro16/pop1
+    target: metro18/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 22400
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: st-louis
+        source_metro_orig: St. Louis, MO--IL
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id056
+  - source: metro16/pop2
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: st-louis
+        source_metro_orig: St. Louis, MO--IL
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id056
+  - source: metro16/pop2
+    target: metro18/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 802
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 802
+        source_metro: st-louis
+        source_metro_orig: St. Louis, MO--IL
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id056
+  - source: metro17/pop1
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 769
       attrs:
         link_type: inter_metro_corridor
@@ -2597,23 +4487,57 @@ network:
         source_metro_orig: Charlotte, NC--SC
         target_metro: nashville-davidson
         target_metro_orig: Nashville-Davidson, TN
-      risk_groups:
+      risk_groups: &id057
       - corridor_risk_atlanta_charlotte
       - corridor_risk_atlanta_pittsburgh
       - corridor_risk_charlotte_nashville-davidson
-  - source: metro17/pop{src_idx}
-    target: metro22/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro17/pop1
+    target: metro18/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 769
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 769
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id057
+  - source: metro17/pop2
+    target: metro18/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 769
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 769
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id057
+  - source: metro17/pop2
+    target: metro18/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 769
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 769
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: nashville-davidson
+        target_metro_orig: Nashville-Davidson, TN
+      risk_groups: *id057
+  - source: metro17/pop1
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
       cost: 1034
       attrs:
         link_type: inter_metro_corridor
@@ -2622,24 +4546,58 @@ network:
         source_metro_orig: Charlotte, NC--SC
         target_metro: philadelphia
         target_metro_orig: Philadelphia, PA--NJ--DE--MD
-      risk_groups:
+      risk_groups: &id058
       - corridor_risk_buffalo_charlotte
       - corridor_risk_charlotte_new-york-jersey-city-newark
       - corridor_risk_charlotte_philadelphia
       - corridor_risk_charlotte_pittsburgh
-  - source: metro17/pop{src_idx}
-    target: metro21/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro17/pop1
+    target: metro22/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 35200
+      cost: 1034
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1034
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id058
+  - source: metro17/pop2
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 1034
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1034
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id058
+  - source: metro17/pop2
+    target: metro22/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 35200
+      cost: 1034
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1034
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id058
+  - source: metro17/pop1
+    target: metro21/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
       cost: 1160
       attrs:
         link_type: inter_metro_corridor
@@ -2648,7 +4606,7 @@ network:
         source_metro_orig: Charlotte, NC--SC
         target_metro: new-york-jersey-city-newark
         target_metro_orig: New York--Jersey City--Newark, NY--NJ
-      risk_groups:
+      risk_groups: &id059
       - corridor_risk_boston_philadelphia
       - corridor_risk_boston_pittsburgh
       - corridor_risk_buffalo_charlotte
@@ -2658,19 +4616,53 @@ network:
       - corridor_risk_new-york-jersey-city-newark_philadelphia
       - corridor_risk_new-york-jersey-city-newark_pittsburgh
       - corridor_risk_philadelphia_pittsburgh
-  - source: metro17/pop{src_idx}
-    target: metro19/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro17/pop1
+    target: metro21/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 32000
+      cost: 1160
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1160
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id059
+  - source: metro17/pop2
+    target: metro21/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
+      cost: 1160
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1160
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id059
+  - source: metro17/pop2
+    target: metro21/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 32000
+      cost: 1160
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1160
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id059
+  - source: metro17/pop1
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 907
       attrs:
         link_type: inter_metro_corridor
@@ -2679,26 +4671,60 @@ network:
         source_metro_orig: Charlotte, NC--SC
         target_metro: pittsburgh
         target_metro_orig: Pittsburgh, PA
-      risk_groups:
+      risk_groups: &id060
       - corridor_risk_atlanta_pittsburgh
       - corridor_risk_buffalo_charlotte
       - corridor_risk_charlotte_new-york-jersey-city-newark
       - corridor_risk_charlotte_philadelphia
       - corridor_risk_charlotte_pittsburgh
       - corridor_risk_nashville-davidson_pittsburgh
-  - source: metro18/pop{src_idx}
-    target: metro19/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro17/pop1
+    target: metro19/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 907
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 907
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id060
+  - source: metro17/pop2
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 907
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 907
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id060
+  - source: metro17/pop2
+    target: metro19/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 907
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 907
+        source_metro: charlotte
+        source_metro_orig: Charlotte, NC--SC
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id060
+  - source: metro18/pop1
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1014
       attrs:
         link_type: inter_metro_corridor
@@ -2707,7 +4733,7 @@ network:
         source_metro_orig: Nashville-Davidson, TN
         target_metro: pittsburgh
         target_metro_orig: Pittsburgh, PA
-      risk_groups:
+      risk_groups: &id061
       - corridor_risk_atlanta_chicago
       - corridor_risk_atlanta_pittsburgh
       - corridor_risk_charlotte_pittsburgh
@@ -2715,19 +4741,53 @@ network:
       - corridor_risk_kansas-city_nashville-davidson
       - corridor_risk_nashville-davidson_pittsburgh
       - corridor_risk_nashville-davidson_st-louis
-  - source: metro19/pop{src_idx}
-    target: metro24/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro18/pop1
+    target: metro19/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1014
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1014
+        source_metro: nashville-davidson
+        source_metro_orig: Nashville-Davidson, TN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id061
+  - source: metro18/pop2
+    target: metro19/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1014
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1014
+        source_metro: nashville-davidson
+        source_metro_orig: Nashville-Davidson, TN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id061
+  - source: metro18/pop2
+    target: metro19/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1014
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1014
+        source_metro: nashville-davidson
+        source_metro_orig: Nashville-Davidson, TN
+        target_metro: pittsburgh
+        target_metro_orig: Pittsburgh, PA
+      risk_groups: *id061
+  - source: metro19/pop1
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
       cost: 1092
       attrs:
         link_type: inter_metro_corridor
@@ -2736,7 +4796,7 @@ network:
         source_metro_orig: Pittsburgh, PA
         target_metro: boston
         target_metro_orig: Boston, MA--NH
-      risk_groups:
+      risk_groups: &id062
       - corridor_risk_boston_buffalo
       - corridor_risk_boston_new-york-jersey-city-newark
       - corridor_risk_boston_philadelphia
@@ -2745,19 +4805,53 @@ network:
       - corridor_risk_new-york-jersey-city-newark_philadelphia
       - corridor_risk_new-york-jersey-city-newark_pittsburgh
       - corridor_risk_philadelphia_pittsburgh
-  - source: metro19/pop{src_idx}
-    target: metro21/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro19/pop1
+    target: metro24/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 25600
+      cost: 1092
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1092
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id062
+  - source: metro19/pop2
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1092
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1092
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id062
+  - source: metro19/pop2
+    target: metro24/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 25600
+      cost: 1092
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 1092
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id062
+  - source: metro19/pop1
+    target: metro21/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
       cost: 674
       attrs:
         link_type: inter_metro_corridor
@@ -2766,26 +4860,60 @@ network:
         source_metro_orig: Pittsburgh, PA
         target_metro: new-york-jersey-city-newark
         target_metro_orig: New York--Jersey City--Newark, NY--NJ
-      risk_groups:
+      risk_groups: &id063
       - corridor_risk_boston_philadelphia
       - corridor_risk_boston_pittsburgh
       - corridor_risk_charlotte_new-york-jersey-city-newark
       - corridor_risk_new-york-jersey-city-newark_philadelphia
       - corridor_risk_new-york-jersey-city-newark_pittsburgh
       - corridor_risk_philadelphia_pittsburgh
-  - source: metro19/pop{src_idx}
-    target: metro22/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro19/pop1
+    target: metro21/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 22400
+      cost: 674
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 674
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id063
+  - source: metro19/pop2
+    target: metro21/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 674
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 674
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id063
+  - source: metro19/pop2
+    target: metro21/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 674
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 674
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: new-york-jersey-city-newark
+        target_metro_orig: New York--Jersey City--Newark, NY--NJ
+      risk_groups: *id063
+  - source: metro19/pop1
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
       cost: 557
       attrs:
         link_type: inter_metro_corridor
@@ -2794,24 +4922,58 @@ network:
         source_metro_orig: Pittsburgh, PA
         target_metro: philadelphia
         target_metro_orig: Philadelphia, PA--NJ--DE--MD
-      risk_groups:
+      risk_groups: &id064
       - corridor_risk_boston_pittsburgh
       - corridor_risk_charlotte_new-york-jersey-city-newark
       - corridor_risk_new-york-jersey-city-newark_pittsburgh
       - corridor_risk_philadelphia_pittsburgh
-  - source: metro20/pop{src_idx}
-    target: metro25/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro19/pop1
+    target: metro22/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 22400
+      cost: 557
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 557
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id064
+  - source: metro19/pop2
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 557
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 557
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id064
+  - source: metro19/pop2
+    target: metro22/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 22400
+      cost: 557
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 557
+        source_metro: pittsburgh
+        source_metro_orig: Pittsburgh, PA
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id064
+  - source: metro20/pop1
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
       cost: 699
       attrs:
         link_type: inter_metro_corridor
@@ -2820,22 +4982,56 @@ network:
         source_metro_orig: Sacramento, CA
         target_metro: los-angeles-long-beach-anaheim
         target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
-      risk_groups:
+      risk_groups: &id065
       - corridor_risk_las-vegas-henderson-paradise_sacramento
       - corridor_risk_los-angeles-long-beach-anaheim_sacramento
-  - source: metro21/pop{src_idx}
-    target: metro24/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro20/pop1
+    target: metro25/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 48000
+      cost: 699
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 699
+        source_metro: sacramento
+        source_metro_orig: Sacramento, CA
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id065
+  - source: metro20/pop2
+    target: metro25/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
+      cost: 699
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 699
+        source_metro: sacramento
+        source_metro_orig: Sacramento, CA
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id065
+  - source: metro20/pop2
+    target: metro25/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 48000
+      cost: 699
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 699
+        source_metro: sacramento
+        source_metro_orig: Sacramento, CA
+        target_metro: los-angeles-long-beach-anaheim
+        target_metro_orig: Los Angeles--Long Beach--Anaheim, CA
+      risk_groups: *id065
+  - source: metro21/pop1
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 54400
       cost: 419
       attrs:
         link_type: inter_metro_corridor
@@ -2844,24 +5040,58 @@ network:
         source_metro_orig: New York--Jersey City--Newark, NY--NJ
         target_metro: boston
         target_metro_orig: Boston, MA--NH
-      risk_groups:
+      risk_groups: &id066
       - corridor_risk_boston_buffalo
       - corridor_risk_boston_new-york-jersey-city-newark
       - corridor_risk_boston_philadelphia
       - corridor_risk_boston_pittsburgh
-  - source: metro21/pop{src_idx}
-    target: metro22/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro21/pop1
+    target: metro24/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 54400
+      cost: 419
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 419
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id066
+  - source: metro21/pop2
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 54400
+      cost: 419
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 419
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id066
+  - source: metro21/pop2
+    target: metro24/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 54400
+      cost: 419
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 419
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id066
+  - source: metro21/pop1
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
       cost: 151
       attrs:
         link_type: inter_metro_corridor
@@ -2870,25 +5100,59 @@ network:
         source_metro_orig: New York--Jersey City--Newark, NY--NJ
         target_metro: philadelphia
         target_metro_orig: Philadelphia, PA--NJ--DE--MD
-      risk_groups:
+      risk_groups: &id067
       - corridor_risk_boston_philadelphia
       - corridor_risk_boston_pittsburgh
       - corridor_risk_charlotte_new-york-jersey-city-newark
       - corridor_risk_new-york-jersey-city-newark_philadelphia
       - corridor_risk_new-york-jersey-city-newark_pittsburgh
-  - source: metro22/pop{src_idx}
-    target: metro24/pop{tgt_idx}
-    expand_vars:
-      src_idx:
-      - 1
-      - 2
-      tgt_idx:
-      - 1
-      - 2
-    expansion_mode: cartesian
+  - source: metro21/pop1
+    target: metro22/pop2
     pattern: one_to_one
     link_params:
-      capacity: 100
+      capacity: 51200
+      cost: 151
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 151
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id067
+  - source: metro21/pop2
+    target: metro22/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 151
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 151
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id067
+  - source: metro21/pop2
+    target: metro22/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 151
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 151
+        source_metro: new-york-jersey-city-newark
+        source_metro_orig: New York--Jersey City--Newark, NY--NJ
+        target_metro: philadelphia
+        target_metro_orig: Philadelphia, PA--NJ--DE--MD
+      risk_groups: *id067
+  - source: metro22/pop1
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
       cost: 569
       attrs:
         link_type: inter_metro_corridor
@@ -2897,7 +5161,7 @@ network:
         source_metro_orig: Philadelphia, PA--NJ--DE--MD
         target_metro: boston
         target_metro_orig: Boston, MA--NH
-      risk_groups:
+      risk_groups: &id068
       - corridor_risk_boston_buffalo
       - corridor_risk_boston_new-york-jersey-city-newark
       - corridor_risk_boston_philadelphia
@@ -2905,6 +5169,48 @@ network:
       - corridor_risk_charlotte_new-york-jersey-city-newark
       - corridor_risk_new-york-jersey-city-newark_philadelphia
       - corridor_risk_new-york-jersey-city-newark_pittsburgh
+  - source: metro22/pop1
+    target: metro24/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 569
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 569
+        source_metro: philadelphia
+        source_metro_orig: Philadelphia, PA--NJ--DE--MD
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id068
+  - source: metro22/pop2
+    target: metro24/pop1
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 569
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 569
+        source_metro: philadelphia
+        source_metro_orig: Philadelphia, PA--NJ--DE--MD
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id068
+  - source: metro22/pop2
+    target: metro24/pop2
+    pattern: one_to_one
+    link_params:
+      capacity: 51200
+      cost: 569
+      attrs:
+        link_type: inter_metro_corridor
+        distance_km: 569
+        source_metro: philadelphia
+        source_metro_orig: Philadelphia, PA--NJ--DE--MD
+        target_metro: boston
+        target_metro_orig: Boston, MA--NH
+      risk_groups: *id068
   link_overrides:
   - source: metro1/pop1
     target: metro1/pop2
@@ -3800,17 +6106,17 @@ traffic_matrix_set:
     sink_path: .*(dc.+)
     mode: pairwise
     priority: 0
-    demand: 2250000.0
+    demand: 375000.0
   - source_path: .*(dc.+)
     sink_path: .*(dc.+)
     mode: pairwise
     priority: 1
-    demand: 2250000.0
+    demand: 375000.0
   - source_path: .*(dc.+)
     sink_path: .*(dc.+)
     mode: pairwise
     priority: 2
-    demand: 3000000.0
+    demand: 500000.0
 workflow:
 - step_type: NetworkStats
   name: network_statistics

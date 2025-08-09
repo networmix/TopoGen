@@ -390,3 +390,126 @@ class TestScenarioBuilder:
         for link in dc_pop_links:
             assert link["pattern"] == "mesh"
             assert link["link_params"]["attrs"]["link_type"] == "dc_to_pop"
+
+    def test_hw_capacity_allocation_round_robin(self):
+        """HW-aware allocation distributes extra capacity to inter-metro links."""
+        graph = nx.Graph()
+        metro1 = (100.0, 200.0)
+        metro2 = (150.0, 250.0)
+
+        graph.add_node(
+            metro1,
+            node_type="metro",
+            name="Denver",
+            metro_id="metro_001",
+            x=100.0,
+            y=200.0,
+            radius_km=10.0,
+        )
+        graph.add_node(
+            metro2,
+            node_type="metro",
+            name="Salt Lake City",
+            metro_id="metro_002",
+            x=150.0,
+            y=250.0,
+            radius_km=10.0,
+        )
+
+        # Base corridor capacity per POP pair is 100
+        graph.add_edge(metro1, metro2, length_km=100.0, capacity=100)
+
+        # Configuration: 1 POP per metro, no DCs. Base intra=0 avoids reservation.
+        cfg = TopologyConfig()
+        cfg.build = BuildConfig(
+            build_defaults=BuildDefaults(
+                pop_per_metro=1,
+                site_blueprint="SingleRouter",
+                dc_regions_per_metro=0,
+                intra_metro_link=BuildDefaults().intra_metro_link,
+                inter_metro_link=BuildDefaults().inter_metro_link,
+                dc_to_pop_link=BuildDefaults().dc_to_pop_link,
+            ),
+            build_overrides={},
+        )
+        # Enable HW capacity allocation
+        cfg.build.capacity_allocation.enabled = True
+
+        # Assign small built-in component CoreRouter to cores; its capacity
+        # in components_lib is 460_800, which is ample. To make the test
+        # deterministic, override component library to a smaller capacity.
+        # Use blueprint override via components.assignments for SingleRouter core
+        cfg.components.assignments.blueprint_overrides = {
+            "SingleRouter": {
+                "core": cfg.components.assignments.core.__class__(
+                    hw_component="TestCore", optics=""
+                )
+            }
+        }
+        cfg.components.library["TestCore"] = {
+            "component_type": "chassis",
+            "capacity": 250,  # Gbps per POP
+        }
+
+        # Build scenario and check updated capacity on adjacency
+        yaml_str = build_scenario(graph, cfg)
+        scenario = yaml.safe_load(yaml_str)
+        net = scenario["network"]
+
+        # Expect exactly one per-pair adjacency with final capacity
+        match = [
+            a
+            for a in net["adjacency"]
+            if a.get("pattern") == "one_to_one"
+            and a.get("source") == "metro1/pop1"
+            and a.get("target") == "metro2/pop1"
+        ]
+        assert len(match) == 1
+        # With budget 250 per POP and base 100 reserved on each side,
+        # one extra 100G increment can be added -> new cap = 200
+        assert match[0]["link_params"]["capacity"] == 200
+        # No link_overrides expected in this minimal case
+        assert net.get("link_overrides", []) == []
+
+    def test_hw_capacity_overcommit_raises(self):
+        """Overcommit should raise when base > platform and flag is set."""
+        graph = nx.Graph()
+        metro1 = (100.0, 200.0)
+        metro2 = (150.0, 250.0)
+
+        graph.add_node(
+            metro1,
+            node_type="metro",
+            name="A",
+            metro_id="m1",
+            radius_km=10.0,
+        )
+        graph.add_node(
+            metro2,
+            node_type="metro",
+            name="B",
+            metro_id="m2",
+            radius_km=10.0,
+        )
+        # Base corridor capacity 300 per POP pair
+        graph.add_edge(metro1, metro2, capacity=300)
+
+        cfg = TopologyConfig()
+        cfg.build.capacity_allocation.enabled = True
+        # 1 POP per metro
+        cfg.build.build_defaults.pop_per_metro = 1
+        # Assign tiny capacity component to SingleRouter core
+        cfg.components.assignments.blueprint_overrides = {
+            "SingleRouter": {
+                "core": cfg.components.assignments.core.__class__(
+                    hw_component="TinyCore", optics=""
+                )
+            }
+        }
+        cfg.components.library["TinyCore"] = {
+            "component_type": "chassis",
+            "capacity": 200,
+        }
+
+        with pytest.raises(ValueError):
+            build_scenario(graph, cfg)

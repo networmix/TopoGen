@@ -57,7 +57,7 @@ def build_scenario(
     # Determine per-metro settings
     metro_settings = _determine_metro_settings(metros, config)
     max_sites = max(
-        (settings["sites_per_metro"] for settings in metro_settings.values()), default=1
+        (settings["pop_per_metro"] for settings in metro_settings.values()), default=1
     )
     max_dc_regions = max(
         (settings["dc_regions_per_metro"] for settings in metro_settings.values()),
@@ -293,7 +293,7 @@ def _determine_metro_settings(
 
         # Start with defaults
         metro_settings = {
-            "sites_per_metro": defaults.sites_per_metro,
+            "pop_per_metro": defaults.pop_per_metro,
             "site_blueprint": defaults.site_blueprint,
             "dc_regions_per_metro": defaults.dc_regions_per_metro,
             "dc_region_blueprint": defaults.dc_region_blueprint,
@@ -338,8 +338,8 @@ def _determine_metro_settings(
                 break
 
         if override:
-            if "sites_per_metro" in override:
-                metro_settings["sites_per_metro"] = override["sites_per_metro"]
+            if "pop_per_metro" in override:
+                metro_settings["pop_per_metro"] = override["pop_per_metro"]
             if "site_blueprint" in override:
                 metro_settings["site_blueprint"] = override["site_blueprint"]
             if "dc_regions_per_metro" in override:
@@ -386,9 +386,9 @@ def _determine_metro_settings(
                         metro_settings["dc_to_pop_link"][key] = value
 
         # Validate settings
-        if metro_settings["sites_per_metro"] < 1:
+        if metro_settings["pop_per_metro"] < 1:
             raise ValueError(
-                f"Metro '{metro_name}' has invalid sites_per_metro: {metro_settings['sites_per_metro']}"
+                f"Metro '{metro_name}' has invalid pop_per_metro: {metro_settings['pop_per_metro']}"
             )
         if metro_settings["dc_regions_per_metro"] < 0:
             raise ValueError(
@@ -562,7 +562,7 @@ def _build_adjacency_section(
     for idx, metro in enumerate(metros, 1):
         metro_name = metro["name"]
         settings = metro_settings[metro_name]
-        sites_count = settings["sites_per_metro"]
+        sites_count = settings["pop_per_metro"]
 
         if sites_count > 1:
             # Create mesh connectivity between sites within metro
@@ -597,7 +597,7 @@ def _build_adjacency_section(
                             "metro_name_orig": metro.get("name_orig", metro_name),
                             "distance_model": "metro_circle_arc",
                             "circle_radius_km": ring_radius_km,
-                            "sites_count": int(sites_count),
+                            "pop_count": int(sites_count),
                             # No fraction parameter; using full metro radius
                         },
                     },
@@ -608,7 +608,7 @@ def _build_adjacency_section(
     for idx, metro in enumerate(metros, 1):
         metro_name = metro["name"]
         settings = metro_settings[metro_name]
-        sites_count = settings["sites_per_metro"]
+        sites_count = settings["pop_per_metro"]
         dc_regions_count = settings["dc_regions_per_metro"]
 
         if dc_regions_count > 0 and sites_count > 0:
@@ -647,8 +647,8 @@ def _build_adjacency_section(
         source_idx = metro_idx_map[source_metro["name"]]
         target_idx = metro_idx_map[target_metro["name"]]
 
-        source_sites = metro_settings[source_metro["name"]]["sites_per_metro"]
-        target_sites = metro_settings[target_metro["name"]]["sites_per_metro"]
+        source_sites = metro_settings[source_metro["name"]]["pop_per_metro"]
+        target_sites = metro_settings[target_metro["name"]]["pop_per_metro"]
 
         # Build link_params with risk groups if present
         source_settings = metro_settings[source_metro["name"]]
@@ -724,7 +724,7 @@ def _build_intra_metro_link_overrides(
     for idx, metro in enumerate(metros, 1):
         metro_name = metro["name"]
         settings = metro_settings[metro_name]
-        sites_count = int(settings["sites_per_metro"])
+        sites_count = int(settings["pop_per_metro"])
         dc_count = int(settings["dc_regions_per_metro"])
         if sites_count <= 0:
             continue

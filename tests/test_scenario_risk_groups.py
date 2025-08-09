@@ -101,9 +101,7 @@ class TestScenarioRiskGroups:
         # Configure scenario
         config = TopologyConfig()
         config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=2, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=2, site_blueprint="SingleRouter")
         )
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
@@ -176,9 +174,7 @@ class TestScenarioRiskGroups:
 
         config = TopologyConfig()
         config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=1, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
@@ -221,9 +217,7 @@ class TestScenarioRiskGroups:
 
         config = TopologyConfig()
         config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=1, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=False)  # Disabled
@@ -296,9 +290,7 @@ class TestScenarioRiskGroups:
 
         config = TopologyConfig()
         config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=1, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
 
         yaml_str = build_scenario(graph, config)

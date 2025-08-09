@@ -75,10 +75,10 @@ class TestBuildIntegration:
     def sample_config(self):
         """Create a sample configuration for testing."""
         config = TopologyConfig()
-        config.build.build_defaults.sites_per_metro = 2
+        config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
         config.build.build_overrides = {
-            "Denver": {"sites_per_metro": 4, "site_blueprint": "Clos_64_256"},
+            "Denver": {"pop_per_metro": 4, "site_blueprint": "Clos_64_256"},
             "Salt Lake City": {"site_blueprint": "FullMesh4"},
         }
         return config
@@ -244,7 +244,7 @@ class TestBuildIntegration:
         """Test handling of empty or minimal graphs."""
         # Create config with no overrides for empty graph
         config = TopologyConfig()
-        config.build.build_defaults.sites_per_metro = 2
+        config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
         config.build.build_overrides = {}
 
@@ -262,10 +262,10 @@ class TestBuildIntegration:
         """Test handling of graph with single metro."""
         # Create config with overrides only for Denver
         config = TopologyConfig()
-        config.build.build_defaults.sites_per_metro = 2
+        config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
         config.build.build_overrides = {
-            "Denver": {"sites_per_metro": 4, "site_blueprint": "Clos_64_256"}
+            "Denver": {"pop_per_metro": 4, "site_blueprint": "Clos_64_256"}
         }
 
         graph = nx.Graph()

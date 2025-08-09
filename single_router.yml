@@ -9,7 +9,7 @@ output:
 
 build:
   build_defaults:
-    sites_per_metro: 2
+    pop_per_metro: 2
     site_blueprint: SingleRouter
     dc_regions_per_metro: 2
     dc_region_blueprint: DCRegion

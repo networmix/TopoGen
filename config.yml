@@ -139,7 +139,7 @@ output:
 build:
   # Default settings for topology generation
   build_defaults:
-    sites_per_metro: 2 # Default number of PoP sites per metro area
+    pop_per_metro: 2 # Default number of PoP sites per metro area
     site_blueprint: SingleRouter # Default blueprint for each PoP site
     dc_regions_per_metro: 2 # Default number of DC Regions per metro area
     dc_region_blueprint: DCRegion # Default blueprint for each DC Region
@@ -148,7 +148,7 @@ build:
   build_overrides:
     # Example overrides for specific metros (use full metro names)
     "Denver--Aurora, CO":
-      sites_per_metro: 4
+      pop_per_metro: 4
       site_blueprint: Clos_64_256
     "Salt Lake City, UT":
       site_blueprint: FullMesh4

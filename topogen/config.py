@@ -132,7 +132,7 @@ class BuildDefaults:
     DC Regions are single-node groups connected to all local PoPs.
     """
 
-    sites_per_metro: int = 2
+    pop_per_metro: int = 2
     site_blueprint: str = "SingleRouter"
     dc_regions_per_metro: int = 2
     dc_region_blueprint: str = "DCRegion"
@@ -529,7 +529,7 @@ class TopologyConfig:
 
         # Create BuildDefaults with explicit parameters
         build_defaults = BuildDefaults(
-            sites_per_metro=build_defaults_dict.get("sites_per_metro", 2),
+            pop_per_metro=build_defaults_dict.get("pop_per_metro", 2),
             site_blueprint=build_defaults_dict.get("site_blueprint", "SingleRouter"),
             dc_regions_per_metro=build_defaults_dict.get("dc_regions_per_metro", 2),
             dc_region_blueprint=build_defaults_dict.get(

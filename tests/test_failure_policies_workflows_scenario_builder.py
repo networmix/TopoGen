@@ -178,7 +178,7 @@ class TestBuildScenarioIntegration:
         # Build configuration
         config.build = Mock()
         config.build.build_defaults = Mock()
-        config.build.build_defaults.sites_per_metro = 2
+        config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
         config.build.build_defaults.dc_regions_per_metro = 2
         config.build.build_defaults.dc_region_blueprint = "DCRegion"

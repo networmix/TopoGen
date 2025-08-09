@@ -151,9 +151,7 @@ class TestEndToEndRiskGroups:
         # Step 7: Generate scenario
         scenario_config = TopologyConfig()
         scenario_config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=2, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=2, site_blueprint="SingleRouter")
         )
         scenario_config.corridors = config
 
@@ -300,9 +298,7 @@ class TestEndToEndRiskGroups:
 
         scenario_config = TopologyConfig()
         scenario_config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=1, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         scenario_config.corridors = config
 
@@ -415,9 +411,7 @@ class TestEndToEndRiskGroups:
 
         scenario_config = TopologyConfig()
         scenario_config.build = BuildConfig(
-            build_defaults=BuildDefaults(
-                sites_per_metro=1, site_blueprint="SingleRouter"
-            )
+            build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         scenario_config.corridors = config
 

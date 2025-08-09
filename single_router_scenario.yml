@@ -536,7 +536,7 @@ network:
         metro_name_orig: Denver--Aurora, CO
         distance_model: metro_circle_arc
         circle_radius_km: 23.05
-        sites_count: 2
+        pop_count: 2
   - source: /metro2/pop[1-2]
     target: /metro2/pop[1-2]
     pattern: mesh
@@ -549,7 +549,7 @@ network:
         metro_name_orig: Minneapolis--St. Paul, MN
         distance_model: metro_circle_arc
         circle_radius_km: 28.92
-        sites_count: 2
+        pop_count: 2
   - source: /metro3/pop[1-2]
     target: /metro3/pop[1-2]
     pattern: mesh
@@ -562,7 +562,7 @@ network:
         metro_name_orig: Salt Lake City, UT
         distance_model: metro_circle_arc
         circle_radius_km: 15.74
-        sites_count: 2
+        pop_count: 2
   - source: /metro4/pop[1-2]
     target: /metro4/pop[1-2]
     pattern: mesh
@@ -575,7 +575,7 @@ network:
         metro_name_orig: Las Vegas--Henderson--Paradise, NV
         distance_model: metro_circle_arc
         circle_radius_km: 18.94
-        sites_count: 2
+        pop_count: 2
   - source: /metro5/pop[1-2]
     target: /metro5/pop[1-2]
     pattern: mesh
@@ -588,7 +588,7 @@ network:
         metro_name_orig: Phoenix--Mesa--Scottsdale, AZ
         distance_model: metro_circle_arc
         circle_radius_km: 30.26
-        sites_count: 2
+        pop_count: 2
   - source: /metro6/pop[1-2]
     target: /metro6/pop[1-2]
     pattern: mesh
@@ -601,7 +601,7 @@ network:
         metro_name_orig: Atlanta, GA
         distance_model: metro_circle_arc
         circle_radius_km: 44.95
-        sites_count: 2
+        pop_count: 2
   - source: /metro7/pop[1-2]
     target: /metro7/pop[1-2]
     pattern: mesh
@@ -614,7 +614,7 @@ network:
         metro_name_orig: Portland, OR--WA
         distance_model: metro_circle_arc
         circle_radius_km: 20.69
-        sites_count: 2
+        pop_count: 2
   - source: /metro8/pop[1-2]
     target: /metro8/pop[1-2]
     pattern: mesh
@@ -627,7 +627,7 @@ network:
         metro_name_orig: Omaha, NE--IA
         distance_model: metro_circle_arc
         circle_radius_km: 14.94
-        sites_count: 2
+        pop_count: 2
   - source: /metro9/pop[1-2]
     target: /metro9/pop[1-2]
     pattern: mesh
@@ -640,7 +640,7 @@ network:
         metro_name_orig: Boise City, ID
         distance_model: metro_circle_arc
         circle_radius_km: 10.71
-        sites_count: 2
+        pop_count: 2
   - source: /metro10/pop[1-2]
     target: /metro10/pop[1-2]
     pattern: mesh
@@ -653,7 +653,7 @@ network:
         metro_name_orig: Albuquerque, NM
         distance_model: metro_circle_arc
         circle_radius_km: 14.73
-        sites_count: 2
+        pop_count: 2
   - source: /metro11/pop[1-2]
     target: /metro11/pop[1-2]
     pattern: mesh
@@ -666,7 +666,7 @@ network:
         metro_name_orig: New Orleans, LA
         distance_model: metro_circle_arc
         circle_radius_km: 14.05
-        sites_count: 2
+        pop_count: 2
   - source: /metro12/pop[1-2]
     target: /metro12/pop[1-2]
     pattern: mesh
@@ -679,7 +679,7 @@ network:
         metro_name_orig: Buffalo, NY
         distance_model: metro_circle_arc
         circle_radius_km: 16.75
-        sites_count: 2
+        pop_count: 2
   - source: /metro13/pop[1-2]
     target: /metro13/pop[1-2]
     pattern: mesh
@@ -692,7 +692,7 @@ network:
         metro_name_orig: Chicago, IL--IN
         distance_model: metro_circle_arc
         circle_radius_km: 43.9
-        sites_count: 2
+        pop_count: 2
   - source: /metro14/pop[1-2]
     target: /metro14/pop[1-2]
     pattern: mesh
@@ -705,7 +705,7 @@ network:
         metro_name_orig: Dallas--Fort Worth--Arlington, TX
         distance_model: metro_circle_arc
         circle_radius_km: 37.95
-        sites_count: 2
+        pop_count: 2
   - source: /metro15/pop[1-2]
     target: /metro15/pop[1-2]
     pattern: mesh
@@ -718,7 +718,7 @@ network:
         metro_name_orig: Kansas City, MO--KS
         distance_model: metro_circle_arc
         circle_radius_km: 24.26
-        sites_count: 2
+        pop_count: 2
   - source: /metro16/pop[1-2]
     target: /metro16/pop[1-2]
     pattern: mesh
@@ -731,7 +731,7 @@ network:
         metro_name_orig: St. Louis, MO--IL
         distance_model: metro_circle_arc
         circle_radius_km: 27.4
-        sites_count: 2
+        pop_count: 2
   - source: /metro17/pop[1-2]
     target: /metro17/pop[1-2]
     pattern: mesh
@@ -744,7 +744,7 @@ network:
         metro_name_orig: Charlotte, NC--SC
         distance_model: metro_circle_arc
         circle_radius_km: 23.28
-        sites_count: 2
+        pop_count: 2
   - source: /metro18/pop[1-2]
     target: /metro18/pop[1-2]
     pattern: mesh
@@ -757,7 +757,7 @@ network:
         metro_name_orig: Nashville-Davidson, TN
         distance_model: metro_circle_arc
         circle_radius_km: 21.96
-        sites_count: 2
+        pop_count: 2
   - source: /metro19/pop[1-2]
     target: /metro19/pop[1-2]
     pattern: mesh
@@ -770,7 +770,7 @@ network:
         metro_name_orig: Pittsburgh, PA
         distance_model: metro_circle_arc
         circle_radius_km: 27.34
-        sites_count: 2
+        pop_count: 2
   - source: /metro20/pop[1-2]
     target: /metro20/pop[1-2]
     pattern: mesh
@@ -783,7 +783,7 @@ network:
         metro_name_orig: Sacramento, CA
         distance_model: metro_circle_arc
         circle_radius_km: 19.63
-        sites_count: 2
+        pop_count: 2
   - source: /metro21/pop[1-2]
     target: /metro21/pop[1-2]
     pattern: mesh
@@ -796,7 +796,7 @@ network:
         metro_name_orig: New York--Jersey City--Newark, NY--NJ
         distance_model: metro_circle_arc
         circle_radius_km: 51.75
-        sites_count: 2
+        pop_count: 2
   - source: /metro22/pop[1-2]
     target: /metro22/pop[1-2]
     pattern: mesh
@@ -809,7 +809,7 @@ network:
         metro_name_orig: Philadelphia, PA--NJ--DE--MD
         distance_model: metro_circle_arc
         circle_radius_km: 39.56
-        sites_count: 2
+        pop_count: 2
   - source: /metro23/pop[1-2]
     target: /metro23/pop[1-2]
     pattern: mesh
@@ -822,7 +822,7 @@ network:
         metro_name_orig: Houston, TX
         distance_model: metro_circle_arc
         circle_radius_km: 38.01
-        sites_count: 2
+        pop_count: 2
   - source: /metro24/pop[1-2]
     target: /metro24/pop[1-2]
     pattern: mesh
@@ -835,7 +835,7 @@ network:
         metro_name_orig: Boston, MA--NH
         distance_model: metro_circle_arc
         circle_radius_km: 36.95
-        sites_count: 2
+        pop_count: 2
   - source: /metro25/pop[1-2]
     target: /metro25/pop[1-2]
     pattern: mesh
@@ -848,7 +848,7 @@ network:
         metro_name_orig: Los Angeles--Long Beach--Anaheim, CA
         distance_model: metro_circle_arc
         circle_radius_km: 36.73
-        sites_count: 2
+        pop_count: 2
   - source: /metro1/dc[1-2]
     target: /metro1/pop[1-2]
     pattern: mesh

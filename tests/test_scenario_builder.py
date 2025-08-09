@@ -81,7 +81,7 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(
-                sites_per_metro=3, site_blueprint="TestBlueprint"
+                pop_per_metro=3, site_blueprint="TestBlueprint"
             ),
             build_overrides={},
         )
@@ -89,9 +89,9 @@ class TestScenarioBuilder:
         settings = _determine_metro_settings(metros, config)
 
         assert len(settings) == 2
-        assert settings["Denver"]["sites_per_metro"] == 3
+        assert settings["Denver"]["pop_per_metro"] == 3
         assert settings["Denver"]["site_blueprint"] == "TestBlueprint"
-        assert settings["Salt Lake City"]["sites_per_metro"] == 3
+        assert settings["Salt Lake City"]["pop_per_metro"] == 3
         assert settings["Salt Lake City"]["site_blueprint"] == "TestBlueprint"
 
     def test_determine_metro_settings_with_overrides(self):
@@ -104,10 +104,10 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(
-                sites_per_metro=2, site_blueprint="SingleRouter"
+                pop_per_metro=2, site_blueprint="SingleRouter"
             ),
             build_overrides={
-                "Denver": {"sites_per_metro": 4, "site_blueprint": "Clos_64_256"},
+                "Denver": {"pop_per_metro": 4, "site_blueprint": "Clos_64_256"},
                 "Salt Lake City": {
                     "site_blueprint": "FullMesh4"
                 },  # Only blueprint override
@@ -117,11 +117,11 @@ class TestScenarioBuilder:
         settings = _determine_metro_settings(metros, config)
 
         # Denver should have both overrides
-        assert settings["Denver"]["sites_per_metro"] == 4
+        assert settings["Denver"]["pop_per_metro"] == 4
         assert settings["Denver"]["site_blueprint"] == "Clos_64_256"
 
         # Salt Lake City should have blueprint override but default sites
-        assert settings["Salt Lake City"]["sites_per_metro"] == 2
+        assert settings["Salt Lake City"]["pop_per_metro"] == 2
         assert settings["Salt Lake City"]["site_blueprint"] == "FullMesh4"
 
     def test_determine_metro_settings_unknown_metro(self):
@@ -131,25 +131,25 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(),
-            build_overrides={"NonExistentMetro": {"sites_per_metro": 4}},
+            build_overrides={"NonExistentMetro": {"pop_per_metro": 4}},
         )
 
         with pytest.raises(ValueError, match="unknown metro 'NonExistentMetro'"):
             _determine_metro_settings(metros, config)
 
     def test_determine_metro_settings_invalid_sites(self):
-        """Test metro settings fails for invalid sites_per_metro."""
+        """Test metro settings fails for invalid pop_per_metro."""
         metros = [{"name": "Denver", "metro_id": "metro_001"}]
 
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(),
             build_overrides={
-                "Denver": {"sites_per_metro": 0}  # Invalid
+                "Denver": {"pop_per_metro": 0}  # Invalid
             },
         )
 
-        with pytest.raises(ValueError, match="invalid sites_per_metro"):
+        with pytest.raises(ValueError, match="invalid pop_per_metro"):
             _determine_metro_settings(metros, config)
 
     def test_determine_metro_settings_dc_regions(self):
@@ -162,7 +162,7 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(
-                sites_per_metro=2,
+                pop_per_metro=2,
                 site_blueprint="SingleRouter",
                 dc_regions_per_metro=2,
                 dc_region_blueprint="DCRegion",
@@ -263,7 +263,7 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(
-                sites_per_metro=2, site_blueprint="SingleRouter"
+                pop_per_metro=2, site_blueprint="SingleRouter"
             ),
             build_overrides={},
         )
@@ -352,7 +352,7 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(
-                sites_per_metro=2,
+                pop_per_metro=2,
                 site_blueprint="SingleRouter",
                 dc_regions_per_metro=2,
                 dc_region_blueprint="DCRegion",

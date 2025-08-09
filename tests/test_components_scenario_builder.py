@@ -31,24 +31,22 @@ class TestComponentsScenarioBuilder:
                 }
             },
             assignments=ComponentAssignments(
-                spine=ComponentAssignment(
-                    hw_component="SpineChassis", optics="400G-LR4"
-                ),
-                leaf=ComponentAssignment(hw_component="LeafChassis", optics="400G-SR8"),
-                core=ComponentAssignment(hw_component="CoreRouter", optics="100G-LR4"),
-                dc=ComponentAssignment(hw_component="DCNode", optics="100G-LR4"),
+                spine=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
+                leaf=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
+                core=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
+                dc=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
                 blueprint_overrides={
                     "Clos_64_256": {
                         "spine": ComponentAssignment(
-                            hw_component="HighEndSpineChassis", optics="400G-LR4"
+                            hw_component="CoreRouter", optics="800G-ZR+"
                         ),
                         "leaf": ComponentAssignment(
-                            hw_component="HighEndLeafChassis", optics="400G-SR8"
+                            hw_component="CoreRouter", optics="800G-ZR+"
                         ),
                     },
                     "SingleRouter": {
                         "core": ComponentAssignment(
-                            hw_component="EdgeRouter", optics="100G-LR4"
+                            hw_component="CoreRouter", optics="800G-ZR+"
                         )
                     },
                 },
@@ -68,9 +66,8 @@ class TestComponentsScenarioBuilder:
         assert len(components) > 0
 
         # Should include referenced components
-        assert "EdgeRouter" in components  # From SingleRouter override
-        assert "CoreRouter" in components  # From default core assignment
-        assert "100G-LR4" in components  # From optics assignments
+        assert "CoreRouter" in components
+        assert "800G-ZR+" in components
 
     def test_build_components_section_with_overrides(self):
         """Test building components section with blueprint overrides."""
@@ -82,17 +79,15 @@ class TestComponentsScenarioBuilder:
         assert isinstance(components, dict)
 
         # Should include override components
-        assert "HighEndSpineChassis" in components
-        assert "HighEndLeafChassis" in components
-        assert "400G-LR4" in components
-        assert "400G-SR8" in components
+        assert "CoreRouter" in components
+        assert "800G-ZR+" in components
 
     def test_build_components_section_merges_builtin_and_custom(self):
         """Test that components section merges built-in and custom components."""
         config = self.create_test_config()
 
         # Add a custom component to library that overrides a built-in
-        config.components.library["SpineChassis"] = {
+        config.components.library["CoreRouter"] = {
             "component_type": "chassis",
             "cost": 999999.0,  # Different from built-in
             "power_watts": 9999.0,
@@ -102,9 +97,9 @@ class TestComponentsScenarioBuilder:
         components = _build_components_section(config, used_blueprints)
 
         # Should use custom version
-        spine_chassis = components.get("SpineChassis")
-        if spine_chassis:  # May not be referenced if override is used
-            assert spine_chassis["cost"] == 999999.0
+        overridden = components.get("CoreRouter")
+        if overridden:  # May not be referenced depending on overrides
+            assert overridden["cost"] == 999999.0
 
     def test_build_components_section_missing_component_warning(self):
         """Test warning when referenced component is not found."""
@@ -135,7 +130,7 @@ class TestComponentsScenarioBuilder:
 
         core_group = single_router["groups"]["core"]
         assert "attrs" in core_group
-        assert core_group["attrs"]["hw_component"] == "EdgeRouter"
+        assert core_group["attrs"]["hw_component"] == "CoreRouter"
 
     def test_build_blueprints_section_with_overrides(self):
         """Test building blueprints section with blueprint overrides."""
@@ -151,8 +146,8 @@ class TestComponentsScenarioBuilder:
         leaf_group = clos_blueprint["groups"]["leaf"]
 
         # Should use override components
-        assert spine_group["attrs"]["hw_component"] == "HighEndSpineChassis"
-        assert leaf_group["attrs"]["hw_component"] == "HighEndLeafChassis"
+        assert spine_group["attrs"]["hw_component"] == "CoreRouter"
+        assert leaf_group["attrs"]["hw_component"] == "CoreRouter"
 
     def test_build_blueprints_section_preserves_existing_attrs(self):
         """Test that building blueprints preserves existing node attributes."""
@@ -170,7 +165,7 @@ class TestComponentsScenarioBuilder:
         assert spine_group["attrs"]["tier"] == "spine"
 
         # And add new component assignment
-        assert spine_group["attrs"]["hw_component"] == "HighEndSpineChassis"
+        assert spine_group["attrs"]["hw_component"] == "CoreRouter"
 
     def test_build_blueprints_section_unknown_blueprint(self):
         """Test error when unknown blueprint is requested."""
@@ -230,8 +225,8 @@ class TestComponentsScenarioBuilder:
         assert "UnusedOptic1" not in components
 
         # Should include referenced ones
-        assert "EdgeRouter" in components  # From override
-        assert "100G-LR4" in components  # From optics
+        assert "CoreRouter" in components
+        assert "800G-ZR+" in components
 
     def test_empty_used_blueprints(self):
         """Test behavior with empty used blueprints set."""

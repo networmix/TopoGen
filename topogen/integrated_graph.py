@@ -677,7 +677,9 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
                 output_path=visualization_path,
                 conus_boundary_path=config.data_sources.conus_boundary,
                 target_crs=config.projection.target_crs,
-                use_real_geometry=getattr(config, "_use_real_corridor_geometry", False),
+                use_real_geometry=bool(
+                    getattr(config, "_use_real_corridor_geometry", False)
+                ),
             )
         except Exception as e:
             raise RuntimeError(

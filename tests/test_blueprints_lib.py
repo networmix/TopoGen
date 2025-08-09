@@ -1,15 +1,12 @@
-"""Tests for the blueprints library module."""
+"""Tests for the simplified blueprints library module."""
 
-import pytest
+from __future__ import annotations
 
-from topogen.blueprints_lib import (
-    get_builtin_blueprint,
-    get_builtin_blueprints,
-)
+from topogen.blueprints_lib import get_builtin_blueprints
 
 
 class TestBlueprintsLib:
-    """Test cases for the blueprints library functionality."""
+    """Test cases for built-in blueprints retrieval and structure."""
 
     def test_get_builtin_blueprints_returns_dict(self):
         """Test that get_builtin_blueprints returns a dictionary."""
@@ -27,7 +24,7 @@ class TestBlueprintsLib:
 
     def test_single_router_blueprint_structure(self):
         """Test the SingleRouter blueprint has correct structure."""
-        blueprint = get_builtin_blueprint("SingleRouter")
+        blueprint = get_builtin_blueprints()["SingleRouter"]
 
         assert "groups" in blueprint
         assert "adjacency" in blueprint
@@ -44,7 +41,7 @@ class TestBlueprintsLib:
 
     def test_full_mesh_4_blueprint_structure(self):
         """Test the FullMesh4 blueprint has correct structure."""
-        blueprint = get_builtin_blueprint("FullMesh4")
+        blueprint = get_builtin_blueprints()["FullMesh4"]
 
         assert "groups" in blueprint
         assert "adjacency" in blueprint
@@ -64,7 +61,7 @@ class TestBlueprintsLib:
 
     def test_clos_64_256_blueprint_structure(self):
         """Test the Clos_64_256 blueprint has correct structure."""
-        blueprint = get_builtin_blueprint("Clos_64_256")
+        blueprint = get_builtin_blueprints()["Clos_64_256"]
 
         assert "groups" in blueprint
         assert "adjacency" in blueprint
@@ -85,11 +82,6 @@ class TestBlueprintsLib:
         assert adj["source"] == "/leaf"
         assert adj["target"] == "/spine"
         assert adj["pattern"] == "mesh"
-
-    def test_get_builtin_blueprint_invalid_name(self):
-        """Test that get_builtin_blueprint raises error for invalid name."""
-        with pytest.raises(ValueError, match="Unknown blueprint 'NonExistent'"):
-            get_builtin_blueprint("NonExistent")
 
     def test_blueprint_consistency(self):
         """Test that all blueprints have consistent structure."""
@@ -120,7 +112,7 @@ class TestBlueprintsLib:
 
     def test_dc_region_blueprint_structure(self):
         """Test the DCRegion blueprint has correct structure."""
-        blueprint = get_builtin_blueprint("DCRegion")
+        blueprint = get_builtin_blueprints()["DCRegion"]
 
         assert "groups" in blueprint
         assert "adjacency" in blueprint

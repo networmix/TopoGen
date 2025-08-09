@@ -1197,8 +1197,8 @@ def _build_traffic_matrix_section(
 
     if not gravity_enabled:
         # Legacy uniform pairwise emission using regex selection
-        source_regex = ".*(dc.+)"
-        sink_regex = ".*(dc.+)"
+        source_regex = "(metro[0-9]+/dc[0-9]+)"
+        sink_regex = "(metro[0-9]+/dc[0-9]+)"
         demands: list[dict[str, Any]] = []
         for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
             class_demand = offered_gbps * float(ratio)

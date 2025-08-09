@@ -375,8 +375,8 @@ class TestBuildScenarioIntegration:
             {
                 "step_type": "CapacityEnvelopeAnalysis",
                 "name": "test_analysis",
-                "source_path": ".*(dc.+)",
-                "sink_path": ".*(dc.+)",
+                "source_path": "(metro[0-9]+/dc[0-9]+)",
+                "sink_path": "(metro[0-9]+/dc[0-9]+)",
                 "mode": "pairwise",
                 "failure_policy": "test_policy",
             },

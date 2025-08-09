@@ -1,4 +1,6 @@
-"""Tests for the components library module."""
+"""Tests for the simplified components library module."""
+
+from __future__ import annotations
 
 import pytest
 
@@ -32,13 +34,13 @@ class TestComponentsLib:
 
     def test_get_builtin_component_valid(self):
         """Test getting a specific valid component."""
-        component = get_builtin_component("SpineChassis")
+        component = get_builtin_component("CoreRouter")
 
         assert isinstance(component, dict)
         assert component["component_type"] == "chassis"
-        assert component["description"] == "High-capacity spine router chassis"
-        assert component["cost"] == 65000.0
-        assert component["power_watts"] == 3200.0
+        assert component["description"] == "Core router for metro backbone"
+        assert component["cost"] == 650_000.0
+        assert component["power_watts"] == 40_000.0
 
     def test_get_builtin_component_invalid(self):
         """Test getting a non-existent component raises KeyError."""
@@ -53,8 +55,8 @@ class TestComponentsLib:
 
         assert isinstance(names, list)
         assert len(names) > 0
-        assert "SpineChassis" in names
-        assert "100G-LR4" in names
+        assert "CoreRouter" in names
+        assert "800G-ZR+" in names
         assert all(isinstance(name, str) for name in names)
 
     def test_get_components_by_type_chassis(self):
@@ -67,8 +69,7 @@ class TestComponentsLib:
         for _name, comp in chassis_components.items():
             assert comp["component_type"] == "chassis"
 
-        # Should include known chassis components
-        assert "SpineChassis" in chassis_components
+        # Should include known chassis components from the minimal library
         assert "CoreRouter" in chassis_components
 
     def test_get_components_by_type_optic(self):
@@ -81,9 +82,8 @@ class TestComponentsLib:
         for _name, comp in optic_components.items():
             assert comp["component_type"] == "optic"
 
-        # Should include known optic components
-        assert "100G-LR4" in optic_components
-        assert "400G-LR4" in optic_components
+        # Should include known optic components from the minimal library
+        assert "800G-ZR+" in optic_components
 
     def test_get_components_by_type_nonexistent(self):
         """Test filtering by non-existent type returns empty dict."""
@@ -95,14 +95,9 @@ class TestComponentsLib:
         spine_components = get_components_by_role("spine")
 
         assert isinstance(spine_components, dict)
-        assert len(spine_components) > 0
-
+        # Minimal library may not have explicit spine components
         for _name, comp in spine_components.items():
             assert comp.get("attrs", {}).get("role") == "spine"
-
-        # Should include spine chassis
-        assert "SpineChassis" in spine_components
-        assert "HighEndSpineChassis" in spine_components
 
     def test_get_components_by_role_core(self):
         """Test filtering components by core role."""
@@ -155,7 +150,8 @@ class TestComponentsLib:
         for name, comp in components.items():
             power = comp["power_watts"]
             assert power >= 0, f"Component '{name}' has negative power: {power}"
-            assert power < 50_000, f"Component '{name}' has unrealistic power: {power}"
+            # Allow up to 50kW for chassis
+            assert power <= 50_000, f"Component '{name}' has unrealistic power: {power}"
 
             if "power_watts_max" in comp:
                 power_max = comp["power_watts_max"]

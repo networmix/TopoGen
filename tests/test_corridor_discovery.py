@@ -28,11 +28,28 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        # Anchors at endpoints
-        anchors = {
-            "metro1": (0.0, 0.0),
-            "metro2": (1000.0, 0.0),
-        }
+        # Add metro nodes and anchor edges (metro-to-anchor Euclidean edges)
+        for metro in metros:
+            # Add/merge metro node
+            graph.add_node(
+                metro.node_key,
+                node_type="metro",
+                name=metro.name,
+                name_orig=metro.name_orig,
+                metro_id=metro.metro_id,
+                x=metro.centroid_x,
+                y=metro.centroid_y,
+                radius_km=metro.radius_km,
+            )
+            # Anchor at the same coordinate as metro for this test
+            anchor_point = metro.node_key
+            # Euclidean distance in km (zero in this case)
+            graph.add_edge(
+                metro.node_key,
+                anchor_point,
+                edge_type="metro_anchor",
+                length_km=0.0,
+            )
 
         # Configure corridors
         config = CorridorsConfig()
@@ -41,8 +58,8 @@ class TestCorridorDiscovery:
         config.max_edge_km = 2000.0
         config.max_corridor_distance_km = 2000.0
 
-        # Run corridor discovery
-        add_corridors(graph, anchors, metros, config)
+        # Run corridor discovery (metro-to-metro paths via anchors/highways)
+        add_corridors(graph, metros, config)
 
         # Verify corridor tags were added
         corridor_edges = 0
@@ -72,10 +89,25 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        anchors = {
-            "metro1": (0.0, 0.0),
-            "metro2": (2000.0, 0.0),
-        }
+        # Add metro nodes and anchor edges
+        for metro in metros:
+            graph.add_node(
+                metro.node_key,
+                node_type="metro",
+                name=metro.name,
+                name_orig=metro.name_orig,
+                metro_id=metro.metro_id,
+                x=metro.centroid_x,
+                y=metro.centroid_y,
+                radius_km=metro.radius_km,
+            )
+            anchor_point = metro.node_key
+            graph.add_edge(
+                metro.node_key,
+                anchor_point,
+                edge_type="metro_anchor",
+                length_km=0.0,
+            )
 
         config = CorridorsConfig()
         config.k_paths = 1
@@ -87,7 +119,7 @@ class TestCorridorDiscovery:
         with pytest.raises(
             ValueError, match="No corridors found - corridor discovery failed"
         ):
-            add_corridors(graph, anchors, metros, config)
+            add_corridors(graph, metros, config)
 
     def test_corridor_distance_limiting(self):
         """Test that corridors beyond max distance are skipped."""
@@ -107,10 +139,25 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        anchors = {
-            "metro1": (0.0, 0.0),
-            "metro2": (5000000.0, 0.0),
-        }
+        # Add metro nodes and anchor edges
+        for metro in metros:
+            graph.add_node(
+                metro.node_key,
+                node_type="metro",
+                name=metro.name,
+                name_orig=metro.name_orig,
+                metro_id=metro.metro_id,
+                x=metro.centroid_x,
+                y=metro.centroid_y,
+                radius_km=metro.radius_km,
+            )
+            anchor_point = metro.node_key
+            graph.add_edge(
+                metro.node_key,
+                anchor_point,
+                edge_type="metro_anchor",
+                length_km=0.0,
+            )
 
         config = CorridorsConfig()
         config.k_paths = 1
@@ -120,7 +167,7 @@ class TestCorridorDiscovery:
         with pytest.raises(
             ValueError, match="No adjacent metro pairs found for corridor discovery"
         ):
-            add_corridors(graph, anchors, metros, config)
+            add_corridors(graph, metros, config)
 
     def test_multiple_paths_discovery(self):
         """Test discovery of multiple paths between metro pairs."""
@@ -142,10 +189,25 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        anchors = {
-            "metro1": (0.0, 0.0),
-            "metro2": (1000.0, 0.0),
-        }
+        # Add metro nodes and anchor edges
+        for metro in metros:
+            graph.add_node(
+                metro.node_key,
+                node_type="metro",
+                name=metro.name,
+                name_orig=metro.name_orig,
+                metro_id=metro.metro_id,
+                x=metro.centroid_x,
+                y=metro.centroid_y,
+                radius_km=metro.radius_km,
+            )
+            anchor_point = metro.node_key
+            graph.add_edge(
+                metro.node_key,
+                anchor_point,
+                edge_type="metro_anchor",
+                length_km=0.0,
+            )
 
         config = CorridorsConfig()
         config.k_paths = 2  # Request 2 paths
@@ -153,7 +215,7 @@ class TestCorridorDiscovery:
         config.max_edge_km = 2000.0
         config.max_corridor_distance_km = 2000.0
 
-        add_corridors(graph, anchors, metros, config)
+        add_corridors(graph, metros, config)
 
         # Check that multiple paths were found
         path_indices = set()
@@ -189,10 +251,26 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        anchors = {
-            "metroA": A,
-            "metroC": C,
-        }
+        # Add metro nodes and anchor edges
+        for metro in metros:
+            graph.add_node(
+                metro.node_key,
+                node_type="metro",
+                name=metro.name,
+                name_orig=metro.name_orig,
+                metro_id=metro.metro_id,
+                x=metro.centroid_x,
+                y=metro.centroid_y,
+                radius_km=metro.radius_km,
+            )
+            # Anchors coincide with metro coordinates in this test
+            anchor_point = metro.node_key
+            graph.add_edge(
+                metro.node_key,
+                anchor_point,
+                edge_type="metro_anchor",
+                length_km=0.0,
+            )
 
         config = CorridorsConfig()
         config.k_paths = 1
@@ -201,7 +279,7 @@ class TestCorridorDiscovery:
         config.max_corridor_distance_km = 1000.0
 
         # Run corridor discovery
-        add_corridors(graph, anchors, metros, config)
+        add_corridors(graph, metros, config)
 
         # Compute expected distances
         euclidean_km = 100.0  # straight-line between A and C (100km)

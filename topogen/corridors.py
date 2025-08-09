@@ -30,19 +30,19 @@ logger = get_logger(__name__)
 
 def add_corridors(
     graph: nx.Graph,
-    anchors: dict[str, tuple[float, float]],
     metros: list[MetroCluster],
     corridors_config: CorridorsConfig,
 ) -> None:
-    """Add corridor tags to highway edges using k-shortest paths.
+    """Add corridor tags to edges along metro-to-metro k-shortest paths.
 
-    Finds k-shortest paths between adjacent metro pairs and tags the highway
-    edges used in those paths with corridor metadata. Path length is computed
-    as the sum of constituent highway edge lengths (``length_km``).
+    Computes k-shortest paths between adjacent metro pairs using the integrated
+    graph that already contains metro nodes connected to their highway anchors.
+    Paths therefore take the form: ``metro -> anchor -> ...highway... -> anchor -> metro``.
+    The path length is the sum of ``length_km`` over all edges in the path. For
+    ``metro_anchor`` edges, ``length_km`` is the Euclidean distance in kilometers.
 
     Args:
-        graph: Integrated graph to add corridor tags to.
-        anchors: Dict mapping metro_id to anchor node coordinates.
+        graph: Integrated graph containing highway and metro nodes and edges.
         metros: List of metro clusters.
         corridors_config: Corridor discovery configuration.
 
@@ -50,8 +50,8 @@ def add_corridors(
         ValueError: If no adjacent metro pairs or no corridors are found.
 
     Notes:
-        This function annotates highway edges in the full integrated graph with
-        a "corridor" list of metadata entries. It does not create metro-to-metro
+        This function annotates edges in the full integrated graph with a
+        ``corridor`` list of metadata entries. It does not create metro-to-metro
         edges. Use ``extract_corridor_graph`` to produce the corridor-level graph
         with metro nodes and corridor edges for downstream processing.
     """
@@ -108,6 +108,11 @@ def add_corridors(
 
     logger.info(f"Processing {len(adjacent_pairs)} metro pairs for corridor discovery")
 
+    # Precompute metro_id -> node_key for path endpoints
+    metro_id_to_node: dict[str, tuple[float, float]] = {
+        m.metro_id: m.node_key for m in metros
+    }
+
     for metro_a_id, metro_b_id, pair_distance in adjacent_pairs:
         processed_pairs += 1
 
@@ -124,8 +129,21 @@ def add_corridors(
             )
             continue
 
-        anchor_a = anchors[metro_a_id]
-        anchor_b = anchors[metro_b_id]
+        # Endpoints are the metro nodes themselves
+        if metro_a_id not in metro_id_to_node or metro_b_id not in metro_id_to_node:
+            logger.warning(
+                f"Skipping {metro_a_id}-{metro_b_id}: metro node(s) missing in mapping"
+            )
+            continue
+        node_a = metro_id_to_node[metro_a_id]
+        node_b = metro_id_to_node[metro_b_id]
+
+        # Validate endpoints exist in the graph
+        if not graph.has_node(node_a) or not graph.has_node(node_b):
+            logger.warning(
+                f"Skipping {metro_a_id}-{metro_b_id}: metro node(s) not present in graph"
+            )
+            continue
 
         logger.debug(
             f"Finding paths between {metro_a_id} and {metro_b_id} ({pair_distance:.1f}km)"
@@ -138,7 +156,7 @@ def add_corridors(
 
             start_time = time.time()
             paths_generator = nx.shortest_simple_paths(
-                graph, anchor_a, anchor_b, weight="length_km"
+                graph, node_a, node_b, weight="length_km"
             )
             paths = list(itertools.islice(paths_generator, corridors_config.k_paths))
             elapsed = time.time() - start_time

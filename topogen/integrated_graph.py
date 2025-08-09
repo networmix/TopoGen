@@ -622,9 +622,9 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
 
     logger.info(f"Added {len(metros)} metro nodes with anchor connections")
 
-    # Step 8: Add corridor tags
+    # Step 8: Add corridor tags (paths from metro to metro via anchors and highways)
     logger.info("Discovering corridors")
-    add_corridors(G, anchors, metros, config.corridors)
+    add_corridors(G, metros, config.corridors)
 
     # Step 8.5: Assign risk groups to corridor edges
     assign_risk_groups(G, metros, config.corridors)

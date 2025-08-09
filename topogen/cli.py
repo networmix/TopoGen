@@ -123,8 +123,10 @@ def _run_pipeline(
     Returns:
         Generated scenario YAML string.
 
-    Raises:
-        ValueError: If integrated graph loading fails.
+    Notes:
+        Terminates the process via sys.exit(1) when the integrated graph is
+        missing. When validation is enabled and fails, prints an error but does
+        not terminate.
     """
     from topogen import load_from_json
     from topogen.scenario_builder import build_scenario
@@ -288,7 +290,7 @@ def main() -> None:
     """Parse command line arguments and execute the appropriate subcommand.
 
     Configures logging, parses CLI arguments, and dispatches to the correct
-    command function (build, generate, validate, or info).
+    command function (build, generate, or info).
     """
     parser = argparse.ArgumentParser(
         prog="topogen",

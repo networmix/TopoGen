@@ -50,6 +50,7 @@ workflows:
 
 traffic:
   enabled: true
+  model: gravity
   gbps_per_mw: 500.0
   mw_per_dc_region: 50.0
   priority_ratios:
@@ -57,6 +58,15 @@ traffic:
     1: 0.3
     2: 0.4
   matrix_name: default
+  gravity:
+    alpha: 1.0
+    beta: 0.8
+    min_distance_km: 200.0
+    exclude_same_metro: false
+    distance_metric: euclidean_km
+    emission: explicit_pairs
+    jitter_stddev: 0.0
+    rounding_gbps: 0.0
 
 data_sources:
   uac_polygons: "data/tl_2020_us_uac20.zip"

@@ -391,6 +391,67 @@ class TestScenarioBuilder:
             assert link["pattern"] == "mesh"
             assert link["link_params"]["attrs"]["link_type"] == "dc_to_pop"
 
+    def test_gravity_traffic_totals_and_structure(self):
+        """Gravity model emits explicit fixed per-pair entries with conserved totals."""
+        # Build simple graph with two metros and 1 DC each for determinism
+        graph = nx.Graph()
+        m1 = (0.0, 0.0)
+        m2 = (300_000.0, 0.0)  # 300 km apart in EPSG:5070 meters
+        graph.add_node(
+            m1,
+            node_type="metro",
+            name="A",
+            metro_id="m1",
+            x=m1[0],
+            y=m1[1],
+            radius_km=10.0,
+        )
+        graph.add_node(
+            m2,
+            node_type="metro",
+            name="B",
+            metro_id="m2",
+            x=m2[0],
+            y=m2[1],
+            radius_km=10.0,
+        )
+        graph.add_edge(m1, m2, length_km=300.0, capacity=100)
+
+        cfg = TopologyConfig()
+        cfg.build = BuildConfig(
+            build_defaults=BuildDefaults(
+                pop_per_metro=1,
+                site_blueprint="SingleRouter",
+                dc_regions_per_metro=1,
+                dc_region_blueprint="DCRegion",
+            )
+        )
+        # Traffic: gravity model, deterministic (no jitter, no rounding)
+        cfg.traffic.enabled = True
+        cfg.traffic.model = "gravity"
+        cfg.traffic.gbps_per_mw = 100.0
+        cfg.traffic.mw_per_dc_region = 10.0
+        cfg.traffic.priority_ratios = {0: 1.0}
+        cfg.traffic.gravity.alpha = 1.0
+        cfg.traffic.gravity.beta = 1.0
+        cfg.traffic.gravity.min_distance_km = 1.0
+        cfg.traffic.gravity.exclude_same_metro = False
+        cfg.traffic.gravity.jitter_stddev = 0.0
+        cfg.traffic.gravity.rounding_gbps = 0.0
+
+        yaml_str = build_scenario(graph, cfg)
+        scenario = yaml.safe_load(yaml_str)
+
+        assert "traffic_matrix_set" in scenario
+        tm = scenario["traffic_matrix_set"][cfg.traffic.matrix_name]
+        # Two symmetric entries A->B and B->A for one class
+        assert len(tm) == 2
+        assert all(e["mode"] == "fixed" for e in tm)
+        total = sum(float(e["demand"]) for e in tm)
+        # Offered = gbps_per_mw * sum(MW) = 100 * 20 = 2000; split by class 1.0
+        # We split equally A->B and B->A, so total across both = 2000
+        assert abs(total - 2000.0) < 1e-6
+
     def test_hw_capacity_allocation_round_robin(self):
         """HW-aware allocation distributes extra capacity to inter-metro links."""
         graph = nx.Graph()

@@ -24,6 +24,20 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _safe_metro_to_path(metro_name: str) -> str:
+    """Return a stable, sanitized slug from a metro display name.
+
+    Used for configuration override keys that refer to a metro by name.
+
+    Args:
+        metro_name: Human-readable metro name (e.g., "Salt Lake City").
+
+    Returns:
+        Lowercase slug with spaces replaced by hyphens (e.g., "salt-lake-city").
+    """
+    return metro_name.lower().replace(" ", "-")
+
+
 def build_scenario(
     graph: nx.Graph,
     config: TopologyConfig,
@@ -34,12 +48,8 @@ def build_scenario(
     blueprint templates, preserving corridor connectivity between metros.
 
     Args:
-        graph: Corridor-level graph whose nodes are metros and whose edges are
-            metro-to-metro corridors. If a full integrated graph (metros +
-            highway + anchor edges) is provided, inter-metro adjacency will be
-            empty because this function extracts corridor edges only between
-            metro nodes. To build from a full graph, first call
-            ``extract_corridor_graph``.
+        graph: Integrated graph. Inter-metro adjacency is derived from
+            corridor edges between metro nodes; highway nodes are ignored here.
         config: Topology configuration including build settings.
 
     Returns:
@@ -120,7 +130,7 @@ def build_scenario(
     scenario["failure_policy_set"] = _build_failure_policy_set_section(config)
 
     # 6. Traffic matrix section (optional)
-    traffic_section = _build_traffic_matrix_section(metro_settings, config)
+    traffic_section = _build_traffic_matrix_section(metros, metro_settings, config)
     if traffic_section:
         scenario["traffic_matrix_set"] = traffic_section
 
@@ -741,8 +751,8 @@ def _build_intra_metro_link_overrides(
     """Create link_overrides assigning circle-arc distances as per-pair costs.
 
     For each metro, place PoPs and DC regions on a circle of radius
-    metro.radius_km * config.build.build_defaults.metro_circle_radius_fraction and
-    set cost for PoP-PoP and DC-PoP links to the shortest arc distance in km (ceil).
+    metro.radius_km and set the per-pair cost to the shortest circle-arc
+    distance in kilometers (ceil).
 
     Args:
         metros: List of metro dicts.
@@ -1128,56 +1138,234 @@ def _apply_hw_capacity_allocation(
 
 
 def _build_traffic_matrix_section(
-    metro_settings: dict[str, dict[str, Any]], config: TopologyConfig
+    metros: list[dict[str, Any]],
+    metro_settings: dict[str, dict[str, Any]],
+    config: TopologyConfig,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Build the traffic_matrix_set section if enabled in configuration.
+    """Build the traffic_matrix_set section if enabled.
 
-    Generates DC→DC pairwise demands across all DC regions, with volumes based on
-    total DC power and priority class ratios.
+    Generates DC-to-DC demands across all DC regions. Total offered load per
+    class is based on total DC power (gbps_per_mw × sum of MW), split by
+    priority ratios. When model == "gravity", per-pair allocations follow a
+    gravity-like kernel over Euclidean metro distances in kilometers.
 
     Args:
+        metros: List of extracted metro descriptors (name, x, y, radius_km).
         metro_settings: Per-metro settings including dc_regions_per_metro.
         config: Topology configuration with traffic parameters.
 
     Returns:
-        Mapping from matrix name to list of TrafficDemand dicts, or empty dict if disabled.
+        Mapping from matrix name to a list of demand dicts; empty dict if disabled.
     """
     traffic_cfg = getattr(config, "traffic", None)
     if not traffic_cfg or not getattr(traffic_cfg, "enabled", False):
         return {}
 
-    # Count total DC regions across all metros
-    total_dc_regions = 0
-    for _metro_name, settings in metro_settings.items():
-        total_dc_regions += int(settings.get("dc_regions_per_metro", 0))
+    # Build DC inventory
+    dc_nodes: list[tuple[str, int]] = []  # (metro_name, dc_index)
+    for metro_name, settings in metro_settings.items():
+        d = int(settings.get("dc_regions_per_metro", 0))
+        for dc_idx in range(1, d + 1):
+            dc_nodes.append((metro_name, dc_idx))
 
-    if total_dc_regions <= 0:
-        # Nothing to do
+    if not dc_nodes:
         return {}
 
-    # Offered load in Gbps
-    offered_gbps = (
-        float(traffic_cfg.gbps_per_mw)
-        * float(traffic_cfg.mw_per_dc_region)
-        * float(total_dc_regions)
-    )
+    # Total offered Gbps = gbps_per_mw * sum(MW per DC)
+    # Default MW per DC from global mw_per_dc_region with optional overrides.
+    gravity_enabled = getattr(traffic_cfg, "model", "uniform_pairwise") == "gravity"
 
-    # Build class demands with pairwise DC selection using regex labels
-    source_regex = ".*(dc.+)"
-    sink_regex = ".*(dc.+)"
+    def _power_for_dc(metro_name: str, dc_path: str) -> float:
+        # Override by full path or by metro name; else default
+        overrides = getattr(traffic_cfg.gravity, "mw_per_dc_region_overrides", {})
+        if dc_path in overrides:
+            return float(overrides[dc_path])
+        if metro_name in overrides:
+            return float(overrides[metro_name])
+        return float(traffic_cfg.mw_per_dc_region)
 
+    # Compute per-DC masses and total power
+    dc_mass: dict[tuple[str, int], float] = {}
+    total_power_mw = 0.0
+    for metro_name, dc_idx in dc_nodes:
+        dc_path = f"{_safe_metro_to_path(metro_name)}/dc{dc_idx}"
+        mw = _power_for_dc(metro_name, dc_path)
+        dc_mass[(metro_name, dc_idx)] = mw
+        total_power_mw += mw
+
+    offered_gbps = float(traffic_cfg.gbps_per_mw) * float(total_power_mw)
+
+    if not gravity_enabled:
+        # Legacy uniform pairwise emission using regex selection
+        source_regex = ".*(dc.+)"
+        sink_regex = ".*(dc.+)"
+        demands: list[dict[str, Any]] = []
+        for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
+            class_demand = offered_gbps * float(ratio)
+            demands.append(
+                {
+                    "source_path": source_regex,
+                    "sink_path": sink_regex,
+                    "mode": "pairwise",
+                    "priority": int(priority),
+                    "demand": float(class_demand),
+                }
+            )
+        return {traffic_cfg.matrix_name: demands}
+
+    # Gravity model (distance_metric currently uses Euclidean km)
+    gcfg = traffic_cfg.gravity
+
+    # Compute pairwise distances between metros (Euclidean in km, EPSG:5070 meters)
+    coords: dict[str, tuple[float, float]] = {
+        m["name"]: (float(m.get("x", 0.0)), float(m.get("y", 0.0))) for m in metros
+    }
+
+    def _distance_km(m1: str, m2: str) -> float:
+        if m1 == m2:
+            return max(float(gcfg.min_distance_km), 0.0)
+        (x1, y1) = coords.get(m1, (0.0, 0.0))
+        (x2, y2) = coords.get(m2, (0.0, 0.0))
+        dx = x1 - x2
+        dy = y1 - y2
+        # Coordinates are in meters in EPSG:5070; convert to km
+        return max(math.hypot(dx, dy) / 1000.0, float(gcfg.min_distance_km))
+
+    # Build weights
+    weights: dict[tuple[tuple[str, int], tuple[str, int]], float] = {}
+    total_w = 0.0
+    for i, (m1, d1) in enumerate(dc_nodes):
+        for j in range(i + 1, len(dc_nodes)):
+            m2, d2 = dc_nodes[j]
+            if gcfg.exclude_same_metro and m1 == m2:
+                continue
+            m_i = dc_mass[(m1, d1)]
+            m_j = dc_mass[(m2, d2)]
+            dist = _distance_km(m1, m2)
+            dist_eff = max(dist, float(gcfg.min_distance_km))
+            w = (
+                (m_i ** float(gcfg.alpha))
+                * (m_j ** float(gcfg.alpha))
+                / (dist_eff ** float(gcfg.beta))
+            )
+            if w <= 0.0:
+                continue
+            key = ((m1, d1), (m2, d2))
+            weights[key] = w
+            total_w += w
+
+    if total_w <= 0.0:
+        raise ValueError(
+            "Gravity traffic model produced zero total weight across DC pairs"
+        )
+
+    # Optional top-K pruning per DC
+    if gcfg.max_partners_per_dc is not None:
+        k = int(gcfg.max_partners_per_dc)
+        partners: dict[tuple[str, int], list[tuple[tuple[str, int], float]]] = {}
+        for (a, b), w in weights.items():
+            partners.setdefault(a, []).append((b, w))
+            partners.setdefault(b, []).append((a, w))
+        keep: set[tuple[tuple[str, int], tuple[str, int]]] = set()
+        for node, lst in partners.items():
+            lst_sorted = sorted(lst, key=lambda t: t[1], reverse=True)[:k]
+            for other, _w in lst_sorted:
+                pair = tuple(sorted([node, other]))  # undirected key
+                keep.add((pair[0], pair[1]))
+        weights = {pair: w for pair, w in weights.items() if pair in keep}
+        total_w = sum(weights.values())
+        if total_w <= 0.0:
+            raise ValueError(
+                "After top-K pruning, no DC pairs remain for gravity model"
+            )
+
+    # Map metro name to 1-based index consistent with network groups
+    metro_idx_map = {m["name"]: idx for idx, m in enumerate(metros, 1)}
+
+    # Emit explicit per-pair demands; apply jitter and rounding per class with conservation
     demands: list[dict[str, Any]] = []
     for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
-        class_demand = offered_gbps * float(ratio)
-        demands.append(
-            {
-                "source_path": source_regex,
-                "sink_path": sink_regex,
-                "mode": "pairwise",
-                "priority": int(priority),
-                "demand": float(class_demand),
+        D_c = offered_gbps * float(ratio)
+        # First compute raw allocations
+        allocs: list[tuple[tuple[tuple[str, int], tuple[str, int]], float]] = []
+        for pair, w in weights.items():
+            alloc = D_c * (w / total_w)
+            allocs.append((pair, alloc))
+
+        # Apply optional jitter (lognormal with sigma=jitter_stddev, mu set for mean=1)
+        if gcfg.jitter_stddev > 0.0:
+            import random as _r
+
+            sigma = float(gcfg.jitter_stddev)
+            mu = -0.5 * sigma * sigma  # so that E[lognormal]=1
+            jittered = []
+            total_after = 0.0
+            for pair, v in allocs:
+                factor = _r.lognormvariate(mu, sigma)
+                val = v * factor
+                jittered.append((pair, val))
+                total_after += val
+            # Renormalize to D_c
+            if total_after > 0:
+                allocs = [(pair, v * (D_c / total_after)) for pair, v in jittered]
+
+        # Apply rounding if requested and repair to conserve total using largest remainders
+        rounding = float(gcfg.rounding_gbps)
+        if rounding > 0.0:
+            floored: list[
+                tuple[tuple[tuple[str, int], tuple[str, int]], float, float]
+            ] = []
+            total_floor = 0.0
+            for pair, v in allocs:
+                q = math.floor(v / rounding) * rounding
+                rem = v - q
+                floored.append((pair, q, rem))
+                total_floor += q
+            remainder = D_c - total_floor
+            steps = int(round(remainder / rounding)) if rounding > 0 else 0
+            # Distribute leftover to pairs with largest remainders
+            floored.sort(key=lambda t: t[2], reverse=True)
+            final_map: dict[tuple[tuple[str, int], tuple[str, int]], float] = {
+                pair: q for pair, q, _ in floored
             }
-        )
+            idx = 0
+            while steps > 0 and idx < len(floored):
+                pair, q, _rem = floored[idx]
+                final_map[pair] = q + rounding
+                steps -= 1
+                idx += 1
+            allocs = list(final_map.items())
+
+        # Emit entries for each pair in both directions using explicit paths
+        for pair, v in allocs:
+            (m1, d1), (m2, d2) = pair
+            i1 = metro_idx_map[m1]
+            i2 = metro_idx_map[m2]
+            # Use regex path matching to the DC group subtree (matches the DC node)
+            src = f"^metro{i1}/dc{d1}/.*"
+            dst = f"^metro{i2}/dc{d2}/.*"
+            # symmetric split: half each direction
+            demand_each = float(v) / 2.0
+            if demand_each <= 0.0:
+                continue
+            demands.append(
+                {
+                    "source_path": src,
+                    "sink_path": dst,
+                    "mode": "fixed",
+                    "priority": int(priority),
+                    "demand": demand_each,
+                }
+            )
+            demands.append(
+                {
+                    "source_path": dst,
+                    "sink_path": src,
+                    "mode": "fixed",
+                    "priority": int(priority),
+                    "demand": demand_each,
+                }
+            )
 
     return {traffic_cfg.matrix_name: demands}
 

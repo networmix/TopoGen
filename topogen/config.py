@@ -282,6 +282,36 @@ class WorkflowsConfig:
 
 
 @dataclass
+class TrafficGravityConfig:
+    """Gravity model parameters for DC-to-DC traffic generation.
+
+    Attributes:
+        alpha: Exponent applied to DC mass (power) terms.
+        beta: Exponent applied to distance term in km.
+        min_distance_km: Minimum effective distance to avoid singularities.
+        exclude_same_metro: If True, skip intra-metro DC pairs. Default includes them.
+        distance_metric: One of {"euclidean_km", "corridor_length", "auto"}.
+        emission: One of {"explicit_pairs", "macro_pairwise"} for output format.
+        max_partners_per_dc: If set, keeps top-K partners per DC by weight.
+        jitter_stddev: Lognormal sigma for multiplicative noise (0 disables jitter).
+        rounding_gbps: If > 0, round per-pair demands to this step size and conserve totals.
+        mw_per_dc_region_overrides: Optional overrides by metro name or full DC path
+            (e.g., "metro3/dc2"). Overrides apply after defaults.
+    """
+
+    alpha: float = 1.0
+    beta: float = 1.0
+    min_distance_km: float = 1.0
+    exclude_same_metro: bool = False
+    distance_metric: str = "euclidean_km"
+    emission: str = "explicit_pairs"
+    max_partners_per_dc: int | None = None
+    jitter_stddev: float = 0.0
+    rounding_gbps: float = 0.0
+    mw_per_dc_region_overrides: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
 class TrafficConfig:
     """Traffic generation configuration for scenario build.
 
@@ -293,6 +323,8 @@ class TrafficConfig:
         mw_per_dc_region: Power per DC region (MW).
         priority_ratios: Mapping from priority class to ratio. Values must sum to 1.0.
         matrix_name: Name of the traffic matrix in the scenario.
+        model: "uniform_pairwise" (default) or "gravity".
+        gravity: Parameters for gravity model when model == "gravity".
     """
 
     enabled: bool = True
@@ -302,6 +334,8 @@ class TrafficConfig:
         default_factory=lambda: {0: 0.3, 1: 0.3, 2: 0.4}
     )
     matrix_name: str = "default"
+    model: str = "uniform_pairwise"
+    gravity: TrafficGravityConfig = field(default_factory=TrafficGravityConfig)
 
 
 @dataclass
@@ -736,7 +770,27 @@ class TopologyConfig:
                 normalized_ratios[key_int] = float(v)
             traffic_dict = {**traffic_dict, "priority_ratios": normalized_ratios}
 
-        traffic = TrafficConfig(**traffic_dict)
+        # Normalize nested gravity config if present
+        gravity_dict = traffic_dict.get("gravity", None)
+        if gravity_dict is None:
+            gravity_cfg = TrafficGravityConfig()
+        else:
+            if not isinstance(gravity_dict, dict):
+                raise ValueError("'traffic.gravity' must be a dictionary")
+            gravity_cfg = TrafficGravityConfig(**gravity_dict)
+
+        # Compose TrafficConfig
+        traffic = TrafficConfig(
+            enabled=bool(traffic_dict.get("enabled", True)),
+            gbps_per_mw=float(traffic_dict.get("gbps_per_mw", 1000.0)),
+            mw_per_dc_region=float(traffic_dict.get("mw_per_dc_region", 150.0)),
+            priority_ratios=traffic_dict.get(
+                "priority_ratios", {0: 0.3, 1: 0.3, 2: 0.4}
+            ),
+            matrix_name=str(traffic_dict.get("matrix_name", "default")),
+            model=str(traffic_dict.get("model", "uniform_pairwise")),
+            gravity=gravity_cfg,
+        )
 
         # Validate traffic configuration
         if traffic.enabled:
@@ -756,6 +810,37 @@ class TopologyConfig:
             total_ratio = sum(traffic.priority_ratios.values())
             if abs(total_ratio - 1.0) > 1e-9:
                 raise ValueError("traffic.priority_ratios values must sum to 1.0")
+
+            # Validate traffic model
+            if traffic.model not in {"uniform_pairwise", "gravity"}:
+                raise ValueError(
+                    "traffic.model must be 'uniform_pairwise' or 'gravity'"
+                )
+
+            # Validate gravity sub-config
+            g = traffic.gravity
+            if g.alpha <= 0.0:
+                raise ValueError("traffic.gravity.alpha must be positive")
+            if g.beta <= 0.0:
+                raise ValueError("traffic.gravity.beta must be positive")
+            if g.min_distance_km <= 0.0:
+                raise ValueError("traffic.gravity.min_distance_km must be positive")
+            if g.distance_metric not in {"euclidean_km", "corridor_length", "auto"}:
+                raise ValueError(
+                    "traffic.gravity.distance_metric must be one of 'euclidean_km', 'corridor_length', 'auto'"
+                )
+            if g.emission not in {"explicit_pairs", "macro_pairwise"}:
+                raise ValueError(
+                    "traffic.gravity.emission must be 'explicit_pairs' or 'macro_pairwise'"
+                )
+            if g.max_partners_per_dc is not None and g.max_partners_per_dc <= 0:
+                raise ValueError(
+                    "traffic.gravity.max_partners_per_dc must be positive when set"
+                )
+            if g.jitter_stddev < 0.0:
+                raise ValueError("traffic.gravity.jitter_stddev must be non-negative")
+            if g.rounding_gbps < 0.0:
+                raise ValueError("traffic.gravity.rounding_gbps must be non-negative")
 
         # Create main configuration
         return cls(

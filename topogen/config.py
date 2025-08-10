@@ -263,7 +263,7 @@ class WorkflowAssignments:
     for customizing network analysis procedures.
     """
 
-    default: str = "basic_capacity_analysis"
+    default: str = "capacity_analysis"
     scenario_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
@@ -692,7 +692,7 @@ class TopologyConfig:
         if not isinstance(wf_assignments_dict, dict):
             raise ValueError("'workflows.assignments' must be a dictionary")
 
-        wf_default = wf_assignments_dict.get("default", "basic_capacity_analysis")
+        wf_default = wf_assignments_dict.get("default", "capacity_analysis")
         wf_scenario_overrides = wf_assignments_dict.get("scenario_overrides", {})
         if wf_scenario_overrides is None:
             wf_scenario_overrides = {}

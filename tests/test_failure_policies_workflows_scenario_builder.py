@@ -86,7 +86,7 @@ class TestBuildWorkflowSection:
         config = Mock(spec=TopologyConfig)
         config.workflows = Mock(spec=WorkflowsConfig)
         config.workflows.assignments = Mock()
-        config.workflows.assignments.default = "basic_capacity_analysis"
+        config.workflows.assignments.default = "capacity_analysis"
 
         result = _build_workflow_section(config)
 
@@ -99,7 +99,7 @@ class TestBuildWorkflowSection:
         config = Mock(spec=TopologyConfig)
         config.workflows = Mock(spec=WorkflowsConfig)
         config.workflows.assignments = Mock()
-        config.workflows.assignments.default = "basic_capacity_analysis"
+        config.workflows.assignments.default = "capacity_analysis"
 
         result = _build_workflow_section(config)
 
@@ -110,7 +110,7 @@ class TestBuildWorkflowSection:
         config = Mock(spec=TopologyConfig)
         config.workflows = Mock(spec=WorkflowsConfig)
         config.workflows.assignments = Mock()
-        config.workflows.assignments.default = "basic_capacity_analysis"
+        config.workflows.assignments.default = "capacity_analysis"
 
         result = _build_workflow_section(config)
 
@@ -183,7 +183,7 @@ class TestBuildScenarioIntegration:
         # Workflows configuration
         config.workflows = Mock(spec=WorkflowsConfig)
         config.workflows.assignments = Mock()
-        config.workflows.assignments.default = "basic_capacity_analysis"
+        config.workflows.assignments.default = "capacity_analysis"
 
         # Corridors configuration
         config.corridors = Mock()
@@ -265,7 +265,7 @@ class TestBuildScenarioIntegration:
         """Test that custom workflows appear in the scenario."""
         config = self.create_mock_config()
         # Custom workflows come from lib/workflows.yml; select builtin default here.
-        config.workflows.assignments.default = "basic_capacity_analysis"
+        config.workflows.assignments.default = "capacity_analysis"
 
         graph = self.create_mock_graph()
 
@@ -313,7 +313,7 @@ class TestBuildScenarioIntegration:
         config = self.create_mock_config()
 
         # Use builtin workflow that includes a failure_policy reference
-        config.workflows.assignments.default = "basic_capacity_analysis"
+        config.workflows.assignments.default = "capacity_analysis"
 
         graph = self.create_mock_graph()
 

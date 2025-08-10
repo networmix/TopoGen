@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import contextily as cx
-import geopandas as gpd
+import contextily as cx  # type: ignore
+import geopandas as gpd  # type: ignore
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -66,7 +66,7 @@ def export_cluster_map(
                 },
                 geometry=geometry,
                 crs=target_crs,
-            )
+            )  # type: ignore
             logger.debug(
                 f"Created centroids GeoDataFrame: {len(gdf)} points in {target_crs}"
             )
@@ -100,7 +100,7 @@ def export_cluster_map(
 
         # Plot centroids
         try:
-            gdf.plot(ax=ax, markersize=12, color="red", alpha=0.7)
+            gdf.plot(ax=ax, markersize=24, color="red", alpha=0.7)
             logger.debug(f"Plotted {len(gdf)} cluster centroids (red circles)")
         except Exception as e:
             raise RuntimeError(f"Failed to plot cluster centroids: {e}") from e
@@ -349,7 +349,7 @@ def export_integrated_graph_map(
                 },
                 geometry=geometry,
                 crs=target_crs,
-            )
+            )  # type: ignore
             logger.debug(
                 f"Created metros GeoDataFrame: {len(metros_gdf)} points in {target_crs}"
             )
@@ -364,7 +364,7 @@ def export_integrated_graph_map(
                     {"corridor_id": list(range(len(corridor_lines)))},
                     geometry=corridor_lines,
                     crs=target_crs,
-                )
+                )  # type: ignore
                 logger.debug(
                     f"Created corridors GeoDataFrame: {len(corridors_gdf)} lines in {target_crs}"
                 )
@@ -410,7 +410,7 @@ def export_integrated_graph_map(
         try:
             metros_gdf.plot(
                 ax=ax,
-                markersize=20,
+                markersize=60,
                 color="red",
                 alpha=0.8,
                 edgecolor="darkred",

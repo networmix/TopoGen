@@ -56,7 +56,7 @@ class TestWorkflowAssignments:
     def test_default_values(self):
         """Test default values."""
         assignments = WorkflowAssignments()
-        assert assignments.default == "basic_capacity_analysis"
+        assert assignments.default == "capacity_analysis"
         assert assignments.scenario_overrides == {}
 
     def test_custom_values(self):
@@ -76,7 +76,7 @@ class TestWorkflowsConfig:
         """Test default values."""
         config = WorkflowsConfig()
         assert isinstance(config.assignments, WorkflowAssignments)
-        assert config.assignments.default == "basic_capacity_analysis"
+        assert config.assignments.default == "capacity_analysis"
 
     def test_custom_values(self):
         """Test custom values."""
@@ -186,7 +186,7 @@ class TestConfigurationParsing:
             config = TopologyConfig.from_yaml(config_path)
 
             assert isinstance(config.workflows, WorkflowsConfig)
-            assert config.workflows.assignments.default == "basic_capacity_analysis"
+            assert config.workflows.assignments.default == "capacity_analysis"
         finally:
             config_path.unlink()
 
@@ -308,7 +308,7 @@ class TestConfigurationParsing:
                 == "single_random_link_failure"
             )
             assert isinstance(config.workflows, WorkflowsConfig)
-            assert config.workflows.assignments.default == "basic_capacity_analysis"
+            assert config.workflows.assignments.default == "capacity_analysis"
         finally:
             config_path.unlink()
 

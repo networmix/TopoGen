@@ -14,7 +14,7 @@ import yaml
 
 # Built-in workflow definitions required by the pipeline
 _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
-    "basic_capacity_analysis": [
+    "capacity_analysis": [
         {"step_type": "NetworkStats", "name": "network_statistics"},
         {
             "step_type": "CapacityEnvelopeAnalysis",
@@ -22,7 +22,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "source_path": "(metro[0-9]+/dc[0-9]+)",
             "sink_path": "(metro[0-9]+/dc[0-9]+)",
             "mode": "pairwise",
-            "parallelism": 4,
+            "parallelism": "auto",
             "shortest_path": False,
             "flow_placement": "PROPORTIONAL",
             "seed": 42,
@@ -31,7 +31,6 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "failure_policy": "single_random_link_failure",
         },
     ],
-    "network_stats_only": [{"step_type": "NetworkStats", "name": "network_statistics"}],
 }
 
 

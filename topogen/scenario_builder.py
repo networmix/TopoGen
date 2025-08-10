@@ -1344,8 +1344,8 @@ def _build_traffic_matrix_section(
             # Use regex path matching to the DC group subtree (matches the DC node)
             src = f"^metro{i1}/dc{d1}/.*"
             dst = f"^metro{i2}/dc{d2}/.*"
-            # symmetric split: half each direction
-            demand_each = float(v) / 2.0
+            # symmetric split: half each direction; render with up to 2 decimals
+            demand_each = round(float(v) / 2.0, 2)
             if demand_each <= 0.0:
                 continue
             demands.append(

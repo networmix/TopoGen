@@ -46,7 +46,7 @@ failure_policies:
 
 workflows:
   assignments:
-    default: "basic_capacity_analysis"
+    default: "capacity_analysis"
 
 visualization:
   corridors:
@@ -83,7 +83,7 @@ projection:
 clustering:
   metro_clusters: 25
   max_uac_radius_km: 100.0
-  export_clusters: true
+  export_clusters: false
   export_integrated_graph: true
 
   override_metro_clusters:

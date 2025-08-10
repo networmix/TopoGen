@@ -15,6 +15,7 @@ import yaml
 
 # Built-in failure policy definitions
 _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
+    "empty": {},
     "single_random_link_failure": {
         "attrs": {
             "description": "Fails exactly one random link to test network resilience"

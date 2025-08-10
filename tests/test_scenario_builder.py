@@ -446,7 +446,7 @@ class TestScenarioBuilder:
         tm = scenario["traffic_matrix_set"][cfg.traffic.matrix_name]
         # Two symmetric entries A->B and B->A for one class
         assert len(tm) == 2
-        assert all(e["mode"] == "fixed" for e in tm)
+        assert all(e["mode"] == "pairwise" for e in tm)
         total = sum(float(e["demand"]) for e in tm)
         # Offered = gbps_per_mw * sum(MW) = 100 * 20 = 2000; split by class 1.0
         # We split equally A->B and B->A, so total across both = 2000

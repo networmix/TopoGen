@@ -1352,7 +1352,7 @@ def _build_traffic_matrix_section(
                 {
                     "source_path": src,
                     "sink_path": dst,
-                    "mode": "fixed",
+                    "mode": "pairwise",
                     "priority": int(priority),
                     "demand": demand_each,
                 }
@@ -1361,7 +1361,7 @@ def _build_traffic_matrix_section(
                 {
                     "source_path": dst,
                     "sink_path": src,
-                    "mode": "fixed",
+                    "mode": "pairwise",
                     "priority": int(priority),
                     "demand": demand_each,
                 }

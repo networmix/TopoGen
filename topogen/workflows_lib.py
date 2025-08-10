@@ -14,6 +14,7 @@ import yaml
 
 # Built-in workflow definitions required by the pipeline
 _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
+    "empty": [],
     "capacity_analysis": [
         {"step_type": "NetworkStats", "name": "network_statistics"},
         {
@@ -29,6 +30,21 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "iterations": 100,
             "baseline": True,
             "failure_policy": "single_random_link_failure",
+            "store_failure_patterns": False,
+            "include_flow_summary": False,
+        },
+        {
+            "step_type": "TrafficMatrixPlacementAnalysis",
+            "name": "tm_placement",
+            "matrix_name": "default",
+            "failure_policy": "single_random_link_failure",
+            "iterations": 10,
+            "parallelism": 8,
+            "placement_rounds": "auto",
+            "baseline": True,
+            "seed": 42,
+            "store_failure_patterns": False,
+            "include_flow_details": False,
         },
     ],
 }

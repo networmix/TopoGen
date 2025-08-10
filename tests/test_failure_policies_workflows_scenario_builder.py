@@ -28,7 +28,7 @@ class TestBuildFailurePolicySetSection:
 
         assert isinstance(result, dict)
         assert "single_random_link_failure" in result
-        assert "rules" in result["single_random_link_failure"]
+        assert "modes" in result["single_random_link_failure"]
 
     def test_custom_policy_in_library(self):
         """Test with custom policy in library."""
@@ -327,4 +327,8 @@ class TestBuildScenarioIntegration:
                 break
 
         assert envelope_step is not None
-        assert envelope_step["failure_policy"] == "single_random_link_failure"
+        # The workflow should reference a named failure policy that exists
+        # in the scenario's failure_policy_set. Do not pin to a specific name.
+        fp_name = envelope_step.get("failure_policy")
+        assert isinstance(fp_name, str) and fp_name
+        assert fp_name in scenario["failure_policy_set"]

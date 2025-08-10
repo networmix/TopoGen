@@ -42,24 +42,24 @@ build:
 
 failure_policies:
   assignments:
-    default: "empty"
+    default: "mc_baseline"
 
 workflows:
   assignments:
-    default: "empty"
+    default: "capacity_analysis"
 
 visualization:
   corridors:
     use_real_geometry: true
 
 traffic:
-  enabled: false
+  enabled: true
   model: gravity
   gbps_per_mw: 500.0
   mw_per_dc_region: 50.0
   priority_ratios:
     0: 1
-  matrix_name: default
+  matrix_name: baseline_traffic_matrix
   gravity:
     alpha: 1.0
     beta: 0.8

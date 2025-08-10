@@ -20,7 +20,93 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
         "attrs": {
             "description": "Fails exactly one random link to test network resilience"
         },
-        "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 1}],
+        "modes": [
+            {
+                "weight": 1.0,
+                "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 1}],
+            }
+        ],
+    },
+    "mc_baseline": {
+        "attrs": {"description": "MC baseline: SRLG, router, intra-metro, node+SRLG"},
+        "modes": [
+            {
+                "weight": 0.6,
+                "rules": [
+                    {
+                        "entity_scope": "risk_group",
+                        "rule_type": "choice",
+                        "count": 1,
+                        "weight_by": "distance_km",
+                    }
+                ],
+            },
+            {
+                "weight": 0.25,
+                "rules": [
+                    {
+                        "entity_scope": "node",
+                        "rule_type": "choice",
+                        "count": 1,
+                        "conditions": [
+                            {
+                                "attr": "node_type",
+                                "operator": "!=",
+                                "value": "dc_region",
+                            }
+                        ],
+                        "weight_by": "attached_capacity_gbps",
+                    }
+                ],
+            },
+            {
+                "weight": 0.1,
+                "rules": [
+                    {
+                        "entity_scope": "link",
+                        "rule_type": "choice",
+                        "count": 1,
+                        "conditions": [
+                            {
+                                "attr": "link_type",
+                                "operator": "==",
+                                "value": "intra_metro",
+                            },
+                            {
+                                "attr": "link_type",
+                                "operator": "==",
+                                "value": "dc_to_pop",
+                            },
+                        ],
+                        "logic": "or",
+                        "weight_by": "cost",
+                    }
+                ],
+            },
+            {
+                "weight": 0.05,
+                "rules": [
+                    {
+                        "entity_scope": "node",
+                        "rule_type": "choice",
+                        "count": 1,
+                        "conditions": [
+                            {
+                                "attr": "node_type",
+                                "operator": "!=",
+                                "value": "dc_region",
+                            }
+                        ],
+                    },
+                    {
+                        "entity_scope": "risk_group",
+                        "rule_type": "choice",
+                        "count": 1,
+                        "weight_by": "distance_km",
+                    },
+                ],
+            },
+        ],
     },
 }
 

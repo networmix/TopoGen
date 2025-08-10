@@ -20,12 +20,12 @@ class TestBuiltinFailurePoliciesMinimal:
         assert "single_random_link_failure" in policies
         policy = policies["single_random_link_failure"]
         assert isinstance(policy, dict)
-        assert isinstance(policy.get("rules"), list)
+        assert isinstance(policy.get("modes"), list)
 
     def test_independent_returns(self) -> None:
         p1 = get_builtin_failure_policies()
         p2 = get_builtin_failure_policies()
-        p1["X"] = {"rules": []}
+        p1["X"] = {"modes": []}
         assert "X" not in p2
 
     def test_user_library_merge_and_override(self, tmp_path: Path) -> None:
@@ -35,11 +35,22 @@ class TestBuiltinFailurePoliciesMinimal:
         user_yaml: dict[str, Any] = {
             "single_random_link_failure": {
                 "attrs": {"description": "override"},
-                "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 2}],
+                "modes": [
+                    {
+                        "weight": 1.0,
+                        "rules": [
+                            {
+                                "entity_scope": "link",
+                                "rule_type": "choice",
+                                "count": 2,
+                            }
+                        ],
+                    }
+                ],
             },
             "custom_policy": {
                 "attrs": {"description": "custom"},
-                "rules": [],
+                "modes": [],
             },
         }
         with (lib_dir / "failure_policies.yml").open("w", encoding="utf-8") as f:
@@ -50,8 +61,11 @@ class TestBuiltinFailurePoliciesMinimal:
         try:
             os.chdir(tmp_path)
             merged = get_builtin_failure_policies()
-            # Built-in overridden to count=2
-            assert merged["single_random_link_failure"]["rules"][0]["count"] == 2
+            # Built-in overridden to count=2 (via modes[0].rules[0])
+            assert (
+                merged["single_random_link_failure"]["modes"][0]["rules"][0]["count"]
+                == 2
+            )
             # Custom added
             assert "custom_policy" in merged
         finally:

@@ -1622,26 +1622,49 @@ def _build_failure_policy_set_section(config: TopologyConfig) -> dict[str, Any]:
     Returns:
         Dictionary containing failure policy definitions.
     """
-    # Get built-in failure policies
+    # Get merged built-in + user failure policies
     builtin_policies = get_builtin_failure_policies()
 
-    # Start with empty, then rely on merged library for default policy presence
-    policies = {}
+    policies: dict[str, Any] = {}
 
-    # Get the default policy name
+    # Always include the configured default failure policy
     default_policy_name = config.failure_policies.assignments.default
-
-    # Add the default policy if not already in custom policies
-    if default_policy_name not in policies and default_policy_name in builtin_policies:
+    if default_policy_name in builtin_policies:
         policies[default_policy_name] = builtin_policies[default_policy_name]
-
-    # Validate the default policy exists
-    if default_policy_name not in policies:
+    else:
         available = list(builtin_policies.keys())
         raise ValueError(
             f"Default failure policy '{default_policy_name}' not found. "
             f"Available built-in policies: {available}"
         )
+
+    # Optionally include any policies referenced by the selected workflow steps.
+    # Be tolerant when workflow configuration is not provided by the caller.
+    workflows_cfg = getattr(config, "workflows", None)
+    if (
+        workflows_cfg is not None
+        and getattr(workflows_cfg, "assignments", None) is not None
+    ):
+        try:
+            from topogen.workflows_lib import get_builtin_workflows  # import lazily
+
+            workflows = get_builtin_workflows()
+            workflow_name = workflows_cfg.assignments.default
+            steps = workflows.get(workflow_name, [])
+            for step in steps:
+                policy_name = step.get("failure_policy")
+                if not policy_name:
+                    continue
+                if policy_name not in builtin_policies:
+                    available = list(builtin_policies.keys())
+                    raise ValueError(
+                        f"Workflow '{workflow_name}' references unknown failure policy "
+                        f"'{policy_name}'. Available built-in policies: {available}"
+                    )
+                policies[policy_name] = builtin_policies[policy_name]
+        except Exception:
+            # If workflow library cannot be loaded or structure unexpected, skip enrichment.
+            pass
 
     return policies
 

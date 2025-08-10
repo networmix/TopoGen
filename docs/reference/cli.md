@@ -20,36 +20,37 @@ python -m topogen [GLOBAL OPTIONS] <command> [COMMAND OPTIONS]
 Show configuration values and input data availability.
 
 ```bash
-python -m topogen info -c config.yml
+python -m topogen info config.yml
 ```
 
 Options:
 
-- `-c, --config PATH` (default: `config.yml`)
+Positional config path (default: `config.yml`)
 
 ### `generate`
 
 Generate the integrated metro + highway graph to `<config_stem>_integrated_graph.json` in the current directory.
 
 ```bash
-python -m topogen generate -c config.yml
+python -m topogen generate config.yml
 ```
 
 Options:
 
-- `-c, --config PATH` (default: `config.yml`)
+Positional config path (default: `config.yml`)
 
 ### `build`
 
 Build a `NetGraph` scenario YAML from the integrated graph.
 
 ```bash
-python -m topogen build -c config.yml -o config_scenario.yml
+python -m topogen build config.yml -o config_scenario.yml
 ```
 
 Options:
 
-- `-c, --config PATH` (default: `config.yml`)
+Positional config path (default: `config.yml`)
+
 - `-o, --output PATH` (default: `<config_stem>_scenario.yml` in CWD)
 - `--print` Print the YAML to stdout instead of writing to a file and validating
 

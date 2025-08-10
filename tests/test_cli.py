@@ -103,13 +103,13 @@ def test_no_args_shows_help_and_exits_nonzero():
 
 
 def test_verbose_flag_sets_debug_level_and_dispatches_info():
-    res = _invoke_main(["-v", "info", "-c", "config.yml"], stub_subcommand=True)
+    res = _invoke_main(["-v", "info", "config.yml"], stub_subcommand=True)
     assert res.called == "info"
     assert res.level == logging.DEBUG
 
 
 def test_default_log_level_is_info():
-    res = _invoke_main(["info", "-c", "config.yml"], stub_subcommand=True)
+    res = _invoke_main(["info", "config.yml"], stub_subcommand=True)
     assert res.level == logging.INFO
 
 

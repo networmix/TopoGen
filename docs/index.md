@@ -19,13 +19,13 @@ TopoGen builds realistic backbone graphs for the continental US and prepares ana
 
 ```bash
 # Inspect configuration and data availability
-python -m topogen info -c config.yml
+python -m topogen info config.yml
 
 # Generate the integrated metro + highway graph
-python -m topogen generate -c config.yml
+python -m topogen generate config.yml
 
 # Build a NetGraph scenario YAML from the integrated graph
-python -m topogen build -c config.yml -o config_scenario.yml
+python -m topogen build config.yml -o config_scenario.yml
 ```
 
 See the [Installation](getting-started/installation.md) guide for setup and the [CLI Reference](reference/cli.md) for commands and options.

@@ -329,8 +329,8 @@ def main() -> None:
         "build", help="Build continental US backbone topology"
     )
     build_parser.add_argument(
-        "-c",
-        "--config",
+        "config",
+        nargs="?",
         default="config.yml",
         help="Configuration file path (default: config.yml)",
     )
@@ -353,8 +353,8 @@ def main() -> None:
         "generate", help="Build integrated metro + highway graph"
     )
     generate_parser.add_argument(
-        "-c",
-        "--config",
+        "config",
+        nargs="?",
         default="config.yml",
         help="Configuration file path (default: config.yml)",
     )
@@ -366,8 +366,8 @@ def main() -> None:
         "info", help="Show configuration and data source information"
     )
     info_parser.add_argument(
-        "-c",
-        "--config",
+        "config",
+        nargs="?",
         default="config.yml",
         help="Configuration file path (default: config.yml)",
     )

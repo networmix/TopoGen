@@ -65,9 +65,9 @@ def add_corridors(
 
     Computes k-shortest paths between adjacent metro pairs using the integrated
     graph that already contains metro nodes connected to their highway anchors.
-    Paths therefore take the form: ``metro -> anchor -> ...highway... -> anchor -> metro``.
-    The path length is the sum of ``length_km`` over all edges in the path. For
-    ``metro_anchor`` edges, ``length_km`` is the Euclidean distance in kilometers.
+    Paths take the form ``metro → anchor → ...highway... → anchor → metro``.
+    The path length is the sum of ``length_km`` over all edges in the path.
+    ``metro_anchor`` edges use Euclidean length in kilometers.
 
     Args:
         graph: Integrated graph containing highway and metro nodes and edges.
@@ -78,15 +78,20 @@ def add_corridors(
         ValueError: If no adjacent metro pairs or no corridors are found.
 
     Notes:
-        This function annotates edges in the full integrated graph with a
-        ``corridor`` list of metadata entries. It does not create metro-to-metro
-        edges. Use ``extract_corridor_graph`` to produce the corridor-level graph
-        with metro nodes and corridor edges for downstream processing.
+        - Adjacency is built via k-nearest neighbors on metro centroids and
+          filtered by ``max_edge_km`` (Euclidean km).
+        - ``max_corridor_distance_km`` is enforced on the actual path length over
+          the graph (sum of per-edge ``length_km``), not on Euclidean separation.
+        - Each path edge is tagged with a ``corridor`` entry and a membership set
+          ``corridor_path_ids``. Use ``extract_corridor_graph`` to build a
+          metro-to-metro corridor graph for downstream use.
     """
     logger.info(f"Starting corridor discovery for {len(metros)} metros")
     logger.info(
         f"Corridor configuration: k_paths={corridors_config.k_paths}, "
-        f"k_nearest={corridors_config.k_nearest}, max_edge_km={corridors_config.max_edge_km}km"
+        f"k_nearest={corridors_config.k_nearest}, "
+        f"max_edge_km={corridors_config.max_edge_km}km, "
+        f"max_corridor_distance_km={corridors_config.max_corridor_distance_km}km"
     )
 
     # Build adjacency using k-nearest neighbors
@@ -154,12 +159,8 @@ def add_corridors(
                 f"Progress: {processed_pairs:,}/{len(adjacent_pairs):,} pairs processed"
             )
 
-        if pair_distance > corridors_config.max_corridor_distance_km:
-            skipped_pairs += 1
-            logger.debug(
-                f"Skipping {metro_a_id}-{metro_b_id}: {pair_distance:.1f}km > {corridors_config.max_corridor_distance_km}km"
-            )
-            continue
+        # Do not apply max_corridor_distance_km to Euclidean separation.
+        # The threshold is enforced below using the actual path length along the graph.
 
         # Endpoints are the metro nodes themselves
         if metro_a_id not in metro_id_to_node or metro_b_id not in metro_id_to_node:
@@ -181,7 +182,7 @@ def add_corridors(
             f"Finding paths between {metro_a_id} and {metro_b_id} ({pair_distance:.1f}km)"
         )
 
-        # Find k-shortest paths between anchors
+        # Find k-shortest paths between metros (via anchors/highways)
         try:
             import itertools
             import time
@@ -198,7 +199,7 @@ def add_corridors(
                 continue
 
             logger.debug(
-                f"Found {len(paths)} paths between {metro_a_id}-{metro_b_id} in {elapsed:.2f}s"
+                f"Found {len(paths)} candidate paths between {metro_a_id}-{metro_b_id} in {elapsed:.2f}s"
             )
 
         except nx.NetworkXNoPath:
@@ -212,8 +213,9 @@ def add_corridors(
             )
             continue
 
-        # Tag edges in all paths using actual path distance (sum of edge lengths)
-        successful_pairs += 1
+        # Compute and tag only paths that satisfy the path-length threshold
+        added_any_path_for_pair = False
+        too_long_paths = 0
         for path_idx, path in enumerate(paths):
             # Compute path length
             path_length_km = 0.0
@@ -222,6 +224,15 @@ def add_corridors(
                 if not graph.has_edge(u, v):
                     continue
                 path_length_km += float(graph[u][v].get("length_km", 0.0))
+
+            # Enforce max_corridor_distance_km using actual path length over multi-edge fiber
+            if path_length_km > corridors_config.max_corridor_distance_km:
+                too_long_paths += 1
+                logger.debug(
+                    f"Skipping path {path_idx} for {metro_a_id}-{metro_b_id}: "
+                    f"{path_length_km:.1f}km > {corridors_config.max_corridor_distance_km}km"
+                )
+                continue
 
             # Build ordered edge list
             ordered_edges: list[tuple[tuple[float, float], tuple[float, float]]] = []
@@ -334,6 +345,16 @@ def add_corridors(
                     )
                     edge_data["corridor_path_ids"].add(path_id)
                 corridor_count += 1
+                added_any_path_for_pair = True
+
+        if added_any_path_for_pair:
+            successful_pairs += 1
+        else:
+            skipped_pairs += 1
+            if too_long_paths > 0:
+                logger.debug(
+                    f"Skipping {metro_a_id}-{metro_b_id}: all {too_long_paths} candidate paths exceed max_corridor_distance_km"
+                )
 
     # Final summary
     failed_pairs = processed_pairs - skipped_pairs - successful_pairs

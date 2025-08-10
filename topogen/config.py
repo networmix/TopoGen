@@ -88,10 +88,12 @@ class CorridorsConfig:
 
     k_paths: int = 1  # Maximum number of diverse paths per adjacent metro pair (reduced for performance)
     k_nearest: int = 3  # Number of nearest neighbors per metro for adjacency
-    max_edge_km: float = 600.0  # Maximum distance for metro pair connections (km)
-    max_corridor_distance_km: float = (
-        1000.0  # Skip corridors longer than this distance (km)
-    )
+    # Euclidean threshold (km) for k-NN adjacency between metros.
+    # Computed from centroid separation in target CRS; does not limit path length.
+    max_edge_km: float = 600.0
+    # Path-length threshold (km) along the discovered corridor over the highway graph.
+    # Skip a metro pair when all candidate paths exceed this length.
+    max_corridor_distance_km: float = 1000.0
     risk_groups: RiskGroupsConfig = field(default_factory=RiskGroupsConfig)
 
 

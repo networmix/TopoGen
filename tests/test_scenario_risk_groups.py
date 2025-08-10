@@ -57,6 +57,8 @@ class TestScenarioRiskGroups:
         rg = risk_groups[0]
         assert rg["name"] == "corridor_risk_denver-aurora_kansas-city"
         assert rg["attrs"]["type"] == "corridor_risk"
+        # distance_km should be present and equal to ceil(length_km)
+        assert rg["attrs"]["distance_km"] == 500
 
     def test_risk_groups_in_scenario_yaml(self):
         """Test that risk groups appear in generated scenario YAML."""
@@ -115,6 +117,7 @@ class TestScenarioRiskGroups:
         risk_groups = scenario_data["risk_groups"]
         assert len(risk_groups) == 1
         assert risk_groups[0]["name"] == "corridor_risk_denver-aurora_kansas-city"
+        assert risk_groups[0]["attrs"]["distance_km"] == 500
 
         # Check risk groups are assigned to links
         adjacency = scenario_data["network"]["adjacency"]
@@ -188,6 +191,9 @@ class TestScenarioRiskGroups:
         assert "corridor_risk_metro1_metro2" in risk_group_names
         assert "corridor_risk_metro1_metro3" in risk_group_names
         assert "corridor_risk_metro2_metro3" in risk_group_names
+        # Distances should be present for all, equal to ceil(150.0)=150
+        for rg in scenario_data["risk_groups"]:
+            assert rg["attrs"]["distance_km"] == 150
 
         # Link should have all 3 risk groups assigned
         corridor_links = [

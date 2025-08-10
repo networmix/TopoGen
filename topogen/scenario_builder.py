@@ -1409,49 +1409,90 @@ def _extract_corridor_edges(graph: nx.Graph) -> list[dict[str, Any]]:
 def _build_risk_groups_section(
     graph: nx.Graph, config: TopologyConfig
 ) -> list[dict[str, Any]]:
-    """Build the risk_groups section of the NetGraph scenario.
+    """Build the ``risk_groups`` section of the scenario.
 
-    Extracts unique risk groups from corridor edges and creates risk group
-    definitions for the scenario.
+    This reads risk-group tags attached to corridor edges and creates scenario
+    risk group entries with a canonical per-pair distance in kilometers.
+
+    Rules:
+    - Only consider risk groups on metro-to-metro corridor edges.
+    - The distance for a risk group named ``<prefix>_<A>_<B>[_pathN]`` is derived
+      from the corridor edge between metros A and B (ceil of ``length_km``).
+      If multiple edges exist for the same pair, keep the maximum for stability.
+    - Unrelated edges that share a risk-group name do not influence the distance
+      for other metro pairs.
 
     Args:
-        graph: Integrated graph containing corridor edges with risk groups.
-        config: Topology configuration.
+        graph: Corridor-level or integrated graph with metro-to-metro corridor edges.
+        config: Topology configuration (reads ``corridors.risk_groups.group_prefix``).
 
     Returns:
-        List of risk group definitions, or empty list if none found.
+        List of risk group definitions; empty list if none found or disabled.
     """
     if not config.corridors.risk_groups.enabled:
         return []
 
-    # Collect all unique risk groups from corridor edges
-    risk_group_names = set()
-
+    # Build canonical distance per metro pair from corridor edges
+    prefix = getattr(config.corridors.risk_groups, "group_prefix", "corridor_risk")
+    pair_distance_km: dict[str, int] = {}
     for source, target, data in graph.edges(data=True):
-        # Check if this edge represents a corridor between metros
-        source_data = graph.nodes[source]
-        target_data = graph.nodes[target]
+        src = graph.nodes[source]
+        tgt = graph.nodes[target]
+        if src.get("node_type") in ["metro", "metro+highway"] and tgt.get(
+            "node_type"
+        ) in ["metro", "metro+highway"]:
+            src_name = str(src.get("name", "")).strip()
+            tgt_name = str(tgt.get("name", "")).strip()
+            a_name, b_name = (
+                (src_name, tgt_name) if src_name < tgt_name else (tgt_name, src_name)
+            )
+            pair_rg = f"{prefix}_{a_name}_{b_name}"
+            dist_km = int(math.ceil(float(data.get("length_km", 0.0))))
+            prev = pair_distance_km.get(pair_rg)
+            pair_distance_km[pair_rg] = dist_km if prev is None else max(prev, dist_km)
 
-        # Only process edges between metro nodes
-        if source_data.get("node_type") in [
-            "metro",
-            "metro+highway",
-        ] and target_data.get("node_type") in ["metro", "metro+highway"]:
-            edge_risk_groups = data.get("risk_groups", [])
-            risk_group_names.update(edge_risk_groups)
+    # Collect all risk groups present on corridor edges; assign distance from the
+    # canonical pair distance if available, else fall back to the current edge distance.
+    risk_group_distance_km: dict[str, int] = {}
+    for _source, _target, data in graph.edges(data=True):
+        src = graph.nodes[_source]
+        tgt = graph.nodes[_target]
+        # Only consider risk groups from metro-to-metro edges
+        if src.get("node_type") in ["metro", "metro+highway"] and tgt.get(
+            "node_type"
+        ) in ["metro", "metro+highway"]:
+            edge_dist_km = int(math.ceil(float(data.get("length_km", 0.0))))
+            edge_risk_groups = data.get("risk_groups", []) or []
+            for rg in edge_risk_groups:
+                name = str(rg)
+                # Normalize base pair name by stripping optional path suffix
+                base = name
+                idx = base.rfind("_path")
+                if idx != -1 and idx + 5 <= len(base):
+                    # Ensure suffix is of the form _pathN
+                    tail = base[idx + 5 :]
+                    if tail.isdigit():
+                        base = base[:idx]
+                canonical = pair_distance_km.get(base)
+                chosen = canonical if canonical is not None else edge_dist_km
+                prev = risk_group_distance_km.get(name)
+                risk_group_distance_km[name] = (
+                    chosen if prev is None else max(prev, chosen)
+                )
 
-    if not risk_group_names:
+    if not risk_group_distance_km:
         logger.info("No risk groups found in corridor edges")
         return []
 
-    # Create risk group definitions
-    risk_groups = []
-    for rg_name in sorted(risk_group_names):
+    # Create risk group definitions with distance_km attribute
+    risk_groups: list[dict[str, Any]] = []
+    for rg_name in sorted(risk_group_distance_km.keys()):
         risk_groups.append(
             {
                 "name": rg_name,
                 "attrs": {
                     "type": "corridor_risk",
+                    "distance_km": int(risk_group_distance_km.get(rg_name, 0)),
                 },
             }
         )

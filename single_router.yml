@@ -121,7 +121,7 @@ corridors:
   k_paths: 1
   k_nearest: 6
   max_edge_km: 1000.0
-  max_corridor_distance_km: 1000.0
+  max_corridor_distance_km: 2000.0
 
   risk_groups:
     enabled: true

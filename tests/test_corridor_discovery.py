@@ -307,6 +307,59 @@ class TestCorridorDiscovery:
         # Both highway edges should be tagged
         assert tagged == 2
 
+    def test_path_length_filtering_over_euclidean(self):
+        """Filter by path length even when Euclidean separation is below threshold."""
+        graph = nx.Graph()
+
+        # Construct a 2-edge path totaling 1200 km between endpoints 800 km apart
+        A = (0.0, 0.0)
+        B = (400000.0, 300000.0)  # arbitrary detour coordinate (meters)
+        C = (800000.0, 0.0)
+
+        graph.add_edge(A, B, length_km=600.0)
+        graph.add_edge(B, C, length_km=600.0)
+
+        metros = [
+            MetroCluster(
+                "metroA", "metro-a", "Metro A", "001", 100.0, A[0], A[1], 25.0
+            ),
+            MetroCluster(
+                "metroC", "metro-c", "Metro C", "002", 100.0, C[0], C[1], 25.0
+            ),
+        ]
+
+        # Add metro nodes and zero-length anchors at same coords as highway endpoints
+        for metro in metros:
+            graph.add_node(
+                metro.node_key,
+                node_type="metro",
+                name=metro.name,
+                name_orig=metro.name_orig,
+                metro_id=metro.metro_id,
+                x=metro.centroid_x,
+                y=metro.centroid_y,
+                radius_km=metro.radius_km,
+            )
+            anchor_point = metro.node_key
+            graph.add_edge(
+                metro.node_key,
+                anchor_point,
+                edge_type="metro_anchor",
+                length_km=0.0,
+            )
+
+        # Euclidean ~800 km; path = 1200 km
+        config = CorridorsConfig()
+        config.k_paths = 1
+        config.k_nearest = 1
+        config.max_edge_km = 1000.0  # allow adjacency by Euclidean
+        config.max_corridor_distance_km = 1000.0  # but disallow by path length
+
+        with pytest.raises(
+            ValueError, match="No corridors found - corridor discovery failed"
+        ):
+            add_corridors(graph, metros, config)
+
 
 class TestCorridorGraphExtraction:
     """Test corridor graph extraction functionality."""

@@ -8,6 +8,8 @@ output:
     json_indent: 2
     yaml_anchors: true
 
+  scenario_seed: 42
+
 build:
   build_defaults:
     pop_per_metro: 2
@@ -55,7 +57,7 @@ visualization:
 traffic:
   enabled: true
   model: gravity
-  gbps_per_mw: 500.0
+  gbps_per_mw: 250.0
   mw_per_dc_region: 50.0
   priority_ratios:
     0: 1

@@ -1,3 +1,4 @@
+seed: 42
 blueprints:
   DCRegion:
     groups:
@@ -29,6 +30,7 @@ network:
         location_x: -760756.9
         location_y: 1892127.2
         radius_km: 23.05
+        node_type: pop
     metro1/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -39,6 +41,8 @@ network:
         location_y: 1892127.2
         radius_km: 23.05
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro2/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -48,6 +52,7 @@ network:
         location_x: 216658.9
         location_y: 2446119.4
         radius_km: 28.92
+        node_type: pop
     metro2/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -58,6 +63,8 @@ network:
         location_y: 2446119.4
         radius_km: 28.92
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro3/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -67,6 +74,7 @@ network:
         location_x: -1327903.9
         location_y: 2071577.6
         radius_km: 15.74
+        node_type: pop
     metro3/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -77,6 +85,8 @@ network:
         location_y: 2071577.6
         radius_km: 15.74
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro4/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -86,6 +96,7 @@ network:
         location_x: -1698506.9
         location_y: 1625369.7
         radius_km: 18.94
+        node_type: pop
     metro4/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -96,6 +107,8 @@ network:
         location_y: 1625369.7
         radius_km: 18.94
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro5/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -105,6 +118,7 @@ network:
         location_x: -1474726.2
         location_y: 1275489.8
         radius_km: 30.26
+        node_type: pop
     metro5/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -115,6 +129,8 @@ network:
         location_y: 1275489.8
         radius_km: 30.26
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro6/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -124,6 +140,7 @@ network:
         location_x: 1056698.7
         location_y: 1255491.7
         radius_km: 44.95
+        node_type: pop
     metro6/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -134,6 +151,8 @@ network:
         location_y: 1255491.7
         radius_km: 44.95
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro7/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -143,6 +162,7 @@ network:
         location_x: -2056740.5
         location_y: 2793405.8
         radius_km: 20.69
+        node_type: pop
     metro7/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -153,6 +173,8 @@ network:
         location_y: 2793405.8
         radius_km: 20.69
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro8/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -162,6 +184,7 @@ network:
         location_x: -4549.8
         location_y: 2023543.2
         radius_km: 14.94
+        node_type: pop
     metro8/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -172,6 +195,8 @@ network:
         location_y: 2023543.2
         radius_km: 14.94
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro9/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -181,6 +206,7 @@ network:
         location_x: -1619385.4
         location_y: 2464479.5
         radius_km: 10.71
+        node_type: pop
     metro9/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -191,6 +217,8 @@ network:
         location_y: 2464479.5
         radius_km: 10.71
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro10/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -200,6 +228,7 @@ network:
         location_x: -955631.5
         location_y: 1397232.3
         radius_km: 14.73
+        node_type: pop
     metro10/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -210,6 +239,8 @@ network:
         location_y: 1397232.3
         radius_km: 14.73
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro11/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -219,6 +250,7 @@ network:
         location_x: 573347.4
         location_y: 773723.2
         radius_km: 14.05
+        node_type: pop
     metro11/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -229,6 +261,8 @@ network:
         location_y: 773723.2
         radius_km: 14.05
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro12/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -238,6 +272,7 @@ network:
         location_x: 1389884.0
         location_y: 2341144.7
         radius_km: 16.75
+        node_type: pop
     metro12/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -248,6 +283,8 @@ network:
         location_y: 2341144.7
         radius_km: 16.75
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro13/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -257,6 +294,7 @@ network:
         location_x: 664412.8
         location_y: 2133983.6
         radius_km: 43.9
+        node_type: pop
     metro13/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -267,6 +305,8 @@ network:
         location_y: 2133983.6
         radius_km: 43.9
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro14/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -276,6 +316,7 @@ network:
         location_x: -95143.3
         location_y: 1083616.5
         radius_km: 37.95
+        node_type: pop
     metro14/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -286,6 +327,8 @@ network:
         location_y: 1083616.5
         radius_km: 37.95
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro15/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -295,6 +338,7 @@ network:
         location_x: 126451.8
         location_y: 1782826.7
         radius_km: 24.26
+        node_type: pop
     metro15/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -305,6 +349,8 @@ network:
         location_y: 1782826.7
         radius_km: 24.26
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro16/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -314,6 +360,7 @@ network:
         location_x: 484338.2
         location_y: 1736132.1
         radius_km: 27.4
+        node_type: pop
     metro16/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -324,6 +371,8 @@ network:
         location_y: 1736132.1
         radius_km: 27.4
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro17/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -333,6 +382,7 @@ network:
         location_x: 1361576.8
         location_y: 1468042.1
         radius_km: 23.28
+        node_type: pop
     metro17/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -343,6 +393,8 @@ network:
         location_y: 1468042.1
         radius_km: 23.28
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro18/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -352,6 +404,7 @@ network:
         location_x: 823009.5
         location_y: 1494117.0
         radius_km: 21.96
+        node_type: pop
     metro18/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -362,6 +415,8 @@ network:
         location_y: 1494117.0
         radius_km: 21.96
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro19/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -371,6 +426,7 @@ network:
         location_x: 1340925.7
         location_y: 2048083.3
         radius_km: 27.34
+        node_type: pop
     metro19/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -381,6 +437,8 @@ network:
         location_y: 2048083.3
         radius_km: 27.34
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro20/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -390,6 +448,7 @@ network:
         location_x: -2157009.6
         location_y: 2023856.1
         radius_km: 19.63
+        node_type: pop
     metro20/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -400,6 +459,8 @@ network:
         location_y: 2023856.1
         radius_km: 19.63
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro21/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -409,6 +470,7 @@ network:
         location_x: 1815314.3
         location_y: 2173703.3
         radius_km: 51.75
+        node_type: pop
     metro21/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -419,6 +481,8 @@ network:
         location_y: 2173703.3
         radius_km: 51.75
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro22/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -428,6 +492,7 @@ network:
         location_x: 1750874.7
         location_y: 2071177.2
         radius_km: 39.56
+        node_type: pop
     metro22/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -438,6 +503,8 @@ network:
         location_y: 2071177.2
         radius_km: 39.56
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro23/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -447,6 +514,7 @@ network:
         location_x: 50426.6
         location_y: 745816.8
         radius_km: 38.01
+        node_type: pop
     metro23/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -457,6 +525,8 @@ network:
         location_y: 745816.8
         radius_km: 38.01
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro24/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -466,6 +536,7 @@ network:
         location_x: 2011415.1
         location_y: 2422273.7
         radius_km: 36.95
+        node_type: pop
     metro24/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -476,6 +547,8 @@ network:
         location_y: 2422273.7
         radius_km: 36.95
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
     metro25/pop[1-2]:
       use_blueprint: SingleRouter
       attrs:
@@ -485,6 +558,7 @@ network:
         location_x: -2020633.3
         location_y: 1445338.9
         radius_km: 36.73
+        node_type: pop
     metro25/dc[1-1]:
       use_blueprint: DCRegion
       attrs:
@@ -495,6 +569,8 @@ network:
         location_y: 1445338.9
         radius_km: 36.73
         node_type: dc_region
+        mw_per_dc_region: 50.0
+        gbps_per_mw: 250.0
   adjacency:
   # Intra-metro adjacency (connectivity within each metro's sites)
   - source: /metro1/pop[1-2]
@@ -5969,3002 +6045,3002 @@ traffic_matrix_set:
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1143.16
+    demand: 571.58
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1143.16
+    demand: 571.58
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1901.23
+    demand: 950.61
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1901.23
+    demand: 950.61
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1280.5
+    demand: 640.25
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1280.5
+    demand: 640.25
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1314.65
+    demand: 657.33
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1314.65
+    demand: 657.33
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 742.83
+    demand: 371.41
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 742.83
+    demand: 371.41
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 870.87
+    demand: 435.44
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 870.87
+    demand: 435.44
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1550.55
+    demand: 775.27
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1550.55
+    demand: 775.27
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1223.64
+    demand: 611.82
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1223.64
+    demand: 611.82
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2079.29
+    demand: 1039.64
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2079.29
+    demand: 1039.64
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 805.29
+    demand: 402.64
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 805.29
+    demand: 402.64
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 668.5
+    demand: 334.25
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 668.5
+    demand: 334.25
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 934.42
+    demand: 467.21
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 934.42
+    demand: 467.21
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1209.28
+    demand: 604.64
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1209.28
+    demand: 604.64
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1372.55
+    demand: 686.28
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1372.55
+    demand: 686.28
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1046.4
+    demand: 523.2
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1046.4
+    demand: 523.2
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 676.57
+    demand: 338.29
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 676.57
+    demand: 338.29
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 847.57
+    demand: 423.78
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 847.57
+    demand: 423.78
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 691.13
+    demand: 345.56
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 691.13
+    demand: 345.56
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 957.32
+    demand: 478.66
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 957.32
+    demand: 478.66
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 585.78
+    demand: 292.89
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 585.78
+    demand: 292.89
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 599.4
+    demand: 299.7
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 599.4
+    demand: 299.7
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 956.31
+    demand: 478.16
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 956.31
+    demand: 478.16
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 547.1
+    demand: 273.55
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 547.1
+    demand: 273.55
   - source_path: ^metro1/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 994.77
+    demand: 497.39
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro1/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 994.77
+    demand: 497.39
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 866.15
+    demand: 433.08
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 866.15
+    demand: 433.08
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 697.45
+    demand: 348.72
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 697.45
+    demand: 348.72
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 704.66
+    demand: 352.33
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 704.66
+    demand: 352.33
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 928.46
+    demand: 464.23
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 928.46
+    demand: 464.23
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 644.49
+    demand: 322.25
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 644.49
+    demand: 322.25
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2268.66
+    demand: 1134.33
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2268.66
+    demand: 1134.33
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 771.69
+    demand: 385.84
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 771.69
+    demand: 385.84
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 873.32
+    demand: 436.66
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 873.32
+    demand: 436.66
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 816.9
+    demand: 408.45
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 816.9
+    demand: 408.45
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1100.72
+    demand: 550.36
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1100.72
+    demand: 550.36
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2036.72
+    demand: 1018.36
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2036.72
+    demand: 1018.36
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 959.91
+    demand: 479.95
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 959.91
+    demand: 479.95
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1729.89
+    demand: 864.94
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1729.89
+    demand: 864.94
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1564.87
+    demand: 782.43
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1564.87
+    demand: 782.43
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 904.38
+    demand: 452.19
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 904.38
+    demand: 452.19
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1138.94
+    demand: 569.47
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1138.94
+    demand: 569.47
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1089.82
+    demand: 544.91
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1089.82
+    demand: 544.91
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 620.61
+    demand: 310.3
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 620.61
+    demand: 310.3
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 852.29
+    demand: 426.15
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 852.29
+    demand: 426.15
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 870.52
+    demand: 435.26
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 870.52
+    demand: 435.26
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 817.51
+    demand: 408.75
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 817.51
+    demand: 408.75
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 785.83
+    demand: 392.92
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 785.83
+    demand: 392.92
   - source_path: ^metro2/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 612.49
+    demand: 306.25
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro2/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 612.49
+    demand: 306.25
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1939.99
+    demand: 969.99
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1939.99
+    demand: 969.99
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1485.89
+    demand: 742.94
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1485.89
+    demand: 742.94
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 598.95
+    demand: 299.48
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 598.95
+    demand: 299.48
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1229.48
+    demand: 614.74
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1229.48
+    demand: 614.74
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1002.3
+    demand: 501.15
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1002.3
+    demand: 501.15
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2223.13
+    demand: 1111.56
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2223.13
+    demand: 1111.56
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1546.14
+    demand: 773.07
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1546.14
+    demand: 773.07
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 643.99
+    demand: 322.0
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 643.99
+    demand: 322.0
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 561.68
+    demand: 280.84
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 561.68
+    demand: 280.84
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 722.62
+    demand: 361.31
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 722.62
+    demand: 361.31
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 870.33
+    demand: 435.17
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 870.33
+    demand: 435.17
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 915.62
+    demand: 457.81
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 915.62
+    demand: 457.81
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 769.38
+    demand: 384.69
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 769.38
+    demand: 384.69
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 557.57
+    demand: 278.78
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 557.57
+    demand: 278.78
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 661.27
+    demand: 330.63
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 661.27
+    demand: 330.63
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 572.13
+    demand: 286.07
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 572.13
+    demand: 286.07
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1455.81
+    demand: 727.9
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1455.81
+    demand: 727.9
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 501.74
+    demand: 250.87
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 501.74
+    demand: 250.87
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 510.34
+    demand: 255.17
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 510.34
+    demand: 255.17
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 746.96
+    demand: 373.48
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 746.96
+    demand: 373.48
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 476.14
+    demand: 238.07
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 476.14
+    demand: 238.07
   - source_path: ^metro3/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1325.41
+    demand: 662.7
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro3/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1325.41
+    demand: 662.7
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2534.29
+    demand: 1267.15
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2534.29
+    demand: 1267.15
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 553.78
+    demand: 276.89
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 553.78
+    demand: 276.89
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1069.01
+    demand: 534.51
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1069.01
+    demand: 534.51
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 805.57
+    demand: 402.78
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 805.57
+    demand: 402.78
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1438.71
+    demand: 719.35
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1438.71
+    demand: 719.35
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1535.24
+    demand: 767.62
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1535.24
+    demand: 767.62
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 617.47
+    demand: 308.74
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 617.47
+    demand: 308.74
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 498.53
+    demand: 249.26
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 498.53
+    demand: 249.26
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 619.35
+    demand: 309.68
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 619.35
+    demand: 309.68
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 823.68
+    demand: 411.84
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 823.68
+    demand: 411.84
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 773.17
+    demand: 386.58
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 773.17
+    demand: 386.58
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 671.28
+    demand: 335.64
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 671.28
+    demand: 335.64
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 512.3
+    demand: 256.15
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 512.3
+    demand: 256.15
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 598.09
+    demand: 299.04
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 598.09
+    demand: 299.04
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 511.69
+    demand: 255.84
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 511.69
+    demand: 255.84
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1869.6
+    demand: 934.8
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1869.6
+    demand: 934.8
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 454.74
+    demand: 227.37
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 454.74
+    demand: 227.37
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 462.91
+    demand: 231.45
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 462.91
+    demand: 231.45
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 733.13
+    demand: 366.56
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 733.13
+    demand: 366.56
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 431.76
+    demand: 215.88
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 431.76
+    demand: 215.88
   - source_path: ^metro4/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2785.64
+    demand: 1392.82
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro4/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2785.64
+    demand: 1392.82
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 596.85
+    demand: 298.42
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 596.85
+    demand: 298.42
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 850.63
+    demand: 425.31
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 850.63
+    demand: 425.31
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 840.76
+    demand: 420.38
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 840.76
+    demand: 420.38
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1086.1
+    demand: 543.05
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1086.1
+    demand: 543.05
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2075.23
+    demand: 1037.62
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2075.23
+    demand: 1037.62
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 690.82
+    demand: 345.41
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 690.82
+    demand: 345.41
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 513.33
+    demand: 256.67
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 513.33
+    demand: 256.67
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 643.33
+    demand: 321.66
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 643.33
+    demand: 321.66
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 962.59
+    demand: 481.29
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 962.59
+    demand: 481.29
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 828.69
+    demand: 414.35
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 828.69
+    demand: 414.35
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 717.1
+    demand: 358.55
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 717.1
+    demand: 358.55
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 543.96
+    demand: 271.98
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 543.96
+    demand: 271.98
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 642.63
+    demand: 321.31
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 642.63
+    demand: 321.31
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 532.47
+    demand: 266.23
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 532.47
+    demand: 266.23
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1242.17
+    demand: 621.08
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1242.17
+    demand: 621.08
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 470.24
+    demand: 235.12
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 470.24
+    demand: 235.12
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 480.19
+    demand: 240.1
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 480.19
+    demand: 240.1
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 855.33
+    demand: 427.66
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 855.33
+    demand: 427.66
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 443.45
+    demand: 221.72
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 443.45
+    demand: 221.72
   - source_path: ^metro5/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1962.54
+    demand: 981.27
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro5/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1962.54
+    demand: 981.27
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 463.5
+    demand: 231.75
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 463.5
+    demand: 231.75
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1010.98
+    demand: 505.49
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1010.98
+    demand: 505.49
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 530.03
+    demand: 265.02
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 530.03
+    demand: 265.02
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 715.73
+    demand: 357.86
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 715.73
+    demand: 357.86
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1703.38
+    demand: 851.69
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1703.38
+    demand: 851.69
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1133.38
+    demand: 566.69
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1133.38
+    demand: 566.69
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1294.16
+    demand: 647.08
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1294.16
+    demand: 647.08
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1110.77
+    demand: 555.39
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1110.77
+    demand: 555.39
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1189.27
+    demand: 594.63
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1189.27
+    demand: 594.63
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1583.88
+    demand: 791.94
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1583.88
+    demand: 791.94
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2769.83
+    demand: 1384.91
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2769.83
+    demand: 1384.91
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3016.99
+    demand: 1508.49
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3016.99
+    demand: 1508.49
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1439.83
+    demand: 719.91
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1439.83
+    demand: 719.91
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 482.28
+    demand: 241.14
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 482.28
+    demand: 241.14
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1090.99
+    demand: 545.49
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1090.99
+    demand: 545.49
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1187.7
+    demand: 593.85
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1187.7
+    demand: 593.85
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1139.52
+    demand: 569.76
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1139.52
+    demand: 569.76
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 903.52
+    demand: 451.76
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 903.52
+    demand: 451.76
   - source_path: ^metro6/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 509.76
+    demand: 254.88
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro6/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 509.76
+    demand: 254.88
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 669.76
+    demand: 334.88
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 669.76
+    demand: 334.88
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2032.47
+    demand: 1016.23
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2032.47
+    demand: 1016.23
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 791.76
+    demand: 395.88
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 791.76
+    demand: 395.88
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 480.91
+    demand: 240.46
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 480.91
+    demand: 240.46
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 463.11
+    demand: 231.56
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 463.11
+    demand: 231.56
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 550.62
+    demand: 275.31
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 550.62
+    demand: 275.31
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 583.85
+    demand: 291.92
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 583.85
+    demand: 291.92
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 621.68
+    demand: 310.84
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 621.68
+    demand: 310.84
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 558.23
+    demand: 279.12
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 558.23
+    demand: 279.12
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 443.8
+    demand: 221.9
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 443.8
+    demand: 221.9
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 499.91
+    demand: 249.96
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 499.91
+    demand: 249.96
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 462.87
+    demand: 231.43
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 462.87
+    demand: 231.43
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1536.92
+    demand: 768.46
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1536.92
+    demand: 768.46
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 420.55
+    demand: 210.28
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 420.55
+    demand: 210.28
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 424.52
+    demand: 212.26
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 424.52
+    demand: 212.26
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 529.79
+    demand: 264.9
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 529.79
+    demand: 264.9
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 407.01
+    demand: 203.51
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 407.01
+    demand: 203.51
   - source_path: ^metro7/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 987.81
+    demand: 493.9
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro7/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 987.81
+    demand: 493.9
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 830.94
+    demand: 415.47
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 830.94
+    demand: 415.47
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1130.87
+    demand: 565.44
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1130.87
+    demand: 565.44
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 971.47
+    demand: 485.73
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 971.47
+    demand: 485.73
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 942.46
+    demand: 471.23
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 942.46
+    demand: 471.23
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1712.27
+    demand: 856.14
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1712.27
+    demand: 856.14
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1313.66
+    demand: 656.83
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1313.66
+    demand: 656.83
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3534.24
+    demand: 1767.12
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3534.24
+    demand: 1767.12
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1975.29
+    demand: 987.64
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1975.29
+    demand: 987.64
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 919.58
+    demand: 459.79
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 919.58
+    demand: 459.79
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1272.71
+    demand: 636.35
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1272.71
+    demand: 636.35
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 989.48
+    demand: 494.74
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 989.48
+    demand: 494.74
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 679.54
+    demand: 339.77
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 679.54
+    demand: 339.77
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 775.1
+    demand: 387.55
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 775.1
+    demand: 387.55
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 799.71
+    demand: 399.85
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 799.71
+    demand: 399.85
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1030.61
+    demand: 515.3
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1030.61
+    demand: 515.3
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 705.2
+    demand: 352.6
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 705.2
+    demand: 352.6
   - source_path: ^metro8/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 693.79
+    demand: 346.89
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro8/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 693.79
+    demand: 346.89
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1045.08
+    demand: 522.54
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1045.08
+    demand: 522.54
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 555.55
+    demand: 277.77
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 555.55
+    demand: 277.77
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 519.4
+    demand: 259.7
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 519.4
+    demand: 259.7
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 642.75
+    demand: 321.37
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 642.75
+    demand: 321.37
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 704.73
+    demand: 352.37
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 704.73
+    demand: 352.37
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 759.13
+    demand: 379.56
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 759.13
+    demand: 379.56
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 661.47
+    demand: 330.73
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 661.47
+    demand: 330.73
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 501.97
+    demand: 250.99
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 501.97
+    demand: 250.99
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 579.23
+    demand: 289.62
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 579.23
+    demand: 289.62
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 522.51
+    demand: 261.25
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 522.51
+    demand: 261.25
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1678.49
+    demand: 839.25
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1678.49
+    demand: 839.25
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 466.24
+    demand: 233.12
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 466.24
+    demand: 233.12
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 472.16
+    demand: 236.08
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 472.16
+    demand: 236.08
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 623.65
+    demand: 311.82
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 623.65
+    demand: 311.82
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 447.24
+    demand: 223.62
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 447.24
+    demand: 223.62
   - source_path: ^metro9/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1166.66
+    demand: 583.33
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro9/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1166.66
+    demand: 583.33
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 840.08
+    demand: 420.04
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 840.08
+    demand: 420.04
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 597.45
+    demand: 298.72
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 597.45
+    demand: 298.72
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 791.2
+    demand: 395.6
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 791.2
+    demand: 395.6
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1346.18
+    demand: 673.09
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1346.18
+    demand: 673.09
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1123.03
+    demand: 561.51
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1123.03
+    demand: 561.51
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 917.31
+    demand: 458.66
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 917.31
+    demand: 458.66
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 640.37
+    demand: 320.19
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 640.37
+    demand: 320.19
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 790.64
+    demand: 395.32
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 790.64
+    demand: 395.32
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 625.58
+    demand: 312.79
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 625.58
+    demand: 312.79
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 984.06
+    demand: 492.03
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 984.06
+    demand: 492.03
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 538.68
+    demand: 269.34
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 538.68
+    demand: 269.34
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 552.32
+    demand: 276.16
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 552.32
+    demand: 276.16
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1085.54
+    demand: 542.77
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1085.54
+    demand: 542.77
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 502.48
+    demand: 251.24
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 502.48
+    demand: 251.24
   - source_path: ^metro10/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1192.15
+    demand: 596.08
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro10/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1192.15
+    demand: 596.08
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 795.62
+    demand: 397.81
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 795.62
+    demand: 397.81
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 979.24
+    demand: 489.62
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 979.24
+    demand: 489.62
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1602.04
+    demand: 801.02
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1602.04
+    demand: 801.02
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1159.59
+    demand: 579.8
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1159.59
+    demand: 579.8
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1289.43
+    demand: 644.72
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1289.43
+    demand: 644.72
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1206.35
+    demand: 603.18
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1206.35
+    demand: 603.18
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1558.86
+    demand: 779.43
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1558.86
+    demand: 779.43
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 913.19
+    demand: 456.59
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 913.19
+    demand: 456.59
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 520.63
+    demand: 260.31
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 520.63
+    demand: 260.31
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 760.01
+    demand: 380.0
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 760.01
+    demand: 380.0
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 801.15
+    demand: 400.57
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 801.15
+    demand: 400.57
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2105.34
+    demand: 1052.67
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2105.34
+    demand: 1052.67
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 670.79
+    demand: 335.39
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 670.79
+    demand: 335.39
   - source_path: ^metro11/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 570.32
+    demand: 285.16
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro11/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 570.32
+    demand: 285.16
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1572.0
+    demand: 786.0
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1572.0
+    demand: 786.0
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 736.65
+    demand: 368.33
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 736.65
+    demand: 368.33
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 969.03
+    demand: 484.51
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 969.03
+    demand: 484.51
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1171.99
+    demand: 586.0
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1171.99
+    demand: 586.0
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1398.08
+    demand: 699.04
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1398.08
+    demand: 699.04
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1235.81
+    demand: 617.91
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1235.81
+    demand: 617.91
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3312.97
+    demand: 1656.48
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3312.97
+    demand: 1656.48
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 454.26
+    demand: 227.13
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 454.26
+    demand: 227.13
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2346.84
+    demand: 1173.42
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2346.84
+    demand: 1173.42
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2373.55
+    demand: 1186.78
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2373.55
+    demand: 1186.78
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 697.59
+    demand: 348.8
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 697.59
+    demand: 348.8
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1823.31
+    demand: 911.65
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1823.31
+    demand: 911.65
   - source_path: ^metro12/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 457.85
+    demand: 228.92
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro12/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 457.85
+    demand: 228.92
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1019.58
+    demand: 509.79
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1019.58
+    demand: 509.79
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1787.75
+    demand: 893.87
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1787.75
+    demand: 893.87
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2434.52
+    demand: 1217.26
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2434.52
+    demand: 1217.26
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1292.0
+    demand: 646.0
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1292.0
+    demand: 646.0
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1751.2
+    demand: 875.6
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1751.2
+    demand: 875.6
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1704.38
+    demand: 852.19
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1704.38
+    demand: 852.19
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 546.92
+    demand: 273.46
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 546.92
+    demand: 273.46
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1120.8
+    demand: 560.4
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1120.8
+    demand: 560.4
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1172.67
+    demand: 586.33
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1172.67
+    demand: 586.33
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 898.62
+    demand: 449.31
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 898.62
+    demand: 449.31
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 971.16
+    demand: 485.58
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 971.16
+    demand: 485.58
   - source_path: ^metro13/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 555.06
+    demand: 277.53
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro13/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 555.06
+    demand: 277.53
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1607.88
+    demand: 803.94
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1607.88
+    demand: 803.94
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1399.2
+    demand: 699.6
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1399.2
+    demand: 699.6
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 904.0
+    demand: 452.0
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 904.0
+    demand: 452.0
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1249.04
+    demand: 624.52
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1249.04
+    demand: 624.52
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 809.38
+    demand: 404.69
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 809.38
+    demand: 404.69
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 652.14
+    demand: 326.07
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 652.14
+    demand: 326.07
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 667.87
+    demand: 333.94
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 667.87
+    demand: 333.94
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 694.79
+    demand: 347.4
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 694.79
+    demand: 347.4
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2792.85
+    demand: 1396.42
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2792.85
+    demand: 1396.42
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 603.65
+    demand: 301.82
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 603.65
+    demand: 301.82
   - source_path: ^metro14/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 732.67
+    demand: 366.33
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro14/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 732.67
+    demand: 366.33
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2835.55
+    demand: 1417.77
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2835.55
+    demand: 1417.77
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1033.39
+    demand: 516.7
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1033.39
+    demand: 516.7
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1572.75
+    demand: 786.37
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1572.75
+    demand: 786.37
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1054.29
+    demand: 527.14
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1054.29
+    demand: 527.14
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 645.31
+    demand: 322.65
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 645.31
+    demand: 322.65
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 808.03
+    demand: 404.01
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 808.03
+    demand: 404.01
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 840.65
+    demand: 420.33
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 840.65
+    demand: 420.33
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1216.21
+    demand: 608.1
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1216.21
+    demand: 608.1
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 723.44
+    demand: 361.72
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 723.44
+    demand: 361.72
   - source_path: ^metro15/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 674.29
+    demand: 337.14
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro15/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 674.29
+    demand: 337.14
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1344.5
+    demand: 672.25
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1344.5
+    demand: 672.25
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2529.75
+    demand: 1264.87
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2529.75
+    demand: 1264.87
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1351.18
+    demand: 675.59
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1351.18
+    demand: 675.59
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 574.19
+    demand: 287.1
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 574.19
+    demand: 287.1
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 958.08
+    demand: 479.04
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 958.08
+    demand: 479.04
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1010.93
+    demand: 505.47
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1010.93
+    demand: 505.47
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1178.8
+    demand: 589.4
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1178.8
+    demand: 589.4
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 830.87
+    demand: 415.43
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 830.87
+    demand: 415.43
   - source_path: ^metro16/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 598.68
+    demand: 299.34
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro16/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 598.68
+    demand: 299.34
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2056.68
+    demand: 1028.34
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2056.68
+    demand: 1028.34
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1939.0
+    demand: 969.5
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1939.0
+    demand: 969.5
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 454.14
+    demand: 227.07
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 454.14
+    demand: 227.07
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1444.03
+    demand: 722.02
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1444.03
+    demand: 722.02
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1635.81
+    demand: 817.91
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1635.81
+    demand: 817.91
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 908.68
+    demand: 454.34
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 908.68
+    demand: 454.34
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1118.55
+    demand: 559.27
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1118.55
+    demand: 559.27
   - source_path: ^metro17/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 473.37
+    demand: 236.68
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro17/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 473.37
+    demand: 236.68
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1565.54
+    demand: 782.77
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1565.54
+    demand: 782.77
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 517.35
+    demand: 258.68
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 517.35
+    demand: 258.68
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1082.52
+    demand: 541.26
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1082.52
+    demand: 541.26
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1168.89
+    demand: 584.45
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1168.89
+    demand: 584.45
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1183.74
+    demand: 591.87
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1183.74
+    demand: 591.87
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 903.37
+    demand: 451.69
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 903.37
+    demand: 451.69
   - source_path: ^metro18/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 543.77
+    demand: 271.88
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro18/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 543.77
+    demand: 271.88
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 460.8
+    demand: 230.4
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 460.8
+    demand: 230.4
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2217.61
+    demand: 1108.8
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2217.61
+    demand: 1108.8
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2557.59
+    demand: 1278.8
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2557.59
+    demand: 1278.8
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 772.62
+    demand: 386.31
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 772.62
+    demand: 386.31
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1550.07
+    demand: 775.03
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1550.07
+    demand: 775.03
   - source_path: ^metro19/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 469.72
+    demand: 234.86
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro19/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 469.72
+    demand: 234.86
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 415.99
+    demand: 208.0
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 415.99
+    demand: 208.0
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 421.68
+    demand: 210.84
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 421.68
+    demand: 210.84
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 593.25
+    demand: 296.62
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 593.25
+    demand: 296.62
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 399.03
+    demand: 199.52
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 399.03
+    demand: 199.52
   - source_path: ^metro20/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1902.47
+    demand: 951.23
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro20/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 1902.47
+    demand: 951.23
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 4547.18
+    demand: 2273.59
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 4547.18
+    demand: 2273.59
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 651.21
+    demand: 325.6
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 651.21
+    demand: 325.6
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3148.8
+    demand: 1574.4
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 3148.8
+    demand: 1574.4
   - source_path: ^metro21/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 422.0
+    demand: 211.0
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro21/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 422.0
+    demand: 211.0
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 678.66
+    demand: 339.33
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 678.66
+    demand: 339.33
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2432.29
+    demand: 1216.15
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 2432.29
+    demand: 1216.15
   - source_path: ^metro22/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 429.18
+    demand: 214.59
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro22/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 429.18
+    demand: 214.59
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 587.87
+    demand: 293.93
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 587.87
+    demand: 293.93
   - source_path: ^metro23/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 671.19
+    demand: 335.59
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro23/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 671.19
+    demand: 335.59
   - source_path: ^metro24/dc1/.*
     sink_path: ^metro25/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 402.01
+    demand: 201.0
   - source_path: ^metro25/dc1/.*
     sink_path: ^metro24/dc1/.*
     mode: pairwise
     priority: 0
-    demand: 402.01
+    demand: 201.0
 workflow:
 - step_type: NetworkStats
   name: network_statistics
@@ -8977,7 +9053,7 @@ workflow:
   shortest_path: false
   flow_placement: PROPORTIONAL
   seed: 42
-  iterations: 100
+  iterations: 150
   baseline: true
   failure_policy: mc_baseline
   store_failure_patterns: true
@@ -8986,7 +9062,7 @@ workflow:
   name: tm_placement
   matrix_name: baseline_traffic_matrix
   failure_policy: mc_baseline
-  iterations: 10
+  iterations: 150
   parallelism: auto
   placement_rounds: auto
   baseline: true

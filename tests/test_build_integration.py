@@ -159,6 +159,9 @@ class TestBuildIntegration:
         # Check specific formatting expectations
         lines = yaml_str.split("\n")
 
+        # Should include top-level seed
+        assert scenario_data.get("seed") == 42
+
         # Should start with blueprints section
         assert any(line.strip() == "blueprints:" for line in lines)
 
@@ -321,3 +324,18 @@ class TestBuildIntegration:
 
         assert len(intra_rules) == 1  # Denver has 4 sites from override
         assert len(inter_rules) == 0  # No other metros to connect to
+
+    def test_top_level_seed_default_and_override(
+        self, sample_integrated_graph, sample_config
+    ):
+        """Top-level scenario 'seed' should exist and reflect config override."""
+        # Default (42)
+        yaml_str = build_scenario(sample_integrated_graph, sample_config)
+        scenario_data = yaml.safe_load(yaml_str)
+        assert scenario_data.get("seed") == 42
+
+        # Override
+        sample_config.output.scenario_seed = 123
+        yaml_str2 = build_scenario(sample_integrated_graph, sample_config)
+        scenario_data2 = yaml.safe_load(yaml_str2)
+        assert scenario_data2.get("seed") == 123

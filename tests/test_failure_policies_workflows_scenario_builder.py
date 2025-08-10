@@ -285,6 +285,7 @@ class TestBuildScenarioIntegration:
 
         # Check that all expected sections are present
         expected_sections = [
+            "seed",
             "blueprints",
             "components",
             "network",

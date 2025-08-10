@@ -130,8 +130,8 @@ def _run_pipeline(
 
     Notes:
         Terminates the process via sys.exit(1) when the integrated graph is
-        missing. When validation is enabled and fails, prints an error but does
-        not terminate.
+        missing. When validation is enabled and finds issues, raises a
+        ValueError (caller maps to exit code 3) after printing issue details.
     """
     from topogen import load_from_json
     from topogen.scenario_builder import build_scenario
@@ -180,17 +180,21 @@ def _run_pipeline(
 
     # Validate the generated scenario (unless just printing)
     if not print_yaml:
-        try:
-            from ngraph.scenario import Scenario  # type: ignore[import-untyped]
+        from topogen.validation import validate_scenario_yaml
 
-            print("🔄 Validating generated scenario...")
-            scenario = Scenario.from_yaml(scenario_yaml)
-            print("✅ Scenario validation passed")
-            print(f"   Network nodes: {len(scenario.network.nodes)}")
-            print(f"   Network links: {len(scenario.network.links)}")
-        except Exception as e:
-            print(f"❌ Scenario validation failed: {e}")
+        print("🔄 Validating generated scenario...")
+        issues = validate_scenario_yaml(
+            scenario_yaml, integrated_graph_path=graph_path, run_ngraph=True
+        )
+        if issues:
+            print("❌ Scenario validation found issues:")
+            for s in issues:
+                print(f"   - {s}")
             print("   Scenario file generated but has issues")
+            # Fail the pipeline with a validation error
+            raise ValueError("Scenario validation failed")
+        else:
+            print("✅ Scenario validation passed")
 
     return scenario_yaml
 

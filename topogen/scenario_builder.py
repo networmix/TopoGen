@@ -96,6 +96,14 @@ def build_scenario(
     # Build scenario sections
     scenario = {}
 
+    # 0. Top-level seed (configurable; default 42). Ensure this appears first.
+    try:
+        scenario_seed = int(getattr(config.output, "scenario_seed", 42))
+    except Exception:
+        scenario_seed = 42
+    # Insert as earliest key to influence YAML ordering (sort_keys=False below)
+    scenario["seed"] = scenario_seed
+
     # 1. Blueprints section
     scenario["blueprints"] = _build_blueprints_section(used_blueprints, config)
 
@@ -499,7 +507,7 @@ def _build_network_section(
 
     # Build groups section
     network["groups"] = _build_groups_section(
-        metros, metro_settings, max_sites, max_dc_regions
+        metros, metro_settings, max_sites, max_dc_regions, config
     )
 
     # Build adjacency section
@@ -520,6 +528,7 @@ def _build_groups_section(
     metro_settings: dict[str, dict[str, Any]],
     max_sites: int,
     max_dc_regions: int,
+    config: "TopologyConfig",
 ) -> dict[str, Any]:
     """Build the groups section defining site hierarchies.
 
@@ -528,6 +537,7 @@ def _build_groups_section(
         metro_settings: Per-metro configuration settings.
         max_sites: Maximum number of sites to support.
         max_dc_regions: Maximum number of DC regions to support.
+        config: Full topology configuration (reads traffic parameters for DC attrs).
 
     Returns:
         Groups section dictionary.
@@ -552,6 +562,7 @@ def _build_groups_section(
                 "location_x": metro["x"],
                 "location_y": metro["y"],
                 "radius_km": metro["radius_km"],
+                "node_type": "pop",
             },
         }
 
@@ -574,6 +585,19 @@ def _build_groups_section(
                     "location_y": metro["y"],
                     "radius_km": metro["radius_km"],
                     "node_type": "dc_region",
+                    # Include traffic-related parameters on DC nodes for downstream consumers
+                    "mw_per_dc_region": float(
+                        getattr(
+                            getattr(config, "traffic", object()),
+                            "mw_per_dc_region",
+                            0.0,
+                        )
+                    ),
+                    "gbps_per_mw": float(
+                        getattr(
+                            getattr(config, "traffic", object()), "gbps_per_mw", 0.0
+                        )
+                    ),
                 },
             }
 

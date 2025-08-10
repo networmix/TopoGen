@@ -376,6 +376,26 @@ class TestScenarioBuilder:
             assert dc_group["use_blueprint"] == "DCRegion"
             assert "node_type" in dc_group["attrs"]
             assert dc_group["attrs"]["node_type"] == "dc_region"
+            # New attributes propagated from traffic config
+            assert "mw_per_dc_region" in dc_group["attrs"]
+            assert "gbps_per_mw" in dc_group["attrs"]
+            assert dc_group["attrs"]["mw_per_dc_region"] == pytest.approx(
+                float(TopologyConfig().traffic.mw_per_dc_region)
+            )
+            assert dc_group["attrs"]["gbps_per_mw"] == pytest.approx(
+                float(TopologyConfig().traffic.gbps_per_mw)
+            )
+
+        # Validate location attributes match metro coordinates
+        # Metro1
+        m1_pop = groups[[g for g in groups if g.startswith("metro1/pop[")][0]]
+        m1_dc = groups[[g for g in groups if g.startswith("metro1/dc[")][0]]
+        assert m1_pop["attrs"]["location_x"] == pytest.approx(100.0)
+        assert m1_pop["attrs"]["location_y"] == pytest.approx(200.0)
+        assert m1_dc["attrs"]["location_x"] == pytest.approx(100.0)
+        assert m1_dc["attrs"]["location_y"] == pytest.approx(200.0)
+        # POPs must also include node_type
+        assert m1_pop["attrs"].get("node_type") == "pop"
 
         # Should have DC-to-PoP adjacency rules
         adjacency = scenario_dict["network"]["adjacency"]

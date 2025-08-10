@@ -398,6 +398,8 @@ class OutputConfig:
 
     scenario_metadata: ScenarioMetadata = field(default_factory=ScenarioMetadata)
     formatting: FormattingConfig = field(default_factory=FormattingConfig)
+    # Top-level scenario random seed to emit in generated scenario YAML
+    scenario_seed: int = 42
 
 
 @dataclass
@@ -543,6 +545,7 @@ class TopologyConfig:
         output = OutputConfig(
             scenario_metadata=scenario_metadata,
             formatting=formatting,
+            scenario_seed=int(output_dict.get("scenario_seed", 42)),
         )
 
         # Handle optional build configuration

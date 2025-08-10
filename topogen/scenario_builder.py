@@ -1465,8 +1465,8 @@ def _build_components_section(
 ) -> dict[str, Any]:
     """Build the components section of the NetGraph scenario.
 
-    Merges built-in components with custom components from configuration,
-    and includes only components that are referenced by the used blueprints.
+    Uses merged component library (built-ins + lib/components.yml) and includes
+    only components that are referenced by assignments and used blueprints.
 
     Args:
         config: Topology configuration containing component definitions.
@@ -1475,12 +1475,8 @@ def _build_components_section(
     Returns:
         Dictionary representing the components section.
     """
-    # Start with built-in components
-    builtin_components = get_builtin_components()
-
-    # Merge with custom components from config (custom components override built-ins)
-    components = builtin_components.copy()
-    components.update(config.components.library)
+    # Load merged component library (built-ins + user lib)
+    components = get_builtin_components()
 
     # Determine which components are referenced
     referenced_components = set()
@@ -1496,14 +1492,7 @@ def _build_components_section(
     if assignments.dc.hw_component:
         referenced_components.add(assignments.dc.hw_component)
 
-    # Add components referenced by blueprint overrides
-    for blueprint_name in used_blueprints:
-        if blueprint_name in assignments.blueprint_overrides:
-            for role_assignment in assignments.blueprint_overrides[
-                blueprint_name
-            ].values():
-                if role_assignment.hw_component:
-                    referenced_components.add(role_assignment.hw_component)
+    # No blueprint overrides. Role assignments only.
 
     # Add optics components
     if assignments.spine.optics:
@@ -1515,13 +1504,7 @@ def _build_components_section(
     if assignments.dc.optics:
         referenced_components.add(assignments.dc.optics)
 
-    for blueprint_name in used_blueprints:
-        if blueprint_name in assignments.blueprint_overrides:
-            for role_assignment in assignments.blueprint_overrides[
-                blueprint_name
-            ].values():
-                if role_assignment.optics:
-                    referenced_components.add(role_assignment.optics)
+    # No blueprint overrides for optics either.
 
     # Filter to include only referenced components
     result = {}
@@ -1542,7 +1525,7 @@ def _build_blueprints_section(
     """Build the blueprints section with component assignments.
 
     Takes the basic blueprint definitions and enriches them with component
-    assignments based on the configuration.
+    assignments based on role assignments in the configuration.
 
     Args:
         used_blueprints: Set of blueprint names used in the scenario.
@@ -1564,12 +1547,6 @@ def _build_blueprints_section(
         # Start with the basic blueprint definition
         blueprint = deepcopy(builtin_blueprints[blueprint_name])
 
-        # Check if this blueprint has component overrides
-        if blueprint_name in assignments.blueprint_overrides:
-            blueprint_overrides = assignments.blueprint_overrides[blueprint_name]
-        else:
-            blueprint_overrides = {}
-
         # Add component assignments to each group's attrs
         if "groups" in blueprint:
             for group_name, group_def in blueprint["groups"].items():
@@ -1582,12 +1559,8 @@ def _build_blueprints_section(
                     # Try to infer role from group name
                     role = group_name.lower()
 
-                # Get component assignment (blueprint override takes precedence)
-                if role in blueprint_overrides:
-                    assignment = blueprint_overrides[role]
-                else:
-                    # Use default role assignment
-                    assignment = getattr(assignments, role, None)
+                # Get component assignment by role only
+                assignment = getattr(assignments, role, None)
 
                 if assignment:
                     if assignment.hw_component:
@@ -1611,8 +1584,8 @@ def _build_failure_policy_set_section(config: TopologyConfig) -> dict[str, Any]:
     # Get built-in failure policies
     builtin_policies = get_builtin_failure_policies()
 
-    # Start with custom policies from config
-    policies = config.failure_policies.library.copy()
+    # Start with empty, then rely on merged library for default policy presence
+    policies = {}
 
     # Get the default policy name
     default_policy_name = config.failure_policies.assignments.default
@@ -1641,25 +1614,19 @@ def _build_workflow_section(config: TopologyConfig) -> list[dict[str, Any]]:
     Returns:
         List of workflow step definitions.
     """
-    # Get built-in workflows
+    # Get merged workflows (built-ins + user lib)
     builtin_workflows = get_builtin_workflows()
 
     # Get the default workflow name
     default_workflow_name = config.workflows.assignments.default
 
-    # Check for custom workflow first
-    if default_workflow_name in config.workflows.library:
-        return config.workflows.library[default_workflow_name]
-
-    # Use built-in workflow
+    # Use merged library
     if default_workflow_name in builtin_workflows:
         return builtin_workflows[default_workflow_name]
 
     # Workflow not found
-    available_custom = list(config.workflows.library.keys())
     available_builtin = list(builtin_workflows.keys())
     raise ValueError(
         f"Default workflow '{default_workflow_name}' not found. "
-        f"Available custom workflows: {available_custom}, "
         f"Available built-in workflows: {available_builtin}"
     )

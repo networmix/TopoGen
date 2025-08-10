@@ -430,7 +430,7 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
         metro_clusters: List of MetroCluster objects to export.
         target_crs: Target coordinate reference system for export.
     """
-    output_dir = Path("output")
+    output_dir = Path.cwd()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Export metro centroids as GeoJSON
@@ -456,6 +456,7 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
         df = pd.DataFrame(metro_data)
         metro_gdf = gpd.GeoDataFrame(df)
         metro_gdf = metro_gdf.set_crs(target_crs)
+        # Prefix not available here; use fixed filename for GeoJSON for backward compat
         metro_path = output_dir / "metro_clusters.geojson"
         if metro_gdf is not None:
             metro_gdf.to_file(metro_path, driver="GeoJSON")

@@ -81,7 +81,42 @@ def test_config_defaults() -> None:
 
 def test_export_clusters_config() -> None:
     """Test that export_clusters configuration works correctly."""
-    config = TopologyConfig.from_yaml(Path("config.yml"))
+    # Load example config from repo root if present; otherwise construct inline
+    example_path = Path("config.yml")
+    if example_path.exists():
+        config = TopologyConfig.from_yaml(example_path)
+    else:
+        # Minimal config dict with export_clusters=True
+        config_data = {
+            "clustering": {
+                "metro_clusters": 25,
+                "export_clusters": True,
+                "coordinate_precision": 1,
+                "area_precision": 2,
+                "max_uac_radius_km": 100.0,
+            },
+            "data_sources": {
+                "uac_polygons": "test_uac.zip",
+                "tiger_roads": "test_tiger.zip",
+                "conus_boundary": "test_conus.zip",
+            },
+            "projection": {"target_crs": "EPSG:3857"},
+            "highway_processing": {},
+            "validation": {},
+            "corridors": {},
+            "output": {"scenario_metadata": {}, "formatting": {}},
+        }
+        from tempfile import NamedTemporaryFile as _NTF
+
+        import yaml as _yaml
+
+        with _NTF(mode="w", suffix=".yml", delete=False) as _f:
+            _yaml.safe_dump(config_data, _f)
+            tmp_path = Path(_f.name)
+        try:
+            config = TopologyConfig.from_yaml(tmp_path)
+        finally:
+            tmp_path.unlink()
 
     # The current config has export_clusters set to true
     assert config.clustering.export_clusters is True

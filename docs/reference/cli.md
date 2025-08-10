@@ -29,7 +29,7 @@ Options:
 
 ### `generate`
 
-Generate the integrated metro + highway graph to `output/integrated_graph.json`.
+Generate the integrated metro + highway graph to `<config_stem>_integrated_graph.json` in the current directory.
 
 ```bash
 python -m topogen generate -c config.yml
@@ -44,13 +44,13 @@ Options:
 Build a `NetGraph` scenario YAML from the integrated graph.
 
 ```bash
-python -m topogen build -c config.yml -o output/scenario.yaml
+python -m topogen build -c config.yml -o config_scenario.yml
 ```
 
 Options:
 
 - `-c, --config PATH` (default: `config.yml`)
-- `-o, --output PATH` (default: `output/scenario.yaml`)
+- `-o, --output PATH` (default: `<config_stem>_scenario.yml` in CWD)
 - `--print` Print the YAML to stdout instead of writing to a file and validating
 
 ## Notes

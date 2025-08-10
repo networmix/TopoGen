@@ -25,7 +25,7 @@ python -m topogen info -c config.yml
 python -m topogen generate -c config.yml
 
 # Build a NetGraph scenario YAML from the integrated graph
-python -m topogen build -c config.yml -o output/scenario.yaml
+python -m topogen build -c config.yml -o config_scenario.yml
 ```
 
 See the [Installation](getting-started/installation.md) guide for setup and the [CLI Reference](reference/cli.md) for commands and options.

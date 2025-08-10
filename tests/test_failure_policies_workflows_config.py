@@ -40,17 +40,13 @@ class TestFailurePoliciesConfig:
     def test_default_values(self):
         """Test default values."""
         config = FailurePoliciesConfig()
-        assert config.library == {}
         assert isinstance(config.assignments, FailurePolicyAssignments)
         assert config.assignments.default == "single_random_link_failure"
 
     def test_custom_values(self):
         """Test custom values."""
-        library = {"custom_policy": {"rules": []}}
         assignments = FailurePolicyAssignments(default="custom_policy")
-
-        config = FailurePoliciesConfig(library=library, assignments=assignments)
-        assert config.library == library
+        config = FailurePoliciesConfig(assignments=assignments)
         assert config.assignments == assignments
 
 
@@ -79,17 +75,13 @@ class TestWorkflowsConfig:
     def test_default_values(self):
         """Test default values."""
         config = WorkflowsConfig()
-        assert config.library == {}
         assert isinstance(config.assignments, WorkflowAssignments)
         assert config.assignments.default == "basic_capacity_analysis"
 
     def test_custom_values(self):
         """Test custom values."""
-        library = {"custom_workflow": [{"step_type": "NetworkStats"}]}
         assignments = WorkflowAssignments(default="custom_workflow")
-
-        config = WorkflowsConfig(library=library, assignments=assignments)
-        assert config.library == library
+        config = WorkflowsConfig(assignments=assignments)
         assert config.assignments == assignments
 
 
@@ -171,14 +163,13 @@ class TestConfigurationParsing:
 
     def test_empty_failure_policies_section(self):
         """Test parsing empty failure_policies section."""
-        config_dict = {"failure_policies": {}}
+        config_dict = {"failure_policies": {"assignments": {}}}
 
         config_path = self.create_temp_config(config_dict)
         try:
             config = TopologyConfig.from_yaml(config_path)
 
             assert isinstance(config.failure_policies, FailurePoliciesConfig)
-            assert config.failure_policies.library == {}
             assert (
                 config.failure_policies.assignments.default
                 == "single_random_link_failure"
@@ -188,42 +179,26 @@ class TestConfigurationParsing:
 
     def test_empty_workflows_section(self):
         """Test parsing empty workflows section."""
-        config_dict = {"workflows": {}}
+        config_dict = {"workflows": {"assignments": {}}}
 
         config_path = self.create_temp_config(config_dict)
         try:
             config = TopologyConfig.from_yaml(config_path)
 
             assert isinstance(config.workflows, WorkflowsConfig)
-            assert config.workflows.library == {}
             assert config.workflows.assignments.default == "basic_capacity_analysis"
         finally:
             config_path.unlink()
 
     def test_failure_policies_library_parsing(self):
         """Test parsing failure_policies.library section."""
-        config_dict = {
-            "failure_policies": {
-                "library": {
-                    "custom_policy": {
-                        "attrs": {"description": "Custom policy"},
-                        "rules": [
-                            {"entity_scope": "link", "rule_type": "choice", "count": 3}
-                        ],
-                    }
-                }
-            }
-        }
+        config_dict = {"failure_policies": {"assignments": {}}}
 
         config_path = self.create_temp_config(config_dict)
         try:
             config = TopologyConfig.from_yaml(config_path)
-
-            assert "custom_policy" in config.failure_policies.library
-            policy = config.failure_policies.library["custom_policy"]
-            assert policy["attrs"]["description"] == "Custom policy"
-            assert len(policy["rules"]) == 1
-            assert policy["rules"][0]["count"] == 3
+            # Inline library is no longer parsed into config; only assignments remain
+            assert hasattr(config.failure_policies, "assignments")
         finally:
             config_path.unlink()
 
@@ -263,33 +238,13 @@ class TestConfigurationParsing:
 
     def test_workflows_library_parsing(self):
         """Test parsing workflows.library section."""
-        config_dict = {
-            "workflows": {
-                "library": {
-                    "custom_workflow": [
-                        {"step_type": "NetworkStats", "name": "custom_stats"},
-                        {
-                            "step_type": "CapacityEnvelopeAnalysis",
-                            "name": "custom_analysis",
-                            "source_path": "(metro[0-9]+/dc[0-9]+)",
-                            "sink_path": "(metro[0-9]+/dc[0-9]+)",
-                            "mode": "pairwise",
-                            "iterations": 50,
-                        },
-                    ]
-                }
-            }
-        }
+        config_dict = {"workflows": {"assignments": {}}}
 
         config_path = self.create_temp_config(config_dict)
         try:
             config = TopologyConfig.from_yaml(config_path)
-
-            assert "custom_workflow" in config.workflows.library
-            workflow = config.workflows.library["custom_workflow"]
-            assert len(workflow) == 2
-            assert workflow[0]["step_type"] == "NetworkStats"
-            assert workflow[1]["iterations"] == 50
+            # Inline library is no longer parsed into config; only assignments remain
+            assert hasattr(config.workflows, "assignments")
         finally:
             config_path.unlink()
 
@@ -324,11 +279,8 @@ class TestConfigurationParsing:
     def test_none_values_handling(self):
         """Test handling of None values (empty YAML sections)."""
         config_dict = {
-            "failure_policies": {
-                "library": None,
-                "assignments": {"scenario_overrides": None},
-            },
-            "workflows": {"library": None, "assignments": {"scenario_overrides": None}},
+            "failure_policies": {"assignments": {"scenario_overrides": None}},
+            "workflows": {"assignments": {"scenario_overrides": None}},
         }
 
         config_path = self.create_temp_config(config_dict)
@@ -336,9 +288,7 @@ class TestConfigurationParsing:
             config = TopologyConfig.from_yaml(config_path)
 
             # None values should be converted to empty dicts
-            assert config.failure_policies.library == {}
             assert config.failure_policies.assignments.scenario_overrides == {}
-            assert config.workflows.library == {}
             assert config.workflows.assignments.scenario_overrides == {}
         finally:
             config_path.unlink()
@@ -392,12 +342,12 @@ class TestConfigurationParsing:
 
     def test_invalid_library_type(self):
         """Test error handling for invalid library type."""
-        config_dict = {"failure_policies": {"library": "not a dict"}}
+        config_dict = {"failure_policies": {"assignments": "not a dict"}}
 
         config_path = self.create_temp_config(config_dict)
         try:
             with pytest.raises(
-                ValueError, match="'failure_policies.library' must be a dictionary"
+                ValueError, match="'failure_policies.assignments' must be a dictionary"
             ):
                 TopologyConfig.from_yaml(config_path)
         finally:
@@ -419,30 +369,16 @@ class TestConfigurationParsing:
     def test_complete_configuration(self):
         """Test parsing a complete configuration with both sections."""
         config_dict = {
-            "failure_policies": {
-                "library": {
-                    "custom_failure": {
-                        "rules": [{"entity_scope": "node", "rule_type": "all"}]
-                    }
-                },
-                "assignments": {"default": "custom_failure"},
-            },
-            "workflows": {
-                "library": {"custom_workflow": [{"step_type": "NetworkStats"}]},
-                "assignments": {"default": "custom_workflow"},
-            },
+            "failure_policies": {"assignments": {"default": "custom_failure"}},
+            "workflows": {"assignments": {"default": "custom_workflow"}},
         }
 
         config_path = self.create_temp_config(config_dict)
         try:
             config = TopologyConfig.from_yaml(config_path)
 
-            # Check failure policies
-            assert "custom_failure" in config.failure_policies.library
+            # Check default assignments only
             assert config.failure_policies.assignments.default == "custom_failure"
-
-            # Check workflows
-            assert "custom_workflow" in config.workflows.library
             assert config.workflows.assignments.default == "custom_workflow"
         finally:
             config_path.unlink()

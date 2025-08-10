@@ -23,33 +23,11 @@ class TestComponentsScenarioBuilder:
 
         # Set up component assignments
         config.components = ComponentsConfig(
-            library={
-                "CustomChassis": {
-                    "component_type": "chassis",
-                    "cost": 50000.0,
-                    "power_watts": 2000.0,
-                }
-            },
             assignments=ComponentAssignments(
                 spine=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
                 leaf=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
                 core=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
                 dc=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
-                blueprint_overrides={
-                    "Clos_64_256": {
-                        "spine": ComponentAssignment(
-                            hw_component="CoreRouter", optics="800G-ZR+"
-                        ),
-                        "leaf": ComponentAssignment(
-                            hw_component="CoreRouter", optics="800G-ZR+"
-                        ),
-                    },
-                    "SingleRouter": {
-                        "core": ComponentAssignment(
-                            hw_component="CoreRouter", optics="800G-ZR+"
-                        )
-                    },
-                },
             ),
         )
 
@@ -69,37 +47,23 @@ class TestComponentsScenarioBuilder:
         assert "CoreRouter" in components
         assert "800G-ZR+" in components
 
-    def test_build_components_section_with_overrides(self):
-        """Test building components section with blueprint overrides."""
+    def test_build_components_section_with_role_assignments(self):
+        """Test building components section with role assignments only."""
         config = self.create_test_config()
         used_blueprints = {"Clos_64_256"}
 
         components = _build_components_section(config, used_blueprints)
 
         assert isinstance(components, dict)
-
-        # Should include override components
         assert "CoreRouter" in components
         assert "800G-ZR+" in components
 
-    def test_build_components_section_merges_builtin_and_custom(self):
-        """Test that components section merges built-in and custom components."""
+    def test_build_components_section_uses_merged_library(self):
+        """Smoke test that merged library is used (built-ins at minimum)."""
         config = self.create_test_config()
-
-        # Add a custom component to library that overrides a built-in
-        config.components.library["CoreRouter"] = {
-            "component_type": "chassis",
-            "cost": 999999.0,  # Different from built-in
-            "power_watts": 9999.0,
-        }
-
         used_blueprints = {"Clos_64_256"}
         components = _build_components_section(config, used_blueprints)
-
-        # Should use custom version
-        overridden = components.get("CoreRouter")
-        if overridden:  # May not be referenced depending on overrides
-            assert overridden["cost"] == 999999.0
+        assert "CoreRouter" in components
 
     def test_build_components_section_missing_component_warning(self):
         """Test warning when referenced component is not found."""
@@ -132,8 +96,8 @@ class TestComponentsScenarioBuilder:
         assert "attrs" in core_group
         assert core_group["attrs"]["hw_component"] == "CoreRouter"
 
-    def test_build_blueprints_section_with_overrides(self):
-        """Test building blueprints section with blueprint overrides."""
+    def test_build_blueprints_section_with_role_assignments(self):
+        """Test building blueprints section uses role assignments only."""
         config = self.create_test_config()
         used_blueprints = {"Clos_64_256"}
 
@@ -145,7 +109,7 @@ class TestComponentsScenarioBuilder:
         spine_group = clos_blueprint["groups"]["spine"]
         leaf_group = clos_blueprint["groups"]["leaf"]
 
-        # Should use override components
+        # Should use role-based components
         assert spine_group["attrs"]["hw_component"] == "CoreRouter"
         assert leaf_group["attrs"]["hw_component"] == "CoreRouter"
 
@@ -207,14 +171,7 @@ class TestComponentsScenarioBuilder:
         """Test that components section includes only referenced components."""
         config = self.create_test_config()
 
-        # Add many components to library
-        config.components.library.update(
-            {
-                "UnusedChassis1": {"component_type": "chassis"},
-                "UnusedChassis2": {"component_type": "chassis"},
-                "UnusedOptic1": {"component_type": "optic"},
-            }
-        )
+        # Library no longer provided via config; this is a smoke test of filtered output
 
         used_blueprints = {"SingleRouter"}
         components = _build_components_section(config, used_blueprints)

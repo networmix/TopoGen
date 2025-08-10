@@ -188,7 +188,7 @@ def test_build_command_success_print_and_non_print():
         patch.object(cli, "_run_pipeline", return_value="YAML"),
         patch("sys.stdout", new_callable=StringIO) as buf,
     ):
-        args = Namespace(config="config.yml", output="output/scenario.yaml", print=True)
+        args = Namespace(config="config.yml", output="config_scenario.yml", print=True)
         cli.build_command(args)
         out = buf.getvalue()
         assert "GENERATED SCENARIO YAML" in out
@@ -199,9 +199,7 @@ def test_build_command_success_print_and_non_print():
         patch.object(cli, "_run_pipeline", return_value="YAML"),
         patch("sys.stdout", new_callable=StringIO) as buf,
     ):
-        args = Namespace(
-            config="config.yml", output="output/scenario.yaml", print=False
-        )
+        args = Namespace(config="config.yml", output="config_scenario.yml", print=False)
         cli.build_command(args)
         out = buf.getvalue()
         assert "SUCCESS! Generated topology" in out
@@ -243,15 +241,15 @@ def test__run_pipeline_missing_integrated_graph_exits_1():
         original_exists = Path.exists
 
         def fake_exists(self: Path) -> bool:  # type: ignore[no-redef]
-            if str(self).endswith(str(Path("output/integrated_graph.json"))):
+            if str(self).endswith("_integrated_graph.json"):
                 return False
             return original_exists(self)
 
         with patch("pathlib.Path.exists", new=fake_exists):
             try:
-                _run_pipeline(
-                    Namespace(), Path("output/scenario.yaml"), print_yaml=False
-                )  # type: ignore[name-defined]
+                # Provide a minimal TopologyConfig-like object with _source_path used by _run_pipeline
+                fake_cfg = Namespace(_source_path=Path("config.yml"))
+                _run_pipeline(fake_cfg, Path("config_scenario.yml"), print_yaml=False)  # type: ignore[name-defined]
             except SystemExit as e:
                 assert int(e.code or 0) == 1
 

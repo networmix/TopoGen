@@ -76,7 +76,12 @@ def build_command(args: argparse.Namespace) -> None:
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
-        output_path = Path(args.output)
+        # Default output to '<config_stem>_scenario.yml' in CWD
+        if getattr(args, "output", None):
+            output_path = Path(args.output)
+        else:
+            prefix = getattr(config_obj, "_source_path", config_path)
+            output_path = Path.cwd() / f"{Path(prefix).stem}_scenario.yml"
 
         # Run the pipeline with timing
         with Timer("Topology generation pipeline"):
@@ -131,8 +136,10 @@ def _run_pipeline(
     from topogen import load_from_json
     from topogen.scenario_builder import build_scenario
 
-    # Check for integrated graph
-    graph_path = Path("output/integrated_graph.json")
+    # Check for integrated graph in cwd, using config-stem prefix
+    source_path = getattr(config, "_source_path", None)
+    prefix = Path(source_path).stem if isinstance(source_path, Path) else "scenario"
+    graph_path = Path.cwd() / f"{prefix}_integrated_graph.json"
     if not graph_path.exists():
         print("❌ No integrated graph found!")
         print("   Run generation first: python -m topogen generate")
@@ -157,7 +164,7 @@ def _run_pipeline(
     print(f"   Metro nodes: {len(metro_nodes)}")
     print(f"   Highway nodes: {len(highway_nodes)}")
 
-    # Create output directory
+    # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Build NetGraph scenario
@@ -199,12 +206,13 @@ def _run_generation(config: TopologyConfig) -> None:
     print("Integrated Graph Generation Pipeline")
     print("=" * 50)
 
-    # Create output directory
-    output_dir = Path("output")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    # Artefacts in CWD with config-based prefix
+    output_dir = Path.cwd()
 
     # Output path for integrated graph
-    graph_output = output_dir / "integrated_graph.json"
+    source_path = getattr(config, "_source_path", None)
+    prefix = Path(source_path).stem if isinstance(source_path, Path) else "scenario"
+    graph_output = output_dir / f"{prefix}_integrated_graph.json"
 
     print(f"   Urban areas: {config.clustering.metro_clusters}")
     print(f"   UAC data: {config.data_sources.uac_polygons}")
@@ -224,7 +232,10 @@ def _run_generation(config: TopologyConfig) -> None:
     print(f"📁 Integrated graph: {graph_output}")
     print(f"📊 Graph summary: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
     print("🔗 Ready for topology generation with:")
-    print("   python -m topogen build --output output/topology.yaml")
+    print(
+        f"   python -m topogen build -c {getattr(config, '_source_path', 'config.yml')}"
+        f" -o {output_dir / f'{prefix}_scenario.yml'}"
+    )
 
 
 def generate_command(args: argparse.Namespace) -> None:
@@ -326,8 +337,8 @@ def main() -> None:
     build_parser.add_argument(
         "-o",
         "--output",
-        default="output/scenario.yaml",
-        help="Output YAML scenario file (default: output/scenario.yaml)",
+        default=None,
+        help="Output YAML scenario file. Defaults to '<config_stem>_scenario.yml' in CWD.",
     )
     build_parser.add_argument(
         "--print",

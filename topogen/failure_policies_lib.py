@@ -1,17 +1,17 @@
-"""Built-in failure policy definitions for TopoGen.
+"""Built-in failure policy definitions.
 
-This module provides a library of common failure policies that can be used
-in NetGraph scenarios. Policies define how failures are simulated during
-network analysis.
-
-Example Usage:
-    from topogen.failure_policies_lib import get_builtin_failure_policies
-
-    policies = get_builtin_failure_policies()
-    single_link = policies["single_random_link_failure"]
+Provides the minimal API used by the scenario pipeline and merges overrides
+from ``cwd/lib/failure_policies.yml`` when present. The user file must be
+direct mapping: name -> definition. User entries override built-ins.
 """
 
+from __future__ import annotations
+
+from copy import deepcopy
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 # Built-in failure policy definitions
 _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
@@ -21,109 +21,35 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
         },
         "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 1}],
     },
-    "dual_random_link_failure": {
-        "attrs": {
-            "description": "Fails exactly two random links to test dual-failure resilience"
-        },
-        "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 2}],
-    },
-    "single_random_node_failure": {
-        "attrs": {
-            "description": "Fails exactly one random node to test node-level resilience"
-        },
-        "rules": [{"entity_scope": "node", "rule_type": "choice", "count": 1}],
-    },
-    "random_10_percent_link_failure": {
-        "attrs": {"description": "Randomly fails approximately 10% of links"},
-        "rules": [{"entity_scope": "link", "rule_type": "random", "probability": 0.1}],
-    },
-    "random_5_percent_combined_failure": {
-        "attrs": {
-            "description": "Randomly fails approximately 5% of both nodes and links"
-        },
-        "rules": [
-            {"entity_scope": "node", "rule_type": "random", "probability": 0.05},
-            {"entity_scope": "link", "rule_type": "random", "probability": 0.05},
-        ],
-    },
-    "no_failures": {
-        "attrs": {
-            "description": "No failures - baseline analysis without any network failures"
-        },
-        "rules": [],
-    },
 }
 
 
 def get_builtin_failure_policies() -> dict[str, dict[str, Any]]:
-    """Get all built-in failure policy definitions.
+    """Return failure policies library merged with user overrides.
 
     Returns:
         Dictionary mapping policy names to their definitions.
     """
-    return _BUILTIN_FAILURE_POLICIES.copy()
+    policies = deepcopy(_BUILTIN_FAILURE_POLICIES)
+    user_policies = _load_user_library("failure_policies.yml")
+    # Support only direct mapping: name -> definition
+    policies.update(user_policies)
+    return policies
 
 
-def get_builtin_failure_policy(name: str) -> dict[str, Any]:
-    """Get a specific built-in failure policy by name.
+def _load_user_library(file_name: str) -> dict[str, Any]:
+    """Load user failure policies from ``lib/<file_name>`` if present."""
+    lib_path = Path.cwd() / "lib" / file_name
+    if not lib_path.exists():
+        return {}
 
-    Args:
-        name: The name of the failure policy to retrieve.
+    try:
+        with lib_path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Failed to parse YAML: {lib_path}") from exc
 
-    Returns:
-        The failure policy definition.
+    if not isinstance(data, dict):
+        raise ValueError(f"User library YAML must be a mapping: {lib_path}")
 
-    Raises:
-        KeyError: If the failure policy name is not found.
-    """
-    if name not in _BUILTIN_FAILURE_POLICIES:
-        available = list(_BUILTIN_FAILURE_POLICIES.keys())
-        raise KeyError(
-            f"Unknown built-in failure policy '{name}'. Available: {available}"
-        )
-
-    return _BUILTIN_FAILURE_POLICIES[name].copy()
-
-
-def list_builtin_failure_policy_names() -> list[str]:
-    """Get a list of all built-in failure policy names.
-
-    Returns:
-        Sorted list of failure policy names.
-    """
-    return sorted(_BUILTIN_FAILURE_POLICIES.keys())
-
-
-def get_failure_policies_by_type(entity_scope: str) -> dict[str, dict[str, Any]]:
-    """Get failure policies that target a specific entity scope.
-
-    Args:
-        entity_scope: The entity scope to filter by ("node", "link", or "risk_group").
-
-    Returns:
-        Dictionary of failure policies that include rules for the specified entity scope.
-    """
-    filtered_policies = {}
-
-    for name, policy in _BUILTIN_FAILURE_POLICIES.items():
-        rules = policy.get("rules", [])
-        if any(rule.get("entity_scope") == entity_scope for rule in rules):
-            filtered_policies[name] = policy.copy()
-
-    return filtered_policies
-
-
-def get_baseline_policies() -> dict[str, dict[str, Any]]:
-    """Get failure policies suitable for baseline analysis (no failures).
-
-    Returns:
-        Dictionary of failure policies with no failure rules.
-    """
-    baseline_policies = {}
-
-    for name, policy in _BUILTIN_FAILURE_POLICIES.items():
-        rules = policy.get("rules", [])
-        if not rules:  # No failure rules = baseline
-            baseline_policies[name] = policy.copy()
-
-    return baseline_policies
+    return data

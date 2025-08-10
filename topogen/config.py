@@ -201,33 +201,29 @@ class ComponentAssignment:
 
 @dataclass
 class ComponentAssignments:
-    """Component assignments configuration for network roles and blueprints.
+    """Component assignments for network roles.
 
-    Manages hardware component assignments across different network roles
-    and blueprint-specific overrides for customized deployments.
+    Only role-based assignments are supported. Blueprint-specific overrides and
+    inline library definitions have been removed to simplify configuration.
     """
 
-    # Default role assignments
     spine: ComponentAssignment = field(default_factory=ComponentAssignment)
     leaf: ComponentAssignment = field(default_factory=ComponentAssignment)
     core: ComponentAssignment = field(default_factory=ComponentAssignment)
     dc: ComponentAssignment = field(default_factory=ComponentAssignment)
 
-    # Per-blueprint overrides
-    blueprint_overrides: dict[str, dict[str, ComponentAssignment]] = field(
-        default_factory=dict
-    )
-
 
 @dataclass
 class ComponentsConfig:
-    """Component library and assignment configuration for network hardware.
+    """Component assignment configuration for network hardware.
 
-    Contains hardware component definitions and role-based assignment rules
-    for building detailed network equipment specifications.
+    Notes:
+        - Component definitions are not embedded in the config.
+        - At runtime, the merged library is used: built-ins updated with
+          entries from ``cwd/lib/components.yml`` (direct mapping name -> def).
+        - The configuration only specifies role assignments.
     """
 
-    library: dict[str, dict[str, Any]] = field(default_factory=dict)
     assignments: ComponentAssignments = field(default_factory=ComponentAssignments)
 
 
@@ -245,13 +241,15 @@ class FailurePolicyAssignments:
 
 @dataclass
 class FailurePoliciesConfig:
-    """Failure policy library and assignment configuration for network analysis.
+    """Failure policy assignment configuration for analysis.
 
-    Manages failure policy definitions and their assignment to scenarios
-    for comprehensive network resilience testing.
+    Notes:
+        - Policy definitions are not embedded in the config.
+        - At runtime, the merged library is used: built-ins updated with
+          entries from ``cwd/lib/failure_policies.yml`` (direct mapping).
+        - The configuration only specifies default and per-scenario overrides.
     """
 
-    library: dict[str, dict[str, Any]] = field(default_factory=dict)
     assignments: FailurePolicyAssignments = field(
         default_factory=FailurePolicyAssignments
     )
@@ -271,13 +269,15 @@ class WorkflowAssignments:
 
 @dataclass
 class WorkflowsConfig:
-    """Workflow library and assignment configuration for network analysis.
+    """Workflow assignment configuration for network analysis.
 
-    Contains workflow step definitions and assignment rules for executing
-    comprehensive network performance and resilience analysis.
+    Notes:
+        - Workflow step definitions are not embedded in the config.
+        - At runtime, the merged library is used: built-ins updated with
+          entries from ``cwd/lib/workflows.yml`` (direct mapping).
+        - The configuration only specifies default and per-scenario overrides.
     """
 
-    library: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     assignments: WorkflowAssignments = field(default_factory=WorkflowAssignments)
 
 
@@ -435,6 +435,7 @@ class TopologyConfig:
     traffic: TrafficConfig = field(default_factory=TrafficConfig)
     # Visualization behavior; default False keeps previous straight-line rendering
     _use_real_corridor_geometry: bool = False
+    _source_path: Path | None = None
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> TopologyConfig:
@@ -464,7 +465,10 @@ class TopologyConfig:
             logger.error(f"Invalid YAML in configuration: {e}")
             raise
 
-        return cls._from_dict(raw_config)
+        cfg = cls._from_dict(raw_config)
+        # Attach the config file source path for downstream naming of artefacts
+        cfg._source_path = Path(config_path)
+        return cfg
 
     @classmethod
     def _from_dict(cls, config_dict: dict[str, Any]) -> TopologyConfig:
@@ -625,17 +629,10 @@ class TopologyConfig:
             capacity_allocation=capacity_allocation,
         )
 
-        # Handle optional components configuration
+        # Handle optional components configuration (assignments only)
         components_dict = config_dict.get("components", {})
         if not isinstance(components_dict, dict):
             raise ValueError("'components' configuration section must be a dictionary")
-
-        # Parse component library
-        library_dict = components_dict.get("library", {})
-        if library_dict is None:
-            library_dict = {}
-        if not isinstance(library_dict, dict):
-            raise ValueError("'components.library' must be a dictionary")
 
         # Parse component assignments
         assignments_dict = components_dict.get("assignments", {})
@@ -648,54 +645,21 @@ class TopologyConfig:
         core_assignment = ComponentAssignment(**assignments_dict.get("core", {}))
         dc_assignment = ComponentAssignment(**assignments_dict.get("dc", {}))
 
-        # Parse blueprint overrides
-        blueprint_overrides_dict = assignments_dict.get("blueprint_overrides", {})
-        if not isinstance(blueprint_overrides_dict, dict):
-            raise ValueError("'blueprint_overrides' must be a dictionary")
-
-        blueprint_overrides = {}
-        for blueprint_name, roles_dict in blueprint_overrides_dict.items():
-            if not isinstance(roles_dict, dict):
-                raise ValueError(
-                    f"Blueprint override '{blueprint_name}' must be a dictionary"
-                )
-
-            blueprint_overrides[blueprint_name] = {}
-            for role_name, assignment_dict in roles_dict.items():
-                if not isinstance(assignment_dict, dict):
-                    raise ValueError(
-                        f"Assignment for '{blueprint_name}.{role_name}' must be a dictionary"
-                    )
-                blueprint_overrides[blueprint_name][role_name] = ComponentAssignment(
-                    **assignment_dict
-                )
-
         assignments = ComponentAssignments(
             spine=spine_assignment,
             leaf=leaf_assignment,
             core=core_assignment,
             dc=dc_assignment,
-            blueprint_overrides=blueprint_overrides,
         )
 
-        components = ComponentsConfig(
-            library=library_dict,
-            assignments=assignments,
-        )
+        components = ComponentsConfig(assignments=assignments)
 
-        # Handle optional failure_policies configuration
+        # Handle optional failure_policies configuration (assignments only)
         failure_policies_dict = config_dict.get("failure_policies", {})
         if not isinstance(failure_policies_dict, dict):
             raise ValueError(
                 "'failure_policies' configuration section must be a dictionary"
             )
-
-        # Parse failure policy library
-        fp_library_dict = failure_policies_dict.get("library", {})
-        if fp_library_dict is None:
-            fp_library_dict = {}
-        if not isinstance(fp_library_dict, dict):
-            raise ValueError("'failure_policies.library' must be a dictionary")
 
         # Parse failure policy assignments
         fp_assignments_dict = failure_policies_dict.get("assignments", {})
@@ -714,22 +678,12 @@ class TopologyConfig:
             scenario_overrides=fp_scenario_overrides,
         )
 
-        failure_policies = FailurePoliciesConfig(
-            library=fp_library_dict,
-            assignments=fp_assignments,
-        )
+        failure_policies = FailurePoliciesConfig(assignments=fp_assignments)
 
-        # Handle optional workflows configuration
+        # Handle optional workflows configuration (assignments only)
         workflows_dict = config_dict.get("workflows", {})
         if not isinstance(workflows_dict, dict):
             raise ValueError("'workflows' configuration section must be a dictionary")
-
-        # Parse workflow library
-        wf_library_dict = workflows_dict.get("library", {})
-        if wf_library_dict is None:
-            wf_library_dict = {}
-        if not isinstance(wf_library_dict, dict):
-            raise ValueError("'workflows.library' must be a dictionary")
 
         # Parse workflow assignments
         wf_assignments_dict = workflows_dict.get("assignments", {})
@@ -748,10 +702,7 @@ class TopologyConfig:
             scenario_overrides=wf_scenario_overrides,
         )
 
-        workflows = WorkflowsConfig(
-            library=wf_library_dict,
-            assignments=wf_assignments,
-        )
+        workflows = WorkflowsConfig(assignments=wf_assignments)
 
         # Handle optional traffic configuration
         traffic_dict = config_dict.get("traffic", {})

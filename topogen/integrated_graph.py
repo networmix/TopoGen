@@ -666,9 +666,11 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
         try:
             from topogen.visualization import export_integrated_graph_map
 
-            output_dir = Path("output")
-            output_dir.mkdir(parents=True, exist_ok=True)
-            visualization_path = output_dir / "integrated_graph.jpg"
+            # Use config-derived prefix and CWD for artefacts
+            output_dir = Path.cwd()
+            prefix = getattr(config, "_source_path", None)
+            stem = Path(prefix).stem if isinstance(prefix, Path) else "scenario"
+            visualization_path = output_dir / f"{stem}_integrated_graph.jpg"
 
             # Visualize the corridor graph instead of the full highway graph
             export_integrated_graph_map(

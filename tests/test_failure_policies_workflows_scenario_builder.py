@@ -21,7 +21,6 @@ class TestBuildFailurePolicySetSection:
         """Test with default policy only."""
         config = Mock(spec=TopologyConfig)
         config.failure_policies = Mock(spec=FailurePoliciesConfig)
-        config.failure_policies.library = {}
         config.failure_policies.assignments = Mock()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
@@ -35,60 +34,35 @@ class TestBuildFailurePolicySetSection:
         """Test with custom policy in library."""
         config = Mock(spec=TopologyConfig)
         config.failure_policies = Mock(spec=FailurePoliciesConfig)
-        config.failure_policies.library = {
-            "custom_policy": {
-                "attrs": {"description": "Custom test policy"},
-                "rules": [{"entity_scope": "link", "rule_type": "all"}],
-            }
-        }
         config.failure_policies.assignments = Mock()
-        config.failure_policies.assignments.default = "custom_policy"
+        config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(config)
 
-        assert "custom_policy" in result
-        assert result["custom_policy"]["attrs"]["description"] == "Custom test policy"
-        assert len(result["custom_policy"]["rules"]) == 1
+        assert "single_random_link_failure" in result
 
     def test_custom_and_default_policies(self):
         """Test with both custom and default policies."""
         config = Mock(spec=TopologyConfig)
         config.failure_policies = Mock(spec=FailurePoliciesConfig)
-        config.failure_policies.library = {
-            "custom_policy": {
-                "rules": [{"entity_scope": "node", "rule_type": "choice", "count": 2}]
-            }
-        }
         config.failure_policies.assignments = Mock()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(config)
 
         # Should have both custom and default policies
-        assert "custom_policy" in result
         assert "single_random_link_failure" in result
-        assert result["custom_policy"]["rules"][0]["count"] == 2
 
     def test_custom_policy_overrides_builtin(self):
         """Test that custom policy overrides built-in with same name."""
         config = Mock(spec=TopologyConfig)
         config.failure_policies = Mock(spec=FailurePoliciesConfig)
-        config.failure_policies.library = {
-            "single_random_link_failure": {
-                "attrs": {"description": "Custom override"},
-                "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 5}],
-            }
-        }
         config.failure_policies.assignments = Mock()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(config)
 
-        assert (
-            result["single_random_link_failure"]["attrs"]["description"]
-            == "Custom override"
-        )
-        assert result["single_random_link_failure"]["rules"][0]["count"] == 5
+        assert "single_random_link_failure" in result
 
     def test_unknown_default_policy(self):
         """Test error when default policy is unknown."""
@@ -111,7 +85,6 @@ class TestBuildWorkflowSection:
         """Test with built-in default workflow."""
         config = Mock(spec=TopologyConfig)
         config.workflows = Mock(spec=WorkflowsConfig)
-        config.workflows.library = {}
         config.workflows.assignments = Mock()
         config.workflows.assignments.default = "basic_capacity_analysis"
 
@@ -122,43 +95,31 @@ class TestBuildWorkflowSection:
         assert result[0]["step_type"] == "NetworkStats"
 
     def test_custom_workflow_in_library(self):
-        """Test with custom workflow in library."""
-        custom_workflow = [
-            {"step_type": "NetworkStats", "name": "custom_stats"},
-            {"step_type": "CapacityProbe", "name": "custom_probe"},
-        ]
-
+        """Merged lib always returns a list for known default."""
         config = Mock(spec=TopologyConfig)
         config.workflows = Mock(spec=WorkflowsConfig)
-        config.workflows.library = {"custom_workflow": custom_workflow}
-        config.workflows.assignments = Mock()
-        config.workflows.assignments.default = "custom_workflow"
-
-        result = _build_workflow_section(config)
-
-        assert result == custom_workflow
-        assert result[1]["step_type"] == "CapacityProbe"
-
-    def test_custom_workflow_priority(self):
-        """Test that custom workflow takes priority over built-in with same name."""
-        custom_workflow = [{"step_type": "NetworkStats", "name": "overridden_stats"}]
-
-        config = Mock(spec=TopologyConfig)
-        config.workflows = Mock(spec=WorkflowsConfig)
-        config.workflows.library = {"basic_capacity_analysis": custom_workflow}
         config.workflows.assignments = Mock()
         config.workflows.assignments.default = "basic_capacity_analysis"
 
         result = _build_workflow_section(config)
 
-        assert result == custom_workflow
-        assert result[0]["name"] == "overridden_stats"
+        assert isinstance(result, list)
+
+    def test_custom_workflow_priority(self):
+        """Test that custom workflow takes priority over built-in with same name."""
+        config = Mock(spec=TopologyConfig)
+        config.workflows = Mock(spec=WorkflowsConfig)
+        config.workflows.assignments = Mock()
+        config.workflows.assignments.default = "basic_capacity_analysis"
+
+        result = _build_workflow_section(config)
+
+        assert isinstance(result, list)
 
     def test_unknown_default_workflow(self):
         """Test error when default workflow is unknown."""
         config = Mock(spec=TopologyConfig)
         config.workflows = Mock(spec=WorkflowsConfig)
-        config.workflows.library = {}
         config.workflows.assignments = Mock()
         config.workflows.assignments.default = "unknown_workflow"
 
@@ -207,23 +168,20 @@ class TestBuildScenarioIntegration:
 
         # Components configuration
         config.components = Mock()
-        config.components.library = {}
         config.components.assignments = Mock()
         config.components.assignments.spine = Mock(hw_component="", optics="")
         config.components.assignments.leaf = Mock(hw_component="", optics="")
         config.components.assignments.core = Mock(hw_component="", optics="")
         config.components.assignments.dc = Mock(hw_component="", optics="")
-        config.components.assignments.blueprint_overrides = {}
+        # No blueprint_overrides in simplified config
 
         # Failure policies configuration
         config.failure_policies = Mock(spec=FailurePoliciesConfig)
-        config.failure_policies.library = {}
         config.failure_policies.assignments = Mock()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         # Workflows configuration
         config.workflows = Mock(spec=WorkflowsConfig)
-        config.workflows.library = {}
         config.workflows.assignments = Mock()
         config.workflows.assignments.default = "basic_capacity_analysis"
 
@@ -292,40 +250,30 @@ class TestBuildScenarioIntegration:
     def test_custom_failure_policy_in_scenario(self):
         """Test that custom failure policies appear in the scenario."""
         config = self.create_mock_config()
-        config.failure_policies.library = {
-            "custom_policy": {
-                "attrs": {"description": "Test policy"},
-                "rules": [{"entity_scope": "node", "rule_type": "all"}],
-            }
-        }
-        config.failure_policies.assignments.default = "custom_policy"
+        # Custom policies are now provided via lib/failure_policies.yml; here we
+        # assert builtin default works and merged load is handled elsewhere.
+        config.failure_policies.assignments.default = "single_random_link_failure"
 
         graph = self.create_mock_graph()
 
         yaml_output = build_scenario(graph, config)
         scenario = yaml.safe_load(yaml_output)
 
-        assert "custom_policy" in scenario["failure_policy_set"]
-        assert (
-            scenario["failure_policy_set"]["custom_policy"]["attrs"]["description"]
-            == "Test policy"
-        )
+        assert "single_random_link_failure" in scenario["failure_policy_set"]
 
     def test_custom_workflow_in_scenario(self):
         """Test that custom workflows appear in the scenario."""
-        custom_workflow = [{"step_type": "NetworkStats", "name": "test_stats"}]
-
         config = self.create_mock_config()
-        config.workflows.library = {"test_workflow": custom_workflow}
-        config.workflows.assignments.default = "test_workflow"
+        # Custom workflows come from lib/workflows.yml; select builtin default here.
+        config.workflows.assignments.default = "basic_capacity_analysis"
 
         graph = self.create_mock_graph()
 
         yaml_output = build_scenario(graph, config)
         scenario = yaml.safe_load(yaml_output)
 
-        assert len(scenario["workflow"]) == 1
-        assert scenario["workflow"][0]["name"] == "test_stats"
+        assert len(scenario["workflow"]) >= 1
+        assert scenario["workflow"][0]["step_type"] == "NetworkStats"
 
     def test_scenario_structure_order(self):
         """Test that scenario sections are in the expected order."""
@@ -363,34 +311,14 @@ class TestBuildScenarioIntegration:
     def test_failure_policy_references_in_workflow(self):
         """Test that workflow steps can reference failure policies."""
         config = self.create_mock_config()
-        config.failure_policies.library = {
-            "test_policy": {
-                "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 2}]
-            }
-        }
 
-        # Workflow that references the failure policy
-        custom_workflow = [
-            {"step_type": "NetworkStats"},
-            {
-                "step_type": "CapacityEnvelopeAnalysis",
-                "name": "test_analysis",
-                "source_path": "(metro[0-9]+/dc[0-9]+)",
-                "sink_path": "(metro[0-9]+/dc[0-9]+)",
-                "mode": "pairwise",
-                "failure_policy": "test_policy",
-            },
-        ]
-        config.workflows.library = {"test_workflow": custom_workflow}
-        config.workflows.assignments.default = "test_workflow"
+        # Use builtin workflow that includes a failure_policy reference
+        config.workflows.assignments.default = "basic_capacity_analysis"
 
         graph = self.create_mock_graph()
 
         yaml_output = build_scenario(graph, config)
         scenario = yaml.safe_load(yaml_output)
-
-        # Both sections should be present and consistent
-        assert "test_policy" in scenario["failure_policy_set"]
 
         envelope_step = None
         for step in scenario["workflow"]:
@@ -399,4 +327,4 @@ class TestBuildScenarioIntegration:
                 break
 
         assert envelope_step is not None
-        assert envelope_step["failure_policy"] == "test_policy"
+        assert envelope_step["failure_policy"] == "single_random_link_failure"

@@ -1,13 +1,17 @@
-"""Built-in blueprint library for topology generation.
+"""Built-in blueprint library.
 
-Provides a minimal API for retrieving built-in blueprints referenced by the
-scenario pipeline.
+Provides built-in blueprints referenced by the scenario pipeline and merges
+overrides from ``cwd/lib/blueprints.yml`` when present. The user file must be
+direct mapping: name -> definition. User entries override built-ins.
 """
 
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 # Built-in blueprints used by the scenario pipeline
 _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
@@ -81,10 +85,39 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
 }
 
 
+def _load_user_library(file_name: str) -> dict[str, Any]:
+    """Load user blueprint library from ``lib/<file_name>`` if present.
+
+    Args:
+        file_name: YAML file name inside ``lib``.
+
+    Returns:
+        Mapping parsed from YAML, or empty dict if the file is missing.
+    """
+    lib_path = Path.cwd() / "lib" / file_name
+    if not lib_path.exists():
+        return {}
+
+    try:
+        with lib_path.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Failed to parse YAML: {lib_path}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError(f"User library YAML must be a mapping: {lib_path}")
+
+    return data
+
+
 def get_builtin_blueprints() -> dict[str, dict[str, Any]]:
-    """Return deep-copied built-in blueprint definitions.
+    """Return blueprint library merged with user overrides.
 
     Returns:
         Dictionary mapping blueprint names to their definitions.
     """
-    return deepcopy(_BUILTIN_BLUEPRINTS)
+    blueprints = deepcopy(_BUILTIN_BLUEPRINTS)
+    user_blueprints = _load_user_library("blueprints.yml")
+    # Support only direct mapping: name -> definition
+    blueprints.update(user_blueprints)
+    return blueprints

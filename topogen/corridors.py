@@ -322,7 +322,7 @@ def add_corridors(
                 if not graph.has_edge(u, v):
                     continue
                 edge_data = graph[u][v]
-                # Legacy tag retained for migration visibility
+                # Tag retained for migration visibility
                 if "corridor" not in edge_data:
                     edge_data["corridor"] = []
                 edge_data["corridor"].append(

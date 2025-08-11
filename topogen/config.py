@@ -325,7 +325,7 @@ class TrafficConfig:
         mw_per_dc_region: Power per DC region (MW).
         priority_ratios: Mapping from priority class to ratio. Values must sum to 1.0.
         matrix_name: Name of the traffic matrix in the scenario.
-        model: "uniform_pairwise" (default) or "gravity".
+        model: "uniform" (default) or "gravity".
         gravity: Parameters for gravity model when model == "gravity".
     """
 
@@ -336,7 +336,7 @@ class TrafficConfig:
         default_factory=lambda: {0: 0.3, 1: 0.3, 2: 0.4}
     )
     matrix_name: str = "default"
-    model: str = "uniform_pairwise"
+    model: str = "uniform"
     gravity: TrafficGravityConfig = field(default_factory=TrafficGravityConfig)
 
 
@@ -750,7 +750,13 @@ class TopologyConfig:
                 "priority_ratios", {0: 0.3, 1: 0.3, 2: 0.4}
             ),
             matrix_name=str(traffic_dict.get("matrix_name", "default")),
-            model=str(traffic_dict.get("model", "uniform_pairwise")),
+            # Accept both "uniform" and the historical name "uniform_pairwise"
+            model=(
+                "uniform"
+                if str(traffic_dict.get("model", "uniform")).strip()
+                in {"uniform", "uniform_pairwise"}
+                else str(traffic_dict.get("model", "uniform"))
+            ),
             gravity=gravity_cfg,
         )
 
@@ -774,10 +780,8 @@ class TopologyConfig:
                 raise ValueError("traffic.priority_ratios values must sum to 1.0")
 
             # Validate traffic model
-            if traffic.model not in {"uniform_pairwise", "gravity"}:
-                raise ValueError(
-                    "traffic.model must be 'uniform_pairwise' or 'gravity'"
-                )
+            if traffic.model not in {"uniform", "gravity"}:
+                raise ValueError("traffic.model must be 'uniform' or 'gravity'")
 
             # Validate gravity sub-config
             g = traffic.gravity

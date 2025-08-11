@@ -463,8 +463,29 @@ class TopologyConfig:
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
         try:
+            # Support YAML mappings with sequence keys by converting sequence keys to tuples
+            class _SafeLoaderWithTupleKeys(yaml.SafeLoader):
+                pass
+
+            def _construct_mapping_with_tuple_keys(loader, node, deep=False):  # type: ignore[no-redef]
+                loader.flatten_mapping(node)
+                mapping = {}
+                for key_node, value_node in node.value:
+                    key_obj = loader.construct_object(key_node, deep=deep)
+                    # Convert unhashable list keys to tuples for Python dicts
+                    if isinstance(key_obj, list):
+                        key_obj = tuple(key_obj)
+                    value_obj = loader.construct_object(value_node, deep=deep)
+                    mapping[key_obj] = value_obj
+                return mapping
+
+            _SafeLoaderWithTupleKeys.add_constructor(  # type: ignore[arg-type]
+                yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,  # type: ignore[attr-defined]
+                _construct_mapping_with_tuple_keys,
+            )
+
             with open(config_path, "r") as f:
-                raw_config = yaml.safe_load(f)
+                raw_config = yaml.load(f, Loader=_SafeLoaderWithTupleKeys)
 
         except yaml.YAMLError as e:
             logger.error(f"Invalid YAML in configuration: {e}")

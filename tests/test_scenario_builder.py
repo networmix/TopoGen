@@ -399,10 +399,19 @@ class TestScenarioBuilder:
 
         # Should have DC-to-PoP adjacency rules
         adjacency = scenario_dict["network"]["adjacency"]
+
+        def _endpoint_path(endpoint):
+            if isinstance(endpoint, str):
+                return endpoint
+            if isinstance(endpoint, dict):
+                return str(endpoint.get("path", ""))
+            return ""
+
         dc_pop_links = [
             adj
             for adj in adjacency
-            if "/dc[" in adj["source"] and "/pop[" in adj["target"]
+            if "/dc[" in _endpoint_path(adj.get("source"))
+            and "/pop[" in _endpoint_path(adj.get("target"))
         ]
         assert len(dc_pop_links) == 2  # One per metro
 

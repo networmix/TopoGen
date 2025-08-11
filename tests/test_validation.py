@@ -133,6 +133,7 @@ network:
         mw_per_dc_region: 50.0
         gbps_per_mw: 250.0
 """
+    # Without adjacency, fallback scenario-level isolation should be reported.
     issues = validate_scenario_yaml(
         yaml_text, integrated_graph_path=None, run_ngraph=False
     )

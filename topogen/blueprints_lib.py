@@ -60,7 +60,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             "leaf": {
                 "node_count": 16,
                 "name_template": "leaf{node_num}",
-                "attrs": {"role": "leaf", "hw_type": "router_chassis", "tier": "leaf"},
+                "attrs": {"role": "core", "hw_type": "router_chassis", "tier": "leaf"},
             },
         },
         "adjacency": [
@@ -69,8 +69,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "target": "/spine",
                 "pattern": "mesh",
                 "link_params": {
-                    "link_count": 32,
-                    "capacity": 800,
+                    "capacity": 3_200,
                     "cost": 0.1,
                     "attrs": {"link_type": "leaf_spine"},
                 },

@@ -36,11 +36,11 @@ build:
   capacity_allocation:
     enabled: true
 
-components:
-  assignments:
-    core:
-      hw_component: CoreRouter
-      optics: 800G-ZR+
+# components:
+#   assignments:
+#     core:
+#       hw_component: CoreRouter
+#       optics: 800G-ZR+
 
 failure_policies:
   assignments:

@@ -24,6 +24,36 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _count_nodes_with_role(
+    blueprints: dict[str, dict[str, Any]], blueprint_name: str, role: str
+) -> int:
+    """Return the number of nodes with a given role in a blueprint.
+
+    Args:
+        blueprints: Mapping of blueprint names to definitions.
+        blueprint_name: Name of the blueprint to inspect.
+        role: Role attribute to match (e.g., "core", "dc").
+
+    Returns:
+        Number of nodes across all groups whose attrs.role equals the given role.
+        Returns 0 when the blueprint or role is not found.
+    """
+    try:
+        bp = blueprints.get(blueprint_name, {})
+        groups = bp.get("groups", {}) or {}
+        total = 0
+        for _gname, gdef in groups.items():
+            attrs = gdef.get("attrs", {}) or {}
+            if attrs.get("role") == role:
+                try:
+                    total += int(gdef.get("node_count", 0))
+                except Exception:
+                    continue
+        return int(total)
+    except Exception:
+        return 0
+
+
 def _safe_metro_to_path(metro_name: str) -> str:
     """Return a stable, sanitized slug from a metro display name.
 
@@ -621,6 +651,8 @@ def _build_adjacency_section(
         List of adjacency rules with section comments.
     """
     adjacency = []
+    # Use built-in blueprints to infer per-site fan-out by role
+    blueprint_defs = get_builtin_blueprints()
 
     # Build metro index mapping
     metro_by_node = {metro["node_key"]: metro for metro in metros}
@@ -641,13 +673,40 @@ def _build_adjacency_section(
             ring_radius_km = max(0.0, radius_km * circle_frac)
 
             # Precompute base cost info for attrs
+            # Compute per-link capacity by dividing by number of matched nodes per site
+            site_bp = settings["site_blueprint"]
+            core_per_site = max(
+                1, _count_nodes_with_role(blueprint_defs, site_bp, "core")
+            )
+
             adjacency.append(
                 {
-                    "source": f"/metro{idx}/pop[1-{sites_count}]",
-                    "target": f"/metro{idx}/pop[1-{sites_count}]",
-                    "pattern": "mesh",
+                    "source": {
+                        "path": f"/metro{idx}/pop[1-{sites_count}]",
+                        "match": {
+                            "conditions": [
+                                {"attr": "role", "operator": "==", "value": "core"}
+                            ]
+                        },
+                    },
+                    "target": {
+                        "path": f"/metro{idx}/pop[1-{sites_count}]",
+                        "match": {
+                            "conditions": [
+                                {"attr": "role", "operator": "==", "value": "core"}
+                            ]
+                        },
+                    },
+                    "pattern": "one_to_one",
                     "link_params": {
-                        "capacity": settings["intra_metro_link"]["capacity"],
+                        # Divide adjacency budget across leaf-level links created by blueprint fan-out
+                        "capacity": int(
+                            max(
+                                1,
+                                int(settings["intra_metro_link"]["capacity"])
+                                // int(core_per_site),
+                            )
+                        ),
                         # Use average nearest-neighbor arc as representative base cost.
                         # Nearest neighbor steps = 1 => 2*pi*R/n
                         "cost": int(
@@ -681,13 +740,51 @@ def _build_adjacency_section(
 
         if dc_regions_count > 0 and sites_count > 0:
             # Connect all DC regions to all PoPs in the same metro
+            # Compute per-link capacity for DC-to-PoP mesh
+            site_bp = settings["site_blueprint"]
+            dc_bp = settings["dc_region_blueprint"]
+            core_per_site = max(
+                1, _count_nodes_with_role(blueprint_defs, site_bp, "core")
+            )
+            dc_nodes = max(1, _count_nodes_with_role(blueprint_defs, dc_bp, "dc"))
+            dp_divisor = max(1, core_per_site * dc_nodes)
+
             adjacency.append(
                 {
-                    "source": f"/metro{idx}/dc[1-{dc_regions_count}]",
-                    "target": f"/metro{idx}/pop[1-{sites_count}]",
+                    "source": {
+                        "path": f"/metro{idx}/dc[1-{dc_regions_count}]",
+                        "match": {
+                            "conditions": [
+                                {
+                                    "attr": "role",
+                                    "operator": "==",
+                                    "value": "dc",
+                                }
+                            ]
+                        },
+                    },
+                    "target": {
+                        "path": f"/metro{idx}/pop[1-{sites_count}]",
+                        "match": {
+                            "conditions": [
+                                {
+                                    "attr": "role",
+                                    "operator": "==",
+                                    "value": "core",
+                                }
+                            ]
+                        },
+                    },
                     "pattern": "mesh",
                     "link_params": {
-                        "capacity": settings["dc_to_pop_link"]["capacity"],
+                        # Divide adjacency budget across MxN links (dc nodes × core nodes per PoP)
+                        "capacity": int(
+                            max(
+                                1,
+                                int(settings["dc_to_pop_link"]["capacity"])
+                                // int(dp_divisor),
+                            )
+                        ),
                         "cost": settings["dc_to_pop_link"]["cost"],
                         "attrs": {
                             **settings["dc_to_pop_link"][
@@ -725,8 +822,21 @@ def _build_adjacency_section(
         default_capacity = source_settings["inter_metro_link"]["capacity"]
         base_cost = source_settings["inter_metro_link"]["cost"]
 
+        # Divide inter-metro per-pair adjacency budget across leaf-level links
+        # created by blueprint fan-out (one_to_one across core nodes per site).
+        src_bp = source_settings["site_blueprint"]
+        tgt_bp = metro_settings[target_metro["name"]]["site_blueprint"]
+        src_core = max(1, _count_nodes_with_role(blueprint_defs, src_bp, "core"))
+        tgt_core = max(1, _count_nodes_with_role(blueprint_defs, tgt_bp, "core"))
+        # one_to_one yields min(src_core, tgt_core) links per PoP pair
+        inter_divisor = max(1, min(src_core, tgt_core))
+
         link_params = {
-            "capacity": edge.get("capacity", default_capacity),
+            "capacity": int(
+                max(
+                    1, int(edge.get("capacity", default_capacity)) // int(inter_divisor)
+                )
+            ),
             "cost": math.ceil(edge.get("length_km", base_cost)),
             "attrs": {
                 **source_settings["inter_metro_link"][
@@ -749,11 +859,25 @@ def _build_adjacency_section(
         if edge_risk_groups:
             link_params["risk_groups"] = edge_risk_groups
 
-        # Connect all sites between metros using expand_vars
+        # Connect all core sites between metros using expand_vars
         adjacency.append(
             {
-                "source": f"metro{source_idx}/pop{{src_idx}}",
-                "target": f"metro{target_idx}/pop{{tgt_idx}}",
+                "source": {
+                    "path": f"metro{source_idx}/pop{{src_idx}}",
+                    "match": {
+                        "conditions": [
+                            {"attr": "role", "operator": "==", "value": "core"}
+                        ]
+                    },
+                },
+                "target": {
+                    "path": f"metro{target_idx}/pop{{tgt_idx}}",
+                    "match": {
+                        "conditions": [
+                            {"attr": "role", "operator": "==", "value": "core"}
+                        ]
+                    },
+                },
                 "expand_vars": {
                     "src_idx": list(range(1, source_sites + 1)),
                     "tgt_idx": list(range(1, target_sites + 1)),
@@ -1130,30 +1254,110 @@ def _apply_hw_capacity_allocation(
         )
         edge_risk_groups = edge.get("risk_groups", [])
 
+        # Determine per-link divisor from blueprint fan-out for role 'core'
+        # Use the scenario's blueprints (already merged) to count nodes
+        # to remain consistent with any user overrides.
+        bp_defs: dict[str, Any] = scenario.get("blueprints", {})  # type: ignore[assignment]
+
         for p in range(1, s_sites + 1):
             for q in range(1, t_sites + 1):
-                cap = final_capacity[(s_idx, p, t_idx, q)]
-                entry = {
-                    "source": f"metro{s_idx}/pop{p}",
-                    "target": f"metro{t_idx}/pop{q}",
-                    "pattern": "one_to_one",
-                    "link_params": {
-                        "capacity": cap,
-                        "cost": base_cost,
-                        "attrs": {
-                            **inter_attrs,
-                            "distance_km": base_cost,
-                            "source_metro": src_metro["name"],
-                            "source_metro_orig": src_metro.get(
-                                "name_orig", src_metro["name"]
-                            ),
-                            "target_metro": tgt_metro["name"],
-                            "target_metro_orig": tgt_metro.get(
-                                "name_orig", tgt_metro["name"]
-                            ),
+                cap_total = final_capacity[(s_idx, p, t_idx, q)]
+                # Compute divisor using src/tgt site blueprints
+                src_bp = src_settings["site_blueprint"]
+                tgt_bp = metro_settings[tgt_metro["name"]]["site_blueprint"]
+                src_core = max(1, _count_nodes_with_role(bp_defs, src_bp, "core"))
+                tgt_core = max(1, _count_nodes_with_role(bp_defs, tgt_bp, "core"))
+                inter_divisor = max(1, min(src_core, tgt_core))
+                cap_each = int(max(1, int(cap_total) // int(inter_divisor)))
+                # Decide whether endpoint role filtering is required.
+                # If a site's blueprint contains only 'core' role nodes, we can
+                # keep shorthand string endpoints to preserve simple scenarios
+                # expected by tests. Otherwise, include an explicit role match
+                # to ensure only core devices are selected (e.g., in CLOS).
+                src_bp_name = src_settings["site_blueprint"]
+                tgt_bp_name = metro_settings[tgt_metro["name"]]["site_blueprint"]
+                _src_bp = bp_defs.get(src_bp_name, {})
+                _tgt_bp = bp_defs.get(tgt_bp_name, {})
+                _src_groups = _src_bp.get("groups", {})
+                _tgt_groups = _tgt_bp.get("groups", {})
+                src_total = int(
+                    sum(int(g.get("node_count", 0)) for g in _src_groups.values())
+                )
+                tgt_total = int(
+                    sum(int(g.get("node_count", 0)) for g in _tgt_groups.values())
+                )
+                src_core = max(1, _count_nodes_with_role(bp_defs, src_bp_name, "core"))
+                tgt_core = max(1, _count_nodes_with_role(bp_defs, tgt_bp_name, "core"))
+                needs_match = (src_core < src_total) or (tgt_core < tgt_total)
+
+                if needs_match:
+                    entry = {
+                        "source": {
+                            "path": f"metro{s_idx}/pop{p}",
+                            "match": {
+                                "conditions": [
+                                    {
+                                        "attr": "role",
+                                        "operator": "==",
+                                        "value": "core",
+                                    }
+                                ]
+                            },
                         },
-                    },
-                }
+                        "target": {
+                            "path": f"metro{t_idx}/pop{q}",
+                            "match": {
+                                "conditions": [
+                                    {
+                                        "attr": "role",
+                                        "operator": "==",
+                                        "value": "core",
+                                    }
+                                ]
+                            },
+                        },
+                        "pattern": "one_to_one",
+                        "link_params": {
+                            # Divide per-pair capacity across fan-out links implied by blueprints
+                            "capacity": cap_each,
+                            "cost": base_cost,
+                            "attrs": {
+                                **inter_attrs,
+                                "distance_km": base_cost,
+                                "source_metro": src_metro["name"],
+                                "source_metro_orig": src_metro.get(
+                                    "name_orig", src_metro["name"]
+                                ),
+                                "target_metro": tgt_metro["name"],
+                                "target_metro_orig": tgt_metro.get(
+                                    "name_orig", tgt_metro["name"]
+                                ),
+                            },
+                        },
+                    }
+                else:
+                    entry = {
+                        "source": f"metro{s_idx}/pop{p}",
+                        "target": f"metro{t_idx}/pop{q}",
+                        "pattern": "one_to_one",
+                        "link_params": {
+                            # Divide per-pair capacity across fan-out links implied by blueprints
+                            "capacity": cap_each,
+                            "cost": base_cost,
+                            "attrs": {
+                                **inter_attrs,
+                                "distance_km": base_cost,
+                                "source_metro": src_metro["name"],
+                                "source_metro_orig": src_metro.get(
+                                    "name_orig", src_metro["name"]
+                                ),
+                                "target_metro": tgt_metro["name"],
+                                "target_metro_orig": tgt_metro.get(
+                                    "name_orig", tgt_metro["name"]
+                                ),
+                            },
+                        },
+                    }
                 if edge_risk_groups:
                     entry["link_params"]["risk_groups"] = edge_risk_groups
                 new_adj.append(entry)

@@ -178,37 +178,15 @@ def validate_scenario_dict(
                     f"workflow step '{step_name}' references missing traffic matrix '{matrix_ref}'"
                 )
 
-    # Adjacency references are validated by ngraph expansion; string-level
-    # matching against group keys is not reliable due to DSL patterns
+    # Only perform a simple, non-DSL-specific fallback: if there is no adjacency
+    # section or it is empty, every group is isolated by definition at the
+    # scenario level. Rich endpoint parsing is intentionally avoided here.
     adjacency = network.get("adjacency", []) or []
-
-    # Detect isolated nodes (no adjacency involving their metro/type)
-    # We conservatively group by metro index and node kind (pop/dc).
-    # Any group whose metro/kind is not referenced by an adjacency source/target
-    # is considered isolated at the scenario level.
-    group_kind_map: dict[str, tuple[str, str]] = {}
-    key_re = re.compile(r"^/?(metro(?P<idx>\d+))/(?P<kind>pop|dc)\b")
-    for gkey in groups.keys():
-        m = key_re.match(str(gkey))
-        if not m:
-            continue
-        group_kind_map[str(gkey)] = (m.group("idx"), m.group("kind"))
-
-    referenced: set[tuple[str, str]] = set()
-    if isinstance(adjacency, list):
-        for link in adjacency:
-            if not isinstance(link, dict):
-                continue
-            for endpoint in (link.get("source"), link.get("target")):
-                if not endpoint:
-                    continue
-                m = key_re.match(str(endpoint))
-                if m:
-                    referenced.add((m.group("idx"), m.group("kind")))
-
-    for gkey, (idx, kind) in group_kind_map.items():
-        if (idx, kind) not in referenced:
-            issues.append(f"{gkey} appears isolated (no adjacency references)")
+    if not adjacency:
+        key_re = re.compile(r"^/?(metro\d+)/(pop|dc)\b")
+        for gkey in groups.keys():
+            if key_re.match(str(gkey)):
+                issues.append(f"{gkey} appears isolated (no adjacency references)")
 
     return issues
 

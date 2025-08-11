@@ -139,3 +139,16 @@ analysis*.html
 # Performance analysis results
 dev/perf_results/
 dev/perf_plots/
+
+# -----------------------------------------------------------------------------
+# Repo root file ignores
+# -----------------------------------------------------------------------------
+# Ignore certain file types only at the repository root
+/*.jpg
+/*.yaml
+/*.yml
+/*.json
+
+# Allow required config files
+!/mkdocs.yml
+!/.pre-commit-config.yaml

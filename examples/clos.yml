@@ -13,7 +13,7 @@ output:
 build:
   build_defaults:
     pop_per_metro: 2
-    site_blueprint: SingleRouter
+    site_blueprint: Clos_16_8
     dc_regions_per_metro: 1
     dc_region_blueprint: DCRegion
     intra_metro_link:

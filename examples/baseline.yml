@@ -14,7 +14,7 @@ build:
   build_defaults:
     pop_per_metro: 2
     site_blueprint: SingleRouter
-    dc_regions_per_metro: 1
+    dc_regions_per_metro: 0
     dc_region_blueprint: DCRegion
     intra_metro_link:
       capacity: 12_800
@@ -32,11 +32,25 @@ build:
       attrs:
         link_type: dc_to_pop
   build_overrides:
-    [denver-aurora, dallas-fort-worth-arlington]:
+    - metros:
+        [
+          chicago,
+          kansas-city,
+          denver-aurora,
+          dallas-fort-worth-arlington,
+          salt-lake-city,
+          boston,
+          philadelphia,
+          new-york-jersey-city-newark,
+          atlanta,
+          pittsburgh,
+        ]
       site_blueprint: Clos_16_8
+      dc_regions_per_metro: 1
+      dc_region_blueprint: DCRegion
 
   capacity_allocation:
-    enabled: true
+    enabled: false
 
 components:
   assignments:

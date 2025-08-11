@@ -29,7 +29,7 @@ class TestComponentsLib:
             assert isinstance(comp, dict)
             assert "component_type" in comp
             assert "description" in comp
-            assert "cost" in comp
+            assert "capex" in comp
             assert "power_watts" in comp
 
     def test_get_builtin_component_valid(self):
@@ -41,7 +41,7 @@ class TestComponentsLib:
         assert isinstance(component, dict)
         assert isinstance(component.get("component_type"), str)
         assert isinstance(component.get("description"), str)
-        assert isinstance(component.get("cost"), (int, float))
+        assert isinstance(component.get("capex"), (int, float))
         assert isinstance(component.get("power_watts"), (int, float))
 
     def test_get_builtin_component_invalid(self):
@@ -115,7 +115,7 @@ class TestComponentsLib:
         """Test that all components have consistent structure."""
         components = get_builtin_components()
 
-        required_fields = ["component_type", "description", "cost", "power_watts"]
+        required_fields = ["component_type", "description", "capex", "power_watts"]
 
         for name, comp in components.items():
             # Check required fields exist
@@ -125,21 +125,23 @@ class TestComponentsLib:
             # Check field types
             assert isinstance(comp["component_type"], str)
             assert isinstance(comp["description"], str)
-            assert isinstance(comp["cost"], (int, float))
+            assert isinstance(comp["capex"], (int, float))
             assert isinstance(comp["power_watts"], (int, float))
 
             # Check attrs structure if present
             if "attrs" in comp:
                 assert isinstance(comp["attrs"], dict)
 
-    def test_component_cost_values(self):
-        """Test that component costs are reasonable."""
+    def test_component_capex_values(self):
+        """Test that component capex values are reasonable."""
         components = get_builtin_components()
 
         for name, comp in components.items():
-            cost = comp["cost"]
-            assert cost >= 0, f"Component '{name}' has negative cost: {cost}"
-            assert cost < 1_000_000, f"Component '{name}' has unrealistic cost: {cost}"
+            capex = comp["capex"]
+            assert capex >= 0, f"Component '{name}' has negative capex: {capex}"
+            assert capex < 1_000_000, (
+                f"Component '{name}' has unrealistic capex: {capex}"
+            )
 
     def test_component_power_values(self):
         """Test that component power values are reasonable."""

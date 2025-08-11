@@ -20,7 +20,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     "CoreRouter": {
         "component_type": "chassis",
         "description": "16 slot, 36x800G ports per slot, 576 ports total",
-        "cost": 650_000.0,
+        "capex": 650_000.0,
         "power_watts": 23_000.0,  # without optics, typical consumption
         "power_watts_max": 30_000.0,  # without optics, max consumption
         "capacity": 460_800.0,  # Gbps
@@ -30,7 +30,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     "800G-ZR+": {
         "component_type": "optic",
         "description": "800G ZR+ pluggable optic",
-        "cost": 10_000.0,
+        "capex": 10_000.0,
         "power_watts": 29.0,
         "power_watts_max": 30.0,
         "capacity": 800.0,  # Gbps

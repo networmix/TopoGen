@@ -463,29 +463,8 @@ class TopologyConfig:
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
         try:
-            # Support YAML mappings with sequence keys by converting sequence keys to tuples
-            class _SafeLoaderWithTupleKeys(yaml.SafeLoader):
-                pass
-
-            def _construct_mapping_with_tuple_keys(loader, node, deep=False):  # type: ignore[no-redef]
-                loader.flatten_mapping(node)
-                mapping = {}
-                for key_node, value_node in node.value:
-                    key_obj = loader.construct_object(key_node, deep=deep)
-                    # Convert unhashable list keys to tuples for Python dicts
-                    if isinstance(key_obj, list):
-                        key_obj = tuple(key_obj)
-                    value_obj = loader.construct_object(value_node, deep=deep)
-                    mapping[key_obj] = value_obj
-                return mapping
-
-            _SafeLoaderWithTupleKeys.add_constructor(  # type: ignore[arg-type]
-                yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,  # type: ignore[attr-defined]
-                _construct_mapping_with_tuple_keys,
-            )
-
             with open(config_path, "r") as f:
-                raw_config = yaml.load(f, Loader=_SafeLoaderWithTupleKeys)
+                raw_config = yaml.safe_load(f)
 
         except yaml.YAMLError as e:
             logger.error(f"Invalid YAML in configuration: {e}")
@@ -576,13 +555,13 @@ class TopologyConfig:
             raise ValueError("'build' configuration section must be a dictionary")
 
         build_defaults_dict = build_dict.get("build_defaults", {})
-        build_overrides_dict = build_dict.get("build_overrides", {})
+        build_overrides_list = build_dict.get("build_overrides", [])
         capacity_alloc_dict = build_dict.get("capacity_allocation", {})
 
         if not isinstance(build_defaults_dict, dict):
             raise ValueError("'build_defaults' must be a dictionary")
-        if not isinstance(build_overrides_dict, dict):
-            raise ValueError("'build_overrides' must be a dictionary")
+        if not isinstance(build_overrides_list, list):
+            raise ValueError("'build_overrides' must be a list of override entries")
         if capacity_alloc_dict is None:
             capacity_alloc_dict = {}
         if not isinstance(capacity_alloc_dict, dict):
@@ -650,84 +629,49 @@ class TopologyConfig:
             enabled=bool(capacity_alloc_dict.get("enabled", False))
         )
 
-        # Normalize build_overrides into a simple slug->override mapping.
-        # Supports grouped YAML keys like:
-        #   build_overrides:
-        #     [denver-aurora, dallas-fort-worth-arlington]:
-        #       site_blueprint: Clos_16_8
-        def _normalize_build_overrides(
-            overrides_raw: dict[Any, Any],
-        ) -> dict[str, dict[str, Any]]:
-            """Expand grouped override keys and validate structure.
+        # Normalize list of overrides into slug->override mapping.
+        # Schema per entry: { metros: [str, ...], <override_fields> }
+        allowed_override_keys = {
+            "pop_per_metro",
+            "site_blueprint",
+            "dc_regions_per_metro",
+            "dc_region_blueprint",
+            "intra_metro_link",
+            "inter_metro_link",
+            "dc_to_pop_link",
+        }
 
-            Args:
-                overrides_raw: Mapping where keys can be strings or YAML sequences
-                    (loaded as tuples) of metro identifiers, and values are override
-                    dictionaries.
+        normalized_overrides: dict[str, dict[str, Any]] = {}
+        for idx, entry in enumerate(build_overrides_list):
+            if not isinstance(entry, dict):
+                raise ValueError("Each item in 'build_overrides' must be a dictionary")
+            if "metros" not in entry:
+                raise ValueError("Each build override must include 'metros' list")
+            metros_field = entry.get("metros")
+            if isinstance(metros_field, str):
+                metro_names: list[str] = [metros_field]
+            elif isinstance(metros_field, list):
+                if not all(isinstance(m, str) for m in metros_field):
+                    raise ValueError("'metros' must be a list of strings")
+                metro_names = list(metros_field)
+            else:
+                raise ValueError("'metros' must be a string or a list of strings")
 
-            Returns:
-                Mapping from metro slug to its override dictionary.
+            # Extract override body excluding 'metros'
+            override_body = {k: v for k, v in entry.items() if k != "metros"}
 
-            Raises:
-                ValueError: If structure is invalid.
-            """
+            # Validate override keys strictly
+            extra_keys = set(override_body.keys()) - allowed_override_keys
+            if extra_keys:
+                raise ValueError(
+                    f"Unknown keys in build override entry {idx}: {sorted(extra_keys)}. "
+                    f"Allowed keys: {sorted(allowed_override_keys)}"
+                )
 
-            normalized: dict[str, dict[str, Any]] = {}
-            allowed_override_keys = {
-                "pop_per_metro",
-                "site_blueprint",
-                "dc_regions_per_metro",
-                "dc_region_blueprint",
-                "intra_metro_link",
-                "inter_metro_link",
-                "dc_to_pop_link",
-            }
-
-            for key, value in overrides_raw.items():
-                # Value must be a dictionary
-                if not isinstance(value, dict):
-                    raise ValueError(
-                        "Each 'build_overrides' entry must be a dictionary"
-                    )
-
-                # Strictly validate known keys for simplicity and maintenance
-                extra = set(value.keys()) - allowed_override_keys
-                if extra:
-                    raise ValueError(
-                        f"Unknown keys in build override {key!r}: {sorted(extra)}. "
-                        f"Allowed keys: {sorted(allowed_override_keys)}"
-                    )
-
-                # Keys may be a string or a YAML sequence (tuple)
-                keys_to_apply: list[str]
-                if isinstance(key, tuple):
-                    # Loaded from YAML flow sequence key: [a, b]
-                    if not all(isinstance(k, str) for k in key):
-                        raise ValueError(
-                            "All items in grouped build override keys must be strings"
-                        )
-                    keys_to_apply = [k for k in key if isinstance(k, str)]
-                elif isinstance(key, list):
-                    # Accept list as well (rare when constructed programmatically)
-                    if not all(isinstance(k, str) for k in key):
-                        raise ValueError(
-                            "All items in grouped build override keys must be strings"
-                        )
-                    keys_to_apply = [k for k in key if isinstance(k, str)]
-                elif isinstance(key, str):
-                    keys_to_apply = [key]
-                else:
-                    raise ValueError(
-                        "'build_overrides' keys must be strings or YAML sequences of strings"
-                    )
-
-                for raw_name in keys_to_apply:
-                    slug = metro_slug(raw_name)
-                    normalized[slug] = value
-
-            return normalized
-
-        normalized_overrides = _normalize_build_overrides(build_overrides_dict)
+            for raw_name in metro_names:
+                slug = metro_slug(raw_name)
+                # Last one wins for duplicates
+                normalized_overrides[slug] = override_body
 
         build = BuildConfig(
             build_defaults=build_defaults,

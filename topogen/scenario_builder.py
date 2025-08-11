@@ -552,10 +552,11 @@ def _build_groups_section(
         # For metros with fewer sites than max, sites will be disabled later
         # This is handled by NetGraph's bracket expansion system
 
-        # Create DC region groups if enabled
-        if max_dc_regions > 0:
+        # Create DC region groups for metros that have DC regions
+        dc_regions_for_metro = int(settings.get("dc_regions_per_metro", 0))
+        if dc_regions_for_metro > 0:
             dc_blueprint_name = settings["dc_region_blueprint"]
-            dc_group_name = f"metro{idx}/dc[1-{max_dc_regions}]"
+            dc_group_name = f"metro{idx}/dc[1-{dc_regions_for_metro}]"
             groups[dc_group_name] = {
                 "use_blueprint": dc_blueprint_name,
                 "attrs": {

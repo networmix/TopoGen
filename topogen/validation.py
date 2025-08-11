@@ -112,12 +112,17 @@ def validate_scenario_dict(
     for idx in sorted(set(pop_groups.keys()) | set(dc_groups.keys()), key=int):
         pop = pop_groups.get(idx)
         dc = dc_groups.get(idx)
-        if not pop or not dc:
-            issues.append(f"metro{idx}: missing {'pop' if not pop else 'dc'} group")
+        # PoP group is required per metro; DC group is optional.
+        if not pop:
+            issues.append(f"metro{idx}: missing pop group")
+            # If there's no PoP, skip further checks for this metro.
+            continue
+        # If DC group is absent, treat as valid (some metros have 0 DC regions).
+        if dc is None:
             continue
 
-        pa = pop.get("attrs", {}) or {}
-        da = dc.get("attrs", {}) or {}
+        pa = (pop.get("attrs", {}) if isinstance(pop, dict) else {}) or {}
+        da = (dc.get("attrs", {}) if isinstance(dc, dict) else {}) or {}
 
         # Identity attributes must match
         for key in ("metro_name", "metro_name_orig", "metro_id"):
@@ -142,21 +147,24 @@ def validate_scenario_dict(
                 ix, iy = ig_coords[name]
                 px = _float_or_nan(pa.get("location_x", 0.0))
                 py = _float_or_nan(pa.get("location_y", 0.0))
-                dx = _float_or_nan(da.get("location_x", 0.0))
-                dy = _float_or_nan(da.get("location_y", 0.0))
                 if not (px == ix and py == iy):
                     issues.append(
                         f"metro{idx}: pop location differs from integrated graph for {name}"
                     )
-                if not (dx == ix and dy == iy):
-                    issues.append(
-                        f"metro{idx}: dc location differs from integrated graph for {name}"
-                    )
+                # Only check DC coords when DC exists
+                if dc is not None:
+                    dx = _float_or_nan(da.get("location_x", 0.0))
+                    dy = _float_or_nan(da.get("location_y", 0.0))
+                    if not (dx == ix and dy == iy):
+                        issues.append(
+                            f"metro{idx}: dc location differs from integrated graph for {name}"
+                        )
 
-        # Required DC attributes
-        for key in ("mw_per_dc_region", "gbps_per_mw"):
-            if key not in da:
-                issues.append(f"metro{idx}: dc attrs missing required '{key}'")
+        # Required DC attributes (only when DC exists)
+        if dc is not None:
+            for key in ("mw_per_dc_region", "gbps_per_mw"):
+                if key not in da:
+                    issues.append(f"metro{idx}: dc attrs missing required '{key}'")
 
     # Validate workflow references to failure policies and traffic matrices
     failure_set = (data or {}).get("failure_policy_set") or {}

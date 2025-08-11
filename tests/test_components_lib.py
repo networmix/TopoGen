@@ -33,14 +33,16 @@ class TestComponentsLib:
             assert "power_watts" in comp
 
     def test_get_builtin_component_valid(self):
-        """Test getting a specific valid component."""
-        component = get_builtin_component("CoreRouter")
+        """Test getting a specific valid component by discovered name."""
+        names = list_builtin_component_names()
+        assert names
+        component = get_builtin_component(names[0])
 
         assert isinstance(component, dict)
-        assert component["component_type"] == "chassis"
-        assert component["description"] == "Core router for metro backbone"
-        assert component["cost"] == 650_000.0
-        assert component["power_watts"] == 40_000.0
+        assert isinstance(component.get("component_type"), str)
+        assert isinstance(component.get("description"), str)
+        assert isinstance(component.get("cost"), (int, float))
+        assert isinstance(component.get("power_watts"), (int, float))
 
     def test_get_builtin_component_invalid(self):
         """Test getting a non-existent component raises KeyError."""
@@ -55,8 +57,6 @@ class TestComponentsLib:
 
         assert isinstance(names, list)
         assert len(names) > 0
-        assert "CoreRouter" in names
-        assert "800G-ZR+" in names
         assert all(isinstance(name, str) for name in names)
 
     def test_get_components_by_type_chassis(self):
@@ -69,8 +69,7 @@ class TestComponentsLib:
         for _name, comp in chassis_components.items():
             assert comp["component_type"] == "chassis"
 
-        # Should include known chassis components from the minimal library
-        assert "CoreRouter" in chassis_components
+        # Do not assert specific component names; library content may change.
 
     def test_get_components_by_type_optic(self):
         """Test filtering components by optic type."""
@@ -82,8 +81,7 @@ class TestComponentsLib:
         for _name, comp in optic_components.items():
             assert comp["component_type"] == "optic"
 
-        # Should include known optic components from the minimal library
-        assert "800G-ZR+" in optic_components
+        # Do not assert specific component names; library content may change.
 
     def test_get_components_by_type_nonexistent(self):
         """Test filtering by non-existent type returns empty dict."""

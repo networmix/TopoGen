@@ -19,10 +19,10 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
     "CoreRouter": {
         "component_type": "chassis",
-        "description": "Core router for metro backbone",
+        "description": "16 slot, 36x800G ports per slot, 576 ports total",
         "cost": 650_000.0,
-        "power_watts": 40_000.0,
-        "power_watts_max": 50_000.0,
+        "power_watts": 23_000.0,  # without optics, typical consumption
+        "power_watts_max": 30_000.0,  # without optics, max consumption
         "capacity": 460_800.0,  # Gbps
         "ports": 576,
         "attrs": {"role": "core"},
@@ -31,7 +31,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "component_type": "optic",
         "description": "800G ZR+ pluggable optic",
         "cost": 10_000.0,
-        "power_watts": 30.0,
+        "power_watts": 29.0,
         "power_watts_max": 30.0,
         "capacity": 800.0,  # Gbps
         "ports": 1,

@@ -46,17 +46,21 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             }
         ],
     },
-    "Clos_64_256": {
+    "Clos_16_8": {
         "groups": {
             "spine": {
                 "node_count": 8,
                 "name_template": "spine{node_num}",
-                "attrs": {"role": "spine", "hw_type": "spine_chassis", "tier": "spine"},
+                "attrs": {
+                    "role": "spine",
+                    "hw_type": "router_chassis",
+                    "tier": "spine",
+                },
             },
             "leaf": {
-                "node_count": 8,
+                "node_count": 16,
                 "name_template": "leaf{node_num}",
-                "attrs": {"role": "leaf", "hw_type": "leaf_chassis", "tier": "leaf"},
+                "attrs": {"role": "leaf", "hw_type": "router_chassis", "tier": "leaf"},
             },
         },
         "adjacency": [
@@ -65,8 +69,9 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "target": "/spine",
                 "pattern": "mesh",
                 "link_params": {
-                    "capacity": 400,
-                    "cost": 1,
+                    "link_count": 32,
+                    "capacity": 800,
+                    "cost": 0.1,
                     "attrs": {"link_type": "leaf_spine"},
                 },
             }

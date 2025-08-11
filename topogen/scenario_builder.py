@@ -16,6 +16,7 @@ from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.components_lib import get_builtin_components
 from topogen.failure_policies_lib import get_builtin_failure_policies
 from topogen.log_config import get_logger
+from topogen.naming import metro_slug
 from topogen.traffic_matrix import generate_traffic_matrix
 from topogen.workflows_lib import get_builtin_workflows
 
@@ -315,48 +316,22 @@ def _determine_metro_settings(
     defaults = build_config.build_defaults
     overrides = build_config.build_overrides
 
-    # Validate override metro names with flexible matching (only if metros are present)
-    if metros:  # Only validate if there are metros to check against
-        metro_names = {metro["name"] for metro in metros}
-        metro_names_orig = {metro.get("name_orig", metro["name"]) for metro in metros}
+    # One-way matching model: overrides are keyed by slugs.
+    # A slug is derived from a metro display name using a consistent rule:
+    # lowercase, collapse whitespace to hyphens, collapse repeated hyphens.
 
-        for override_name in overrides:
-            # Check for exact match (case-insensitive) in sanitized names
-            exact_match = any(
-                metro_name.lower() == override_name.lower()
-                for metro_name in metro_names
-            )
-
-            # Check for exact match (case-insensitive) in original names
-            exact_match_orig = any(
-                metro_name.lower() == override_name.lower()
-                for metro_name in metro_names_orig
-            )
-
-            # Check for substring match (case-insensitive) in sanitized names
-            substring_match = any(
-                override_name.lower() in metro_name.lower()
-                for metro_name in metro_names
-            )
-
-            # Check for substring match (case-insensitive) in original names
-            substring_match_orig = any(
-                override_name.lower() in metro_name.lower()
-                for metro_name in metro_names_orig
-            )
-
-            if not (
-                exact_match
-                or exact_match_orig
-                or substring_match
-                or substring_match_orig
-            ):
-                available_sanitized = ", ".join(sorted(metro_names))
-                available_orig = ", ".join(sorted(metro_names_orig))
+    # Validate override keys strictly against available metro slugs
+    if metros:
+        available_slugs = set()
+        for m in metros:
+            available_slugs.add(metro_slug(m.get("name", "")))
+            available_slugs.add(metro_slug(m.get("name_orig", m.get("name", ""))))
+        for override_key in overrides.keys():
+            if override_key not in available_slugs:
+                available_list = ", ".join(sorted(available_slugs))
                 raise ValueError(
-                    f"Build override references unknown metro '{override_name}'. "
-                    f"Available metros (sanitized): {available_sanitized}. "
-                    f"Available metros (original): {available_orig}"
+                    f"Build override references unknown metro '{override_key}'. "
+                    f"Available metro slugs: {available_list}"
                 )
 
     # Build settings for each metro
@@ -387,28 +362,15 @@ def _determine_metro_settings(
             },
         }
 
-        # Apply overrides if present (flexible matching)
+        # Apply overrides if present (exact slug match only)
         metro_name_orig = metro.get("name_orig", metro_name)
         override = None
-
-        # Find matching override with flexible matching
-        for override_name, override_config in overrides.items():
-            # Check for exact match (case-insensitive) in sanitized names
-            if metro_name.lower() == override_name.lower():
-                override = override_config
-                break
-            # Check for exact match (case-insensitive) in original names
-            elif metro_name_orig.lower() == override_name.lower():
-                override = override_config
-                break
-            # Check for substring match (case-insensitive) in sanitized names
-            elif override_name.lower() in metro_name.lower():
-                override = override_config
-                break
-            # Check for substring match (case-insensitive) in original names
-            elif override_name.lower() in metro_name_orig.lower():
-                override = override_config
-                break
+        slug_sanitized = metro_slug(metro_name)
+        slug_original = metro_slug(metro_name_orig)
+        if slug_sanitized in overrides:
+            override = overrides[slug_sanitized]
+        elif slug_original in overrides:
+            override = overrides[slug_original]
 
         if override:
             if "pop_per_metro" in override:

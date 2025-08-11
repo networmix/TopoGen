@@ -31,7 +31,9 @@ build:
       cost: 1
       attrs:
         link_type: dc_to_pop
-  build_overrides: {}
+  build_overrides:
+    [denver-aurora, dallas-fort-worth-arlington]:
+      site_blueprint: Clos_16_8
 
   capacity_allocation:
     enabled: true

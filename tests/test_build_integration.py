@@ -105,8 +105,8 @@ class TestBuildIntegration:
         mesh_core = mesh_core or "SingleRouter"
 
         config.build.build_overrides = {
-            "Denver": {"pop_per_metro": 4, "site_blueprint": clos_name},
-            "Salt Lake City": {"site_blueprint": mesh_core},
+            "denver": {"pop_per_metro": 4, "site_blueprint": clos_name},
+            "salt-lake-city": {"site_blueprint": mesh_core},
         }
         return config
 
@@ -226,7 +226,7 @@ class TestBuildIntegration:
 
         # Should include all blueprints referenced in config
         assert "SingleRouter" in blueprints  # Default for Phoenix
-        expected_denver_bp = sample_config.build.build_overrides["Denver"][
+        expected_denver_bp = sample_config.build.build_overrides["denver"][
             "site_blueprint"
         ]
         assert expected_denver_bp in blueprints  # Override for Denver
@@ -243,7 +243,7 @@ class TestBuildIntegration:
                 break
 
         assert denver_group is not None
-        expected_denver_bp = sample_config.build.build_overrides["Denver"][
+        expected_denver_bp = sample_config.build.build_overrides["denver"][
             "site_blueprint"
         ]
         assert denver_group["use_blueprint"] == expected_denver_bp
@@ -330,7 +330,7 @@ class TestBuildIntegration:
             None,
         )
         config.build.build_overrides = {
-            "Denver": {
+            "denver": {
                 "pop_per_metro": 4,
                 "site_blueprint": clos_name or "SingleRouter",
             }

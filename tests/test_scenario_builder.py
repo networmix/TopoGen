@@ -107,8 +107,8 @@ class TestScenarioBuilder:
                 pop_per_metro=2, site_blueprint="SingleRouter"
             ),
             build_overrides={
-                "Denver": {"pop_per_metro": 4, "site_blueprint": "Clos_64_256"},
-                "Salt Lake City": {
+                "denver": {"pop_per_metro": 4, "site_blueprint": "Clos_64_256"},
+                "salt-lake-city": {
                     "site_blueprint": "FullMesh4"
                 },  # Only blueprint override
             },
@@ -131,10 +131,10 @@ class TestScenarioBuilder:
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(),
-            build_overrides={"NonExistentMetro": {"pop_per_metro": 4}},
+            build_overrides={"nonexistentmetro": {"pop_per_metro": 4}},
         )
 
-        with pytest.raises(ValueError, match="unknown metro 'NonExistentMetro'"):
+        with pytest.raises(ValueError, match="unknown metro 'nonexistentmetro'"):
             _determine_metro_settings(metros, config)
 
     def test_determine_metro_settings_invalid_sites(self):
@@ -145,7 +145,7 @@ class TestScenarioBuilder:
         config.build = BuildConfig(
             build_defaults=BuildDefaults(),
             build_overrides={
-                "Denver": {"pop_per_metro": 0}  # Invalid
+                "denver": {"pop_per_metro": 0}  # Invalid
             },
         )
 
@@ -168,7 +168,7 @@ class TestScenarioBuilder:
                 dc_region_blueprint="DCRegion",
             ),
             build_overrides={
-                "Denver": {
+                "denver": {
                     "dc_regions_per_metro": 3,
                     "dc_region_blueprint": "SingleRouter",  # Override to different blueprint
                 },
@@ -195,7 +195,7 @@ class TestScenarioBuilder:
         config.build = BuildConfig(
             build_defaults=BuildDefaults(),
             build_overrides={
-                "Denver": {"dc_regions_per_metro": -1}  # Invalid
+                "denver": {"dc_regions_per_metro": -1}  # Invalid
             },
         )
 

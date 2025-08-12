@@ -18,10 +18,30 @@ model.
 
 from __future__ import annotations
 
+import json
 import math
+from pathlib import Path
 from typing import Any
 
 from topogen.config import TopologyConfig
+from topogen.log_config import get_logger
+
+logger = get_logger(__name__)
+
+
+def _fmt(value: float, *, decimals: int = 2) -> str:
+    """Return a string with thousands separators for logging.
+
+    Args:
+        value: Number to format.
+        decimals: Number of fractional digits.
+
+    Returns:
+        Formatted number as a string with thousands separators.
+    """
+
+    fmt = f"{{:,.{decimals}f}}"
+    return fmt.format(float(value))
 
 
 def _safe_metro_to_path(metro_name: str) -> str:
@@ -65,6 +85,7 @@ def generate_traffic_matrix(
 
     traffic_cfg = getattr(config, "traffic", None)
     if not traffic_cfg or not getattr(traffic_cfg, "enabled", False):
+        logger.debug("Traffic generation disabled or no traffic configuration present")
         return {}
 
     # Build DC inventory
@@ -75,6 +96,7 @@ def generate_traffic_matrix(
             dc_nodes.append((metro_name, dc_idx))
 
     if not dc_nodes:
+        logger.debug("No DC regions configured; skipping traffic matrix generation")
         return {}
 
     # Offered traffic in Gbps
@@ -100,6 +122,28 @@ def generate_traffic_matrix(
 
     offered_gbps = float(traffic_cfg.gbps_per_mw) * float(total_power_mw)
 
+    # Summary of inputs
+    try:
+        logger.debug(
+            "Traffic model=%s matrix_name=%s gbps_per_mw=%s mw_per_dc_region=%s",
+            getattr(traffic_cfg, "model", "uniform"),
+            getattr(traffic_cfg, "matrix_name", "default"),
+            _fmt(float(traffic_cfg.gbps_per_mw), decimals=3),
+            _fmt(float(traffic_cfg.mw_per_dc_region), decimals=3),
+        )
+        logger.debug(
+            "DC inventory (MW) total=%s: %s",
+            _fmt(total_power_mw, decimals=3),
+            ", ".join(
+                f"{m}/dc{d}={_fmt(dc_mass[(m, d)], decimals=3)}"
+                for (m, d) in sorted(dc_mass.keys())
+            ),
+        )
+        logger.debug("Offered traffic (Gbps)=%s", _fmt(offered_gbps))
+    except Exception:  # pragma: no cover - logging only
+        # Guard against accidental formatting failures in debug path
+        pass
+
     if not gravity_enabled:
         # Uniform model emission using regex selection across all DCs
         source_regex = "(metro[0-9]+/dc[0-9]+)"
@@ -116,6 +160,35 @@ def generate_traffic_matrix(
                     "demand": float(class_demand),
                 }
             )
+        # Debug summary for uniform model
+        try:
+            for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
+                logger.debug(
+                    "uniform: class priority=%s ratio=%s class_demand_gbps=%s",
+                    int(priority),
+                    _fmt(float(ratio), decimals=6),
+                    _fmt(offered_gbps * float(ratio)),
+                )
+            pretty = {
+                str(traffic_cfg.matrix_name): [
+                    {
+                        "source_path": d["source_path"],
+                        "sink_path": d["sink_path"],
+                        "mode": d["mode"],
+                        "priority": int(d["priority"]),
+                        "demand_gbps": _fmt(float(d["demand"]))
+                        if isinstance(d.get("demand"), (int, float))
+                        else str(d.get("demand")),
+                    }
+                    for d in demands
+                ]
+            }
+            logger.debug(
+                "traffic_matrix pretty:\n%s",
+                json.dumps(pretty, indent=2, ensure_ascii=True),
+            )
+        except Exception:  # pragma: no cover - logging only
+            pass
         return {traffic_cfg.matrix_name: demands}
 
     # Gravity model configuration
@@ -138,6 +211,11 @@ def generate_traffic_matrix(
     # Build undirected weights for pairs of DC nodes
     weights: dict[tuple[tuple[str, int], tuple[str, int]], float] = {}
     total_w = 0.0
+    logger.debug(
+        "Distance model: Euclidean straight-line km (EPSG:5070 coords), min_distance_km=%s",
+        _fmt(float(gcfg.min_distance_km), decimals=3),
+    )
+    logger.debug("traffic: diagnostics begin")
     for i, (m1, d1) in enumerate(dc_nodes):
         for j in range(i + 1, len(dc_nodes)):
             m2, d2 = dc_nodes[j]
@@ -163,6 +241,44 @@ def generate_traffic_matrix(
             "Gravity traffic model produced zero total weight across DC pairs"
         )
 
+    # Log gravity parameters and a brief weight summary
+    try:
+        logger.debug(
+            (
+                "gravity: alpha=%s beta=%s min_distance_km=%s "
+                "exclude_same_metro=%s jitter_stddev=%s rounding_gbps=%s "
+                "directional_step_gbps=%s max_partners_per_dc=%s"
+            ),
+            _fmt(float(gcfg.alpha), decimals=6),
+            _fmt(float(gcfg.beta), decimals=6),
+            _fmt(float(gcfg.min_distance_km), decimals=3),
+            bool(gcfg.exclude_same_metro),
+            _fmt(float(gcfg.jitter_stddev), decimals=6),
+            _fmt(float(gcfg.rounding_gbps), decimals=3),
+            _fmt(float(gcfg.rounding_gbps) / 2.0, decimals=3),
+            (
+                None
+                if gcfg.max_partners_per_dc is None
+                else int(gcfg.max_partners_per_dc)
+            ),
+        )
+        # Show a few top-weight pairs for orientation
+        top_pairs = sorted(weights.items(), key=lambda kv: kv[1], reverse=True)[:10]
+        for (m1, d1), (m2, d2) in [p[0] for p in top_pairs]:
+            w = weights[((m1, d1), (m2, d2))]
+            frac = w / total_w if total_w > 0 else 0.0
+            logger.debug(
+                "gravity: pair %s/dc%s <-> %s/dc%s weight=%s frac=%s",
+                m1,
+                d1,
+                m2,
+                d2,
+                _fmt(w, decimals=6),
+                _fmt(frac, decimals=6),
+            )
+    except Exception:  # pragma: no cover - logging only
+        pass
+
     # Optional top-K pruning per DC
     if gcfg.max_partners_per_dc is not None:
         k = int(gcfg.max_partners_per_dc)
@@ -183,11 +299,28 @@ def generate_traffic_matrix(
                 "After top-K pruning, no DC pairs remain for gravity model"
             )
 
+        logger.debug(
+            "gravity: applied top-K pruning with k=%d; remaining_pairs=%d",
+            k,
+            len(weights),
+        )
+
     # Map metro name to 1-based index consistent with network group naming
     metro_idx_map = {m["name"]: idx for idx, m in enumerate(metros, 1)}
+    try:
+        logger.debug(
+            "regex index map: %s",
+            ", ".join(
+                f"metro{idx} -> {name}"
+                for name, idx in sorted(metro_idx_map.items(), key=lambda x: x[1])
+            ),
+        )
+    except Exception:  # pragma: no cover - logging only
+        pass
 
     # Emit explicit per-pair demands; apply jitter and rounding per class with conservation
     demands: list[dict[str, Any]] = []
+    debug_entries: list[dict[str, Any]] = []
     for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
         D_c = offered_gbps * float(ratio)
         # Raw allocations
@@ -212,6 +345,13 @@ def generate_traffic_matrix(
             if total_after > 0:
                 allocs = [(pair, v * (D_c / total_after)) for pair, v in jittered]
 
+        logger.debug(
+            "gravity: class priority=%d ratio=%s class_total_gbps=%s",
+            int(priority),
+            _fmt(float(ratio), decimals=6),
+            _fmt(D_c),
+        )
+
         # Apply rounding if requested and repair to conserve totals via largest remainders
         rounding = float(gcfg.rounding_gbps)
         if rounding > 0.0:
@@ -220,7 +360,14 @@ def generate_traffic_matrix(
             ] = []
             total_floor = 0.0
             for pair, v in allocs:
-                q = math.floor(v / rounding) * rounding
+                # Quantize according to policy
+                if getattr(gcfg, "rounding_policy", "nearest") == "ceil":
+                    q = math.ceil(v / rounding) * rounding
+                elif getattr(gcfg, "rounding_policy", "nearest") == "floor":
+                    q = math.floor(v / rounding) * rounding
+                else:
+                    # nearest
+                    q = round(v / rounding) * rounding
                 rem = v - q
                 floored.append((pair, q, rem))
                 total_floor += q
@@ -238,18 +385,134 @@ def generate_traffic_matrix(
                 steps -= 1
                 idx += 1
             allocs = list(final_map.items())
+            try:
+                sum_final = sum(final_map.values())
+                delta = D_c - sum_final
+                logger.debug(
+                    (
+                        "gravity: class priority=%d rounding delta_gbps=%s "
+                        "(exact-total - rounded-total) policy=%s"
+                    ),
+                    int(priority),
+                    _fmt(delta),
+                    getattr(gcfg, "rounding_policy", "nearest"),
+                )
+            except Exception:  # pragma: no cover - logging only
+                pass
+            logger.debug(
+                "gravity: class priority=%d applied rounding_gbps=%s",
+                int(priority),
+                _fmt(rounding, decimals=3),
+            )
 
         # Emit entries for each pair in both directions using explicit paths
+        class_directed_sum = 0.0
+        dir_step = max(float(gcfg.rounding_gbps) / 2.0, 0.0)
         for pair, v in allocs:
             (m1, d1), (m2, d2) = pair
             i1 = metro_idx_map[m1]
             i2 = metro_idx_map[m2]
             src = f"^metro{i1}/dc{d1}/.*"
             dst = f"^metro{i2}/dc{d2}/.*"
-            # Symmetric split: half each direction; render with up to 2 decimals
-            demand_each = round(float(v) / 2.0, 2)
+            # Symmetric split: half each direction; align to configured rounding step per direction
+            demand_each_raw = float(v) / 2.0
+            if dir_step > 0.0:
+                demand_each = round(demand_each_raw / dir_step) * dir_step
+            else:
+                demand_each = round(demand_each_raw, 2)
             if demand_each <= 0.0:
                 continue
+            # Pair-specific debug lines (both directions) with key parameters
+            try:
+                w = weights[pair]
+                frac = w / total_w if total_w > 0 else 0.0
+                m_i = dc_mass[(m1, d1)]
+                m_j = dc_mass[(m2, d2)]
+                dist_km = _distance_km(m1, m2)
+                # Forward
+                logger.debug(
+                    (
+                        "entry: prio=%d src=%s dst=%s demand_gbps=%s "
+                        "m_i_MW=%s m_j_MW=%s euclidean_km=%s weight=%s frac=%s "
+                        "alpha=%s beta=%s class_total_gbps=%s rounding_gbps=%s "
+                        "jitter_stddev=%s"
+                    ),
+                    int(priority),
+                    src,
+                    dst,
+                    _fmt(demand_each),
+                    _fmt(m_i, decimals=3),
+                    _fmt(m_j, decimals=3),
+                    _fmt(dist_km, decimals=3),
+                    _fmt(w, decimals=6),
+                    _fmt(frac, decimals=6),
+                    _fmt(float(gcfg.alpha), decimals=6),
+                    _fmt(float(gcfg.beta), decimals=6),
+                    _fmt(D_c),
+                    _fmt(float(gcfg.rounding_gbps), decimals=3),
+                    _fmt(float(gcfg.jitter_stddev), decimals=6),
+                )
+                debug_entries.append(
+                    {
+                        "priority": int(priority),
+                        "source_path": src,
+                        "sink_path": dst,
+                        "demand_gbps": float(demand_each),
+                        "m_i_MW": float(m_i),
+                        "m_j_MW": float(m_j),
+                        "euclidean_km": float(dist_km),
+                        "weight": float(w),
+                        "weight_fraction": float(frac),
+                        "alpha": float(gcfg.alpha),
+                        "beta": float(gcfg.beta),
+                        "class_total_gbps": float(D_c),
+                        "rounding_gbps": float(gcfg.rounding_gbps),
+                        "jitter_stddev": float(gcfg.jitter_stddev),
+                    }
+                )
+                # Reverse
+                logger.debug(
+                    (
+                        "entry: prio=%d src=%s dst=%s demand_gbps=%s "
+                        "m_i_MW=%s m_j_MW=%s euclidean_km=%s weight=%s frac=%s "
+                        "alpha=%s beta=%s class_total_gbps=%s rounding_gbps=%s "
+                        "jitter_stddev=%s"
+                    ),
+                    int(priority),
+                    dst,
+                    src,
+                    _fmt(demand_each),
+                    _fmt(m_j, decimals=3),
+                    _fmt(m_i, decimals=3),
+                    _fmt(dist_km, decimals=3),
+                    _fmt(w, decimals=6),
+                    _fmt(frac, decimals=6),
+                    _fmt(float(gcfg.alpha), decimals=6),
+                    _fmt(float(gcfg.beta), decimals=6),
+                    _fmt(D_c),
+                    _fmt(float(gcfg.rounding_gbps), decimals=3),
+                    _fmt(float(gcfg.jitter_stddev), decimals=6),
+                )
+                debug_entries.append(
+                    {
+                        "priority": int(priority),
+                        "source_path": dst,
+                        "sink_path": src,
+                        "demand_gbps": float(demand_each),
+                        "m_i_MW": float(m_j),
+                        "m_j_MW": float(m_i),
+                        "euclidean_km": float(dist_km),
+                        "weight": float(w),
+                        "weight_fraction": float(frac),
+                        "alpha": float(gcfg.alpha),
+                        "beta": float(gcfg.beta),
+                        "class_total_gbps": float(D_c),
+                        "rounding_gbps": float(gcfg.rounding_gbps),
+                        "jitter_stddev": float(gcfg.jitter_stddev),
+                    }
+                )
+            except Exception:  # pragma: no cover - logging only
+                pass
             demands.append(
                 {
                     "source_path": src,
@@ -268,5 +531,144 @@ def generate_traffic_matrix(
                     "demand": demand_each,
                 }
             )
+            # Track post-split rounded directed sum for delta diagnostics
+            class_directed_sum += 2.0 * demand_each
 
-    return {traffic_cfg.matrix_name: demands}
+        # Post-split rounding delta relative to class exact total (using directional rounding quanta)
+        try:
+            delta_dir = D_c - class_directed_sum
+            logger.debug(
+                "gravity: class priority=%d post-split rounding delta_gbps=%s (exact-total - sum(directed))",
+                int(priority),
+                _fmt(delta_dir),
+            )
+        except Exception:  # pragma: no cover - logging only
+            pass
+
+    result = {traffic_cfg.matrix_name: demands}
+    try:
+        # Summary counts and distribution statistics
+        logger.debug(
+            "traffic: counts dc_regions=%d undirected_pairs=%d directed_entries=%d",
+            len(dc_nodes),
+            len(weights),
+            len(demands),
+        )
+        values = [float(d.get("demand", 0.0)) for d in demands]
+        if values:
+            svals = sorted(values)
+            n = len(svals)
+            total = sum(svals)
+            mean = total / n
+            median = (
+                svals[n // 2]
+                if n % 2 == 1
+                else 0.5 * (svals[n // 2 - 1] + svals[n // 2])
+            )
+            logger.debug(
+                "traffic: stats min=%s median=%s mean=%s max=%s",
+                _fmt(svals[0]),
+                _fmt(median),
+                _fmt(mean),
+                _fmt(svals[-1]),
+            )
+            by_class: dict[int, list[float]] = {}
+            for d in demands:
+                by_class.setdefault(int(d["priority"]), []).append(float(d["demand"]))
+            for prio in sorted(by_class):
+                lst = sorted(by_class[prio])
+                n_c = len(lst)
+                tot_c = sum(lst)
+                mean_c = tot_c / n_c
+                med_c = (
+                    lst[n_c // 2]
+                    if n_c % 2 == 1
+                    else 0.5 * (lst[n_c // 2 - 1] + lst[n_c // 2])
+                )
+                logger.debug(
+                    "class %d: entries=%d total=%s min=%s median=%s mean=%s max=%s",
+                    prio,
+                    n_c,
+                    _fmt(tot_c),
+                    _fmt(lst[0]),
+                    _fmt(med_c),
+                    _fmt(mean_c),
+                    _fmt(lst[-1]),
+                )
+        # Optional export of detailed entries and weights
+        debug_dir = getattr(config, "_debug_dir", None)
+        if debug_dir is not None:
+            export: dict[str, Any] = {
+                "model": getattr(traffic_cfg, "model", "uniform"),
+                "matrix_name": getattr(traffic_cfg, "matrix_name", "default"),
+                "gbps_per_mw": float(traffic_cfg.gbps_per_mw),
+                "mw_per_dc_region": float(traffic_cfg.mw_per_dc_region),
+                "offered_gbps": float(offered_gbps),
+                "gravity": {
+                    "alpha": float(gcfg.alpha),
+                    "beta": float(gcfg.beta),
+                    "min_distance_km": float(gcfg.min_distance_km),
+                    "exclude_same_metro": bool(gcfg.exclude_same_metro),
+                    "jitter_stddev": float(gcfg.jitter_stddev),
+                    "rounding_gbps": float(gcfg.rounding_gbps),
+                    "max_partners_per_dc": (
+                        None
+                        if gcfg.max_partners_per_dc is None
+                        else int(gcfg.max_partners_per_dc)
+                    ),
+                },
+                "dc_masses_MW": {
+                    f"{m}/dc{d}": float(dc_mass[(m, d)]) for (m, d) in sorted(dc_mass)
+                },
+                "metro_index_map": {
+                    f"metro{idx}": name for name, idx in metro_idx_map.items()
+                },
+                "weights": {
+                    f"{a[0]}/dc{a[1]} <-> {b[0]}/dc{b[1]}": float(w)
+                    for (a, b), w in weights.items()
+                },
+                "entries": debug_entries,
+            }
+            out_dir = Path(str(debug_dir))
+            out_dir.mkdir(parents=True, exist_ok=True)
+            stem = getattr(config, "_source_stem", None)
+            if stem is None:
+                src = getattr(config, "_source_path", None)
+                if isinstance(src, (str, Path)):
+                    stem = Path(src).stem
+                else:
+                    stem = "scenario"
+            out_path = out_dir / f"{stem}_traffic_debug.json"
+            try:
+                out_path.write_text(json.dumps(export, indent=2))
+                logger.debug("traffic: wrote debug JSON to %s", str(out_path))
+            except Exception:
+                logger.debug("traffic: failed to write debug JSON to %s", str(out_path))
+    except Exception:  # pragma: no cover - logging only
+        pass
+    # Pretty-print the final matrix for visibility in verbose mode
+    try:
+        pretty = {
+            str(traffic_cfg.matrix_name): [
+                {
+                    "source_path": d["source_path"],
+                    "sink_path": d["sink_path"],
+                    "mode": d["mode"],
+                    "priority": int(d["priority"]),
+                    "demand_gbps": _fmt(float(d["demand"]))
+                    if isinstance(d.get("demand"), (int, float))
+                    else str(d.get("demand")),
+                }
+                for d in demands
+            ]
+        }
+        logger.debug(
+            "traffic_matrix pretty:\n%s",
+            json.dumps(pretty, indent=2, ensure_ascii=True),
+        )
+    except Exception:  # pragma: no cover - logging only
+        pass
+
+    logger.debug("traffic: diagnostics end")
+
+    return result

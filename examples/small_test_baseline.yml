@@ -91,7 +91,7 @@ traffic:
   enabled: true
   model: gravity
   gbps_per_mw: 250.0
-  mw_per_dc_region: 50.0
+  mw_per_dc_region: 500.0
   priority_ratios:
     0: 1
   matrix_name: baseline_traffic_matrix
@@ -103,7 +103,7 @@ traffic:
     distance_metric: euclidean_km
     emission: explicit_pairs
     jitter_stddev: 0.0
-    rounding_gbps: 0.0
+    rounding_gbps: 100.0
 
 data_sources:
   uac_polygons: "data/tl_2020_us_uac20.zip"

@@ -83,6 +83,18 @@ def build_command(args: argparse.Namespace) -> None:
             prefix = getattr(config_obj, "_source_path", config_path)
             output_path = Path.cwd() / f"{Path(prefix).stem}_scenario.yml"
 
+        # Attach optional debug directory to config for downstream use
+        if getattr(args, "debug_dir", None):
+            try:
+                debug_dir = Path(args.debug_dir)
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                config_obj._debug_dir = debug_dir
+                # Provide a stable stem to downstream exporters
+                config_obj._source_stem = Path(config_path).stem
+            except Exception:
+                # Non-fatal: continue without debug directory
+                pass
+
         # Run the pipeline with timing
         with Timer("Topology generation pipeline"):
             scenario_yaml = _run_pipeline(
@@ -348,6 +360,14 @@ def main() -> None:
         "--print",
         action="store_true",
         help="Print generated YAML to stdout for debugging",
+    )
+    build_parser.add_argument(
+        "--debug-dir",
+        default=None,
+        help=(
+            "Optional directory to write debug artifacts (e.g., traffic matrix "
+            "internals as JSON) when -v is enabled"
+        ),
     )
 
     build_parser.set_defaults(func=build_command)

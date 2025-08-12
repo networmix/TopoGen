@@ -312,7 +312,11 @@ class TrafficGravityConfig:
         emission: One of {"explicit_pairs", "macro_pairwise"} for output format.
         max_partners_per_dc: If set, keeps top-K partners per DC by weight.
         jitter_stddev: Lognormal sigma for multiplicative noise (0 disables jitter).
-        rounding_gbps: If > 0, round per-pair demands to this step size and conserve totals.
+        rounding_gbps: If > 0, quantize undirected per-pair totals to this step size.
+        rounding_policy: Quantization policy for undirected totals. One of
+            {"nearest", "ceil", "floor"}. "nearest" minimizes absolute error,
+            "ceil" guarantees non-negative inflation (sum >= exact total), and
+            "floor" guarantees non-positive inflation (sum <= exact total).
         mw_per_dc_region_overrides: Optional overrides by metro name or full DC path
             (e.g., "metro3/dc2"). Overrides apply after defaults.
     """
@@ -326,6 +330,7 @@ class TrafficGravityConfig:
     max_partners_per_dc: int | None = None
     jitter_stddev: float = 0.0
     rounding_gbps: float = 0.0
+    rounding_policy: str = "nearest"
     mw_per_dc_region_overrides: dict[str, float] = field(default_factory=dict)
 
 
@@ -456,6 +461,9 @@ class TopologyConfig:
     # Visualization behavior; default False keeps previous straight-line rendering
     _use_real_corridor_geometry: bool = False
     _source_path: Path | None = None
+    # Optional instrumentation fields for debugging/export
+    _debug_dir: Path | None = None
+    _source_stem: str | None = None
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> TopologyConfig:

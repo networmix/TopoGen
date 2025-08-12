@@ -53,13 +53,14 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "name_template": "spine{node_num}",
                 "attrs": {
                     "role": "spine",
-                    "hw_type": "SpineRouter",
+                    "tier": "spine",
+                    "hw_type": "spine_chassis",
                 },
             },
             "leaf": {
                 "node_count": 16,
                 "name_template": "leaf{node_num}",
-                "attrs": {"role": "leaf", "hw_type": "LeafRouter"},
+                "attrs": {"role": "leaf", "tier": "leaf", "hw_type": "router_chassis"},
             },
         },
         "adjacency": [

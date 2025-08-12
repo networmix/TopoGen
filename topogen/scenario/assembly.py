@@ -48,18 +48,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     logger.info(f"Maximum sites per metro: {max_sites}")
     logger.info(f"Maximum DC regions per metro: {max_dc_regions}")
 
-    used_blueprints = set(s["site_blueprint"] for s in metro_settings.values())
-    used_blueprints.update(
-        s["dc_region_blueprint"]
-        for s in metro_settings.values()
-        if s["dc_regions_per_metro"] > 0
-    )
-    builtin_blueprints = get_builtin_blueprints()
-    for bp_name in used_blueprints:
-        if bp_name not in builtin_blueprints:
-            available = ", ".join(sorted(builtin_blueprints.keys()))
-            raise ValueError(f"Unknown blueprint '{bp_name}'. Available: {available}")
-
     scenario: dict[str, Any] = {}
 
     try:
@@ -68,14 +56,27 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         scenario_seed = 42
     scenario["seed"] = scenario_seed
 
-    scenario["blueprints"] = _build_blueprints_section(used_blueprints, config)
-    scenario["components"] = _build_components_section(config, used_blueprints)
-
-    # New graph-based pipeline
+    # New graph-based pipeline builds the authoritative site graph first
     logger.info("Building site-level MultiGraph")
     G = build_site_graph(metros, metro_settings, graph, config)
     logger.info("Assigning capacities from defaults split by adjacency")
     assign_per_link_capacity(G, config)
+
+    # Determine used blueprints directly from the site graph (source of truth)
+    used_blueprints = {
+        str(data.get("site_blueprint", "")) for _n, data in G.nodes(data=True)
+    }
+    used_blueprints = {bp for bp in used_blueprints if bp}
+    builtin_blueprints = get_builtin_blueprints()
+    for bp_name in used_blueprints:
+        if bp_name not in builtin_blueprints:
+            available = ", ".join(sorted(builtin_blueprints.keys()))
+            raise ValueError(f"Unknown blueprint '{bp_name}'. Available: {available}")
+
+    # Emit libraries first to preserve expected YAML ordering
+    scenario["blueprints"] = _build_blueprints_section(used_blueprints, config)
+    scenario["components"] = _build_components_section(config, used_blueprints)
+
     logger.info("Serializing network sections from MultiGraph")
     groups, adjacency = to_network_sections(G, metros, metro_settings, config)
     scenario["network"] = {"groups": groups, "adjacency": adjacency}

@@ -24,6 +24,42 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 logger = get_logger(__name__)
 
 
+def _component_assignments_for_site(
+    config: "TopologyConfig", site_kind: str
+) -> dict[str, dict[str, Any]]:
+    """Build per-site component assignments from global config.
+
+    Args:
+        config: Top-level topology configuration.
+        site_kind: Either "pop" or "dc" indicating site type.
+
+    Returns:
+        Mapping from role name to assignment dictionary (keys like
+        "hw_component" and optionally "optics"). Roles included are
+        {"core", "leaf", "spine"} for PoP sites and {"dc"} for DC sites.
+    """
+    roles_for_kind = ["core", "leaf", "spine"] if site_kind == "pop" else ["dc"]
+    result: dict[str, dict[str, Any]] = {}
+    components_cfg = getattr(config, "components", None)
+    assignments = getattr(components_cfg, "assignments", None)
+
+    for role in roles_for_kind:
+        entry = getattr(assignments, role, None) if assignments is not None else None
+        if entry is None:
+            continue
+        role_map: dict[str, Any] = {}
+        # Only include keys that are set to non-empty values to keep JSON concise
+        hw = getattr(entry, "hw_component", "")
+        if hw:
+            role_map["hw_component"] = hw
+        optics = getattr(entry, "optics", "")
+        if optics:
+            role_map["optics"] = optics
+        if role_map:
+            result[role] = role_map
+    return result
+
+
 def _metro_index_maps(
     metros: list[dict[str, Any]],
 ) -> tuple[dict[str, int], dict[Any, dict[str, Any]]]:
@@ -166,11 +202,13 @@ def _add_dc_to_pop_edges(
                     int(math.floor(frac_index)) % n + 1,
                     int(math.ceil(frac_index)) % n + 1,
                 }
-                cost_arc = (
+                raw_arc = (
                     min(arc_ceil(n, p, c) for c in cand_idxs)
                     if ring_radius_km > 0.0
                     else base_cost
                 )
+                # Enforce strictly positive cost to avoid zero-length links
+                cost_arc = max(1, int(raw_arc))
                 G.add_edge(
                     u,
                     v,
@@ -238,6 +276,8 @@ def _add_inter_metro_edges(
             )
         )
         risk_groups = list(edge.get("risk_groups", []))
+        euclid_km = edge.get("euclidean_km")
+        detour_ratio = edge.get("detour_ratio")
         adj_id = f"inter_metro:{min(s_idx, t_idx)}-{max(s_idx, t_idx)}"
         for p in range(1, s_sites + 1):
             for q in range(1, t_sites + 1):
@@ -255,6 +295,8 @@ def _add_inter_metro_edges(
                     source_metro=s_name,
                     target_metro=t_name,
                     risk_groups=risk_groups,
+                    euclidean_km=euclid_km,
+                    detour_ratio=detour_ratio,
                     # Symmetric match applied to both endpoints
                     match=(
                         src_cfg.get("match", {})
@@ -296,12 +338,16 @@ def build_site_graph(
                 f"Metro '{name}' has radius_km={metro.get('radius_km', 0.0)}; expected > 0 for ring-based adjacency"
             )
 
-    # Nodes
+    # Nodes with per-site blueprint and component assignments
     for metro in metros:
         name = metro["name"]
         idx = metro_idx_map[name]
         s = int(metro_settings[name]["pop_per_metro"])  # type: ignore[index]
         d = int(metro_settings[name]["dc_regions_per_metro"])  # type: ignore[index]
+        pop_blueprint = str(metro_settings[name]["site_blueprint"])  # type: ignore[index]
+        dc_blueprint = str(metro_settings[name]["dc_region_blueprint"])  # type: ignore[index]
+        pop_assign = _component_assignments_for_site(config, "pop")
+        dc_assign = _component_assignments_for_site(config, "dc")
         for p in range(1, s + 1):
             node_id = _site_node_id(idx, "pop", p)
             G.add_node(
@@ -310,6 +356,8 @@ def build_site_graph(
                 metro_name=name,
                 site_kind="pop",
                 site_ordinal=p,
+                site_blueprint=pop_blueprint,
+                components_assignments=pop_assign,
             )
         for j in range(1, d + 1):
             node_id = _site_node_id(idx, "dc", j)
@@ -319,6 +367,8 @@ def build_site_graph(
                 metro_name=name,
                 site_kind="dc",
                 site_ordinal=j,
+                site_blueprint=dc_blueprint,
+                components_assignments=dc_assign,
             )
 
     # Edges by category
@@ -462,7 +512,17 @@ def to_network_sections(
             "target_metro": data.get("target_metro"),
         }
         if "distance_km" in data:
-            attrs["distance_km"] = data["distance_km"]
+            attrs["distance_km"] = int(
+                data["distance_km"]
+            )  # ensure int for YAML stability
+        if "euclidean_km" in data and data["euclidean_km"] is not None:
+            attrs["euclidean_km"] = float(
+                data["euclidean_km"]
+            )  # corridor straight-line distance
+        if "detour_ratio" in data and data["detour_ratio"] is not None:
+            attrs["detour_ratio"] = float(
+                data["detour_ratio"]
+            )  # corridor length / euclidean
         link_params = {"capacity": cap, "cost": cost, "attrs": attrs}
         # Risk groups belong at link_params level to align with validation/tests
         if "risk_groups" in data and data["risk_groups"]:

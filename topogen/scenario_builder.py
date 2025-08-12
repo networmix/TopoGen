@@ -12,12 +12,7 @@ from topogen.scenario.libraries import (
     _build_blueprints_section,
     _build_components_section,
 )
-from topogen.scenario.network import (
-    _build_adjacency_section,
-    _build_groups_section,
-    _build_intra_metro_link_overrides,
-    _extract_metros_from_graph,
-)
+from topogen.scenario.network import _extract_metros_from_graph
 from topogen.scenario.policies import (
     _build_failure_policy_set_section,
     _build_workflow_section,
@@ -31,9 +26,6 @@ __all__ = [
     "_determine_metro_settings",
     "_build_blueprints_section",
     "_build_components_section",
-    "_build_groups_section",
-    "_build_adjacency_section",
-    "_build_intra_metro_link_overrides",
     "_extract_metros_from_graph",
     "_build_failure_policy_set_section",
     "_build_workflow_section",

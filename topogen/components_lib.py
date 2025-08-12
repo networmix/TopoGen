@@ -18,7 +18,7 @@ import yaml
 _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
     "CoreRouter": {
-        "component_type": "modular_chassis",
+        "component_type": "chassis",
         "description": "16 slot, 36x800G ports per slot, 576 ports total",
         "capex": 650_000.0,
         "power_watts": 23_000.0,  # without optics, typical consumption
@@ -28,7 +28,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "attrs": {"role": "core"},
     },
     "LeafRouter": {
-        "component_type": "fixed_chassis",
+        "component_type": "chassis",
         "description": "64x800G ports, Q4D chipset",
         "capex": 85_000.0,
         "power_watts": 2_000.0,  # without optics, typical consumption
@@ -38,7 +38,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "attrs": {"role": "leaf"},
     },
     "SpineRouter": {
-        "component_type": "fixed_chassis",
+        "component_type": "chassis",
         "description": "64x1600G ports, TH6 chipset",
         "capex": 55_000.0,
         "power_watts": 2_000.0,  # without optics, typical consumption

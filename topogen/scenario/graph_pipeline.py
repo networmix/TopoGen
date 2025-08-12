@@ -26,7 +26,6 @@ from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
 from ngraph.graph.strict_multidigraph import StrictMultiDiGraph as _NgSMDG
 
 from topogen.blueprints_lib import get_builtin_blueprints as _get_builtins
-from topogen.components_lib import get_builtin_components as _get_components_lib
 from topogen.corridors import (
     extract_corridor_edges_for_metros_graph as _extract_corridor_edges,
 )
@@ -38,32 +37,7 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 logger = get_logger(__name__)
 
 
-def _component_assignments_for_site(
-    config: "TopologyConfig", site_kind: str
-) -> dict[str, dict[str, Any]]:
-    """Build per-site component assignments from global config.
-
-    Args:
-        config: Top-level topology configuration.
-        site_kind: Either "pop" or "dc" indicating site type.
-
-    Returns:
-        Mapping from role name to assignment dictionary (keys like
-        "hw_component" and optionally "optics"). Roles included are
-        {"core", "leaf", "spine"} for PoP sites and {"dc"} for DC sites.
-    """
-    roles_for_kind = ["core", "leaf", "spine"] if site_kind == "pop" else ["dc"]
-    result: dict[str, dict[str, Any]] = {}
-    comp_cfg = getattr(config, "components", object())
-    role_to_platform = getattr(comp_cfg, "hw_component", {}) or {}
-    if not isinstance(role_to_platform, dict):
-        role_to_platform = {}
-
-    for role in roles_for_kind:
-        hw = str(role_to_platform.get(role, "")).strip()
-        if hw:
-            result[role] = {"hw_component": hw}
-    return result
+# Per-node component assignments removed from the pipeline.
 
 
 def _metro_index_maps(
@@ -470,8 +444,6 @@ def build_site_graph(
         d = int(metro_settings[name]["dc_regions_per_metro"])  # type: ignore[index]
         pop_blueprint = str(metro_settings[name]["site_blueprint"])  # type: ignore[index]
         dc_blueprint = str(metro_settings[name]["dc_region_blueprint"])  # type: ignore[index]
-        pop_assign = _component_assignments_for_site(config, "pop")
-        dc_assign = _component_assignments_for_site(config, "dc")
         for p in range(1, s + 1):
             node_id = _site_node_id(idx, "pop", p)
             G.add_node(
@@ -481,7 +453,6 @@ def build_site_graph(
                 site_kind="pop",
                 site_ordinal=p,
                 site_blueprint=pop_blueprint,
-                components_assignments=pop_assign,
             )
         for j in range(1, d + 1):
             node_id = _site_node_id(idx, "dc", j)
@@ -492,7 +463,6 @@ def build_site_graph(
                 site_kind="dc",
                 site_ordinal=j,
                 site_blueprint=dc_blueprint,
-                components_assignments=dc_assign,
             )
 
     # Edges by category
@@ -610,235 +580,8 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
 
 
 def resolve_and_assign_link_hardware(G: nx.MultiGraph, config: TopologyConfig) -> None:
-    """Assign per-end optics for each edge using explicit roles or overrides.
-
-    Rules:
-      - No inference. Use explicit unordered role-pairs configured on the link class.
-      - Per-end explicit overrides may be provided via existing edge-level
-        mapping ``hardware: {source:{component,count?}, target:{...}}``.
-        When present but count is missing, compute count.
-      - Otherwise, derive optic component for each end from
-        ``config.components.assignments.<role>.optics``.
-      - Compute lanes and counts deterministically. Rounding on lanes is up.
-      - Store resolved mapping under edge attribute ``hardware`` so it is
-        serialized into link_params.attrs.hardware later.
-    """
-    logger.info("Resolving link hardware for %d edges", G.number_of_edges())
-
-    components = _get_components_lib()
-
-    def _get_comp(name: str) -> dict[str, Any]:
-        if not name:
-            raise ValueError("Optic component name must be non-empty")
-        if name not in components:
-            raise ValueError(f"Unknown component '{name}' in optics assignment")
-        return components[name]
-
-    # Build optics lookup: role-pair mapping only (streamlined). Accepts
-    # direction-specific keys "A-B" and unordered keys "A|B" that apply to both.
-    rolepair_to_optic: dict[tuple[str, str], str] = {}
-    try:
-        comp_cfg = getattr(config, "components", object())
-        # Mapping: optics: "src-dst" -> component
-        optics_map = getattr(comp_cfg, "optics", {}) or {}
-        for k, v in optics_map.items():
-            key = str(k)
-            if "|" in key:  # unordered
-                a, b = key.split("|", 1)
-                a, b = a.strip(), b.strip()
-                if a and b:
-                    rolepair_to_optic[(a, b)] = str(v)
-                    rolepair_to_optic[(b, a)] = str(v)
-            elif "-" in key:  # directional
-                src_r, dst_r = key.split("-", 1)
-                rolepair_to_optic[(src_r.strip(), dst_r.strip())] = str(v)
-    except Exception:
-        pass
-
-    import math as _m
-
-    edges_total = G.number_of_edges()
-    edges_with_roles = 0
-    edges_with_hw = 0
-    edges_with_overrides = 0
-
-    for u, v, k, data in G.edges(keys=True, data=True):
-        # Capacity must exist and be positive
-        cap_val = data.get("capacity", data.get("base_capacity"))
-        if cap_val is None:
-            raise ValueError(f"Edge {u}-{v} missing capacity for hardware assignment")
-        try:
-            link_capacity = float(cap_val)
-        except Exception as exc:  # noqa: BLE001
-            raise ValueError(
-                f"Edge {u}-{v} has non-numeric capacity: {cap_val!r}"
-            ) from exc
-        if link_capacity <= 0.0:
-            raise ValueError(
-                f"Edge {u}-{v} has non-positive capacity {link_capacity}; expected > 0"
-            )
-
-        # Determine endpoint roles: if exactly one unordered role-pair is
-        # configured on the edge, use it. Otherwise skip HW assignment.
-        role_src = ""
-        role_dst = ""
-        if isinstance(data.get("role_pairs"), list):
-            rp_list = list(data.get("role_pairs") or [])
-            if len(rp_list) == 1:
-                item = rp_list[0]
-                a: str | None = None
-                b: str | None = None
-                if isinstance(item, str):
-                    if "|" in item:
-                        parts = [p.strip() for p in item.split("|", 1)]
-                        if len(parts) == 2:
-                            a, b = parts[0], parts[1]
-                    elif "-" in item:
-                        parts = [p.strip() for p in item.split("-", 1)]
-                        if len(parts) == 2:
-                            a, b = parts[0], parts[1]
-                elif isinstance(item, (list, tuple)) and len(item) == 2:
-                    a, b = str(item[0]).strip(), str(item[1]).strip()
-                if a and b:
-                    role_src, role_dst = a, b
-
-        # Prepare existing per-edge override mapping if present
-        existing_hw = data.get("hardware")
-        src_map = None
-        dst_map = None
-        if isinstance(existing_hw, dict):
-            src_map = existing_hw.get("source")
-            dst_map = existing_hw.get("target")
-
-        def _resolve_end(
-            explicit_map: Any,
-            end_role: str,
-            other_role: str,
-            _cap: float = link_capacity,
-        ) -> dict[str, Any] | None:
-            # 1) If explicit per-edge component is present, use it (compute count if missing)
-            if isinstance(explicit_map, dict) and explicit_map.get("component"):
-                comp_name = str(explicit_map.get("component"))
-                comp_def = _get_comp(comp_name)
-                ports = int(comp_def.get("ports", 0))
-                total_capacity = float(comp_def.get("capacity", 0.0))
-                if ports <= 0 or total_capacity <= 0.0:
-                    raise ValueError(
-                        f"Optic '{comp_name}' must declare positive capacity and ports"
-                    )
-                per_lane = total_capacity / float(ports)
-                cnt_val = explicit_map.get("count")
-                lanes: float
-                if cnt_val is None:
-                    lanes = float(_m.ceil(_cap / per_lane))
-                    count = lanes / float(ports)
-                else:
-                    lanes = float("nan")
-                    count = float(cnt_val)
-                    if count <= 0:
-                        raise ValueError(
-                            f"Explicit count for optic '{comp_name}' must be positive"
-                        )
-                    # Ensure declared capacity is sufficient
-                    if (count * total_capacity) + 1e-9 < _cap:
-                        raise ValueError(
-                            f"Edge requires {_cap} Gb/s but '{comp_name}' count={count} provides only {count * total_capacity} Gb/s"
-                        )
-                logger.debug(
-                    (
-                        "HW override end role=%s other=%s optic=%s per_lane=%s lanes=%s count=%s"
-                    ),
-                    end_role,
-                    other_role,
-                    comp_name,
-                    f"{per_lane:,.1f}",
-                    f"{lanes:,.3f}",
-                    f"{count:,.3f}",
-                )
-                return {"component": comp_name, "count": float(count)}
-
-            # 2) Per-role-pair optic applied when (end_role, other_role) exists.
-            if end_role and other_role and (end_role, other_role) in rolepair_to_optic:
-                comp_name = rolepair_to_optic[(end_role, other_role)]
-                comp_def = _get_comp(comp_name)
-                ports = int(comp_def.get("ports", 0))
-                total_capacity = float(comp_def.get("capacity", 0.0))
-                if ports <= 0 or total_capacity <= 0.0:
-                    raise ValueError(
-                        f"Optic '{comp_name}' must declare positive capacity and ports"
-                    )
-                per_lane = total_capacity / float(ports)
-                lanes = float(_m.ceil(_cap / per_lane))
-                count = lanes / float(ports)
-                logger.debug(
-                    (
-                        "HW role-pair end role=%s other=%s optic=%s per_lane=%s lanes=%s count=%s"
-                    ),
-                    end_role,
-                    other_role,
-                    comp_name,
-                    f"{per_lane:,.1f}",
-                    f"{lanes:,.3f}",
-                    f"{count:,.3f}",
-                )
-                return {"component": comp_name, "count": float(count)}
-
-            # 3) No assignment for this end
-            return None
-
-            # No assignment for this end
-            return None
-
-        if role_src and role_dst:
-            edges_with_roles += 1
-        else:
-            logger.debug(
-                "Edge %s->%s missing endpoint roles; skipping hardware assignment",
-                u,
-                v,
-            )
-
-        src_hw = _resolve_end(src_map, role_src, role_dst)
-        # For equal roles (core-core etc.), pair appears identical both sides, so dst end will get the same optic.
-        dst_hw = _resolve_end(dst_map, role_dst, role_src)
-
-        # If neither end is assigned, skip attaching hardware
-        if src_hw is None and dst_hw is None:
-            continue
-
-        hw_struct: dict[str, Any] = {}
-        if src_hw is not None:
-            hw_struct["source"] = src_hw
-        if dst_hw is not None:
-            hw_struct["target"] = dst_hw
-
-        G.edges[u, v, k]["hardware"] = hw_struct
-
-        edges_with_hw += 1
-        if isinstance(src_map, dict) or isinstance(dst_map, dict):
-            edges_with_overrides += 1
-        try:
-            logger.debug(
-                ("HW assigned %s->%s roles=(%s,%s) src=%s x %s; dst=%s x %s"),
-                u,
-                v,
-                role_src or "",
-                role_dst or "",
-                (src_hw or {}).get("component") if src_hw else None,
-                f"{(src_hw or {}).get('count', 0.0):.3f}" if src_hw else None,
-                (dst_hw or {}).get("component") if dst_hw else None,
-                f"{(dst_hw or {}).get('count', 0.0):.3f}" if dst_hw else None,
-            )
-        except Exception:
-            pass
-
-    logger.info(
-        "Hardware resolved for %d of %d edges (with_roles=%d, overrides=%d)",
-        edges_with_hw,
-        edges_total,
-        edges_with_roles,
-        edges_with_overrides,
-    )
+    """No-op: link hardware is assigned during YAML emission."""
+    return None
 
 
 def _parse_tm_endpoint_to_metro_idx(endpoint: str) -> int | None:

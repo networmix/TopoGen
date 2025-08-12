@@ -78,9 +78,7 @@ def _build_blueprints_section(
                 groups_with_role += 1
                 hw_name = role_to_platform.get(role, "")
                 if hw_name:
-                    # Keep legacy field for tests/back-compat within TopoGen repo
-                    group_def["attrs"]["hw_component"] = hw_name
-                    # Emit ngraph-compatible node hardware mapping as well
+                    # Emit ngraph-compatible node hardware mapping
                     group_def["attrs"]["hardware"] = {
                         "component": hw_name,
                         "count": 1,

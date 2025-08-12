@@ -456,7 +456,7 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
         df = pd.DataFrame(metro_data)
         metro_gdf = gpd.GeoDataFrame(df)
         metro_gdf = metro_gdf.set_crs(target_crs)
-        # Prefix not available here; use fixed filename for GeoJSON for backward compat
+        # Prefix not available here; use fixed filename for GeoJSON
         metro_path = output_dir / "metro_clusters.geojson"
         if metro_gdf is not None:
             metro_gdf.to_file(metro_path, driver="GeoJSON")

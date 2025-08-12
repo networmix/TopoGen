@@ -116,7 +116,7 @@ class TestComponentsScenarioBuilder:
 
         core_group = single_router["groups"]["core"]
         assert "attrs" in core_group
-        assert core_group["attrs"]["hw_component"] == "CoreRouter"
+        assert core_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
 
     def test_build_blueprints_section_with_role_assignments(self):
         """Test building blueprints section uses role assignments only."""
@@ -142,9 +142,9 @@ class TestComponentsScenarioBuilder:
         spine_group = clos_blueprint["groups"]["spine"]
         leaf_group = clos_blueprint["groups"]["leaf"]
 
-        # Should use role-based components
-        assert spine_group["attrs"]["hw_component"] == "CoreRouter"
-        assert leaf_group["attrs"]["hw_component"] == "CoreRouter"
+        # Should use role-based hardware mapping
+        assert spine_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
+        assert leaf_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
 
     def test_build_blueprints_section_preserves_existing_attrs(self):
         """Test that building blueprints preserves existing node attributes."""
@@ -171,8 +171,8 @@ class TestComponentsScenarioBuilder:
         assert spine_group["attrs"]["role"] == "spine"
         assert spine_group["attrs"]["tier"] == "spine"
 
-        # And add new component assignment
-        assert spine_group["attrs"]["hw_component"] == "CoreRouter"
+        # And add new hardware assignment
+        assert spine_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
 
     def test_build_blueprints_section_unknown_blueprint(self):
         """Test error when unknown blueprint is requested."""
@@ -191,9 +191,9 @@ class TestComponentsScenarioBuilder:
 
         assert "SingleRouter" in blueprints
 
-        # Should not add hw_component if no assignment
+        # Should not add hardware if no assignment
         core_group = blueprints["SingleRouter"]["groups"]["core"]
-        assert "hw_component" not in core_group["attrs"]
+        assert "hardware" not in core_group["attrs"]
 
     def test_build_blueprints_section_role_inference(self):
         """Test that role is correctly inferred from group name."""
@@ -208,7 +208,7 @@ class TestComponentsScenarioBuilder:
         core_group = full_mesh["groups"]["core"]
 
         # Should use default core assignment since no override
-        assert core_group["attrs"]["hw_component"] == "CoreRouter"
+        assert core_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
 
     def test_components_section_includes_only_referenced(self):
         """Test that components section includes only referenced components."""

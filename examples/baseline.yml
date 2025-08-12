@@ -78,9 +78,6 @@ build:
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 
-  capacity_allocation:
-    enabled: false
-
 components:
   assignments:
     core:

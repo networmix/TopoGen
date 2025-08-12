@@ -34,13 +34,7 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     cfg.build.build_defaults.site_blueprint = "SingleRouter"
     cfg.build.build_defaults.dc_region_blueprint = "DCRegion"
 
-    # Provide explicit role->component assignments to be serialized per site
-    cfg.components.hw_component = {
-        "core": "CoreRouter",
-        "leaf": "LeafRouter",
-        "spine": "SpineRouter",
-        "dc": "CoreRouter",
-    }
+    # Per-site assignments removed; blueprint-level hardware covers nodes
 
     yaml_str = build_scenario(graph, cfg)
     data = yaml.safe_load(yaml_str)

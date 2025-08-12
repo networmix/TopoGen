@@ -35,9 +35,6 @@ build:
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 
-  capacity_allocation:
-    enabled: false
-
   tm_sizing:
     enabled: true
     matrix_name: baseline_traffic_matrix

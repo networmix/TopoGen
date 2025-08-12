@@ -28,7 +28,7 @@ repos:
             "networkx",
             "contextily",
             "pandas-stubs",
-            "ngraph",
+            "git+https://github.com/networmix/NetGraph@main",
           ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks

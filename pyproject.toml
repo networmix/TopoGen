@@ -21,7 +21,6 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-# Runtime deps
 dependencies = [
     "pyyaml",
     "pandas",
@@ -39,9 +38,9 @@ dependencies = [
     "scikit-learn",
     "networkx",
     "contextily",
-    # NetGraph validation
+    # NetGraph
     "ngraph",
-]
+] # Runtime deps
 
 # Dev / CI extras
 [project.optional-dependencies]
@@ -66,7 +65,6 @@ dev = [
     "build",
     # publishing
     "twine",
-
 ]
 
 [project.scripts]

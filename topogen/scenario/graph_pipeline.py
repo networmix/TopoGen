@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
+from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
 
+from topogen.blueprints_lib import get_builtin_blueprints as _get_builtins
 from topogen.corridors import (
     extract_corridor_edges_for_metros_graph as _extract_corridor_edges,
 )
@@ -393,59 +395,96 @@ def build_site_graph(
 
 
 def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
-    """Assign per-link capacity by splitting config default over link count.
+    """Assign per-link capacity based on final DSL expansion link count.
 
-    For each adjacency group (by 'adjacency_id'), take the config default
-    capacity for that link_type and split evenly across realized links.
+    The configured ``base_capacity`` on an edge is interpreted as the total
+    capacity budget for that site-to-site adjacency. We compute how many
+    concrete links the NetGraph DSL will produce for this adjacency (given the
+    endpoint site blueprints, match filters, and the ``one_to_one`` pattern),
+    then set per-link capacity to ``base_capacity / num_links``.
+
+    This logic is adjacency-agnostic and uses the same expansion rules as
+    NetGraph by calling its DSL expander on a minimal network containing only
+    the two endpoints and the single adjacency under evaluation.
+
+    Args:
+        G: Site-level MultiGraph with edges carrying ``base_capacity`` and node
+            attributes ``site_blueprint``.
+        config: Topology configuration (unused; present for interface stability).
+
+    Raises:
+        ValueError: If an edge lacks ``base_capacity`` or the expansion yields
+            zero links.
     """
-    logger.info("Assigning per-link capacities from defaults")
-    # Group edge keys by adjacency_id
-    by_adj: dict[str, list[tuple[str, str, str]]] = {}
-    for u, v, key, data in G.edges(keys=True, data=True):
-        adj_id = str(data.get("adjacency_id", ""))
-        if not adj_id:
-            raise ValueError(f"Edge {u}-{v} missing mandatory adjacency_id")
-        by_adj.setdefault(adj_id, []).append((u, v, key))
+    logger.info("Assigning per-link capacities by splitting base over expansion size")
 
-    for adj_id, ek_list in by_adj.items():
-        # Determine base from stored base_capacity on any edge in this group
-        any_u, any_v, any_k = ek_list[0]
-        data = G.get_edge_data(any_u, any_v, any_k)
-        link_type = data.get("link_type") if isinstance(data, dict) else None
-        # Safely coerce base_capacity to int with explicit None handling to satisfy type checker
-        try:
-            if isinstance(data, dict):
-                base_val = data.get("base_capacity")
-                base = int(0 if base_val is None else base_val)
-            else:
-                base = 0
-        except Exception as exc:
-            # Provide clear error with the original value for debugging
-            bad_val = data.get("base_capacity") if isinstance(data, dict) else None
-            raise ValueError(
-                f"Adjacency {adj_id} has non-integer base_capacity: {bad_val}"
-            ) from exc
-        if base <= 0:
-            raise ValueError(
-                f"Adjacency {adj_id} (type={link_type}) has invalid base_capacity={base}"
-            )
-        count = max(1, len(ek_list))
-        per = base // count
-        if per <= 0:
-            raise ValueError(
-                f"Adjacency {adj_id} (type={link_type}) base_capacity={base} insufficient for {count} links"
-            )
-        logger.info(
-            "Adjacency %s: type=%s base=%s links=%d -> per-link=%s",
-            adj_id,
-            link_type,
-            base,
-            count,
-            per,
+    builtins = _get_builtins()
+
+    def _estimate_link_count(u_id: str, v_id: str, edge_data: dict[str, Any]) -> int:
+        bp_u = str(G.nodes[u_id].get("site_blueprint", ""))
+        bp_v = str(G.nodes[v_id].get("site_blueprint", ""))
+        if not bp_u or not bp_v:
+            raise ValueError(f"Missing site_blueprint for nodes {u_id} or {v_id}")
+
+        # Build a minimal DSL using only the two endpoints and one adjacency.
+        # Tag links from our adjacency so we can count them precisely.
+        # Ensure match is a plain dict; tests may inject mocks
+        raw_match = edge_data.get("match", {})
+        match_dict: dict[str, Any] = raw_match if isinstance(raw_match, dict) else {}
+
+        dsl = {
+            "blueprints": builtins,
+            "network": {
+                "groups": {
+                    u_id: {"use_blueprint": bp_u},
+                    v_id: {"use_blueprint": bp_v},
+                },
+                "adjacency": [
+                    {
+                        "source": {"path": u_id, "match": match_dict},
+                        "target": {"path": v_id, "match": match_dict},
+                        "pattern": "one_to_one",
+                        "link_params": {
+                            "capacity": 1.0,
+                            "cost": 1.0,
+                            "attrs": {"_tg_tmp": "count_me"},
+                        },
+                    }
+                ],
+            },
+        }
+        net = _ng_expand(dsl)
+        # Count only links created by our adjacency (tagged with _tg_tmp)
+        count = sum(
+            1
+            for _lid, link in net.links.items()
+            if link.attrs.get("_tg_tmp") == "count_me"
         )
-        # Assign capacity to each edge in group
-        for u, v, k in ek_list:
-            G.edges[u, v, k]["capacity"] = int(per)
+        return int(count)
+
+    for u, v, k, data in G.edges(keys=True, data=True):
+        base_val = data.get("base_capacity")
+        if base_val is None:
+            raise ValueError(f"Edge {u}-{v} missing base_capacity")
+        try:
+            base_capacity = float(base_val)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(
+                f"Edge {u}-{v} has non-numeric base_capacity: {base_val!r}"
+            ) from exc
+        if base_capacity <= 0:
+            raise ValueError(
+                f"Edge {u}-{v} (type={data.get('link_type')}) has invalid base_capacity={base_capacity}"
+            )
+
+        num_links = _estimate_link_count(u, v, data)
+        if num_links <= 0:
+            raise ValueError(
+                f"Adjacency expansion produced zero links for {u}↔{v} (pattern=one_to_one, match={data.get('match')})"
+            )
+
+        per_link = base_capacity / float(num_links)
+        G.edges[u, v, k]["capacity"] = per_link
 
 
 def to_network_sections(
@@ -504,7 +543,7 @@ def to_network_sections(
     adjacency: list[dict[str, Any]] = []
     for u, v, data in G.edges(data=True):
         # Only serialize if capacity assigned
-        cap = int(data.get("capacity", data.get("base_capacity", 1)))
+        cap = data.get("capacity", data.get("base_capacity", 1))
         cost = int(data.get("cost", 1))
         attrs = {
             "link_type": data.get("link_type", "unknown"),

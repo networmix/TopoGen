@@ -1,0 +1,157 @@
+output:
+  scenario_metadata:
+    title: "Small Test: East Coast, Clos-16-8"
+
+  formatting:
+    json_indent: 2
+    yaml_anchors: true
+
+  scenario_seed: 42
+
+build:
+  build_defaults:
+    pop_per_metro: 2
+    site_blueprint: SingleRouter
+    dc_regions_per_metro: 0
+    dc_region_blueprint: DCRegion
+    intra_metro_link:
+      capacity: 12_800
+      cost: 1
+      attrs:
+        link_type: intra_metro
+      match:
+        conditions:
+          - attr: role
+            operator: "=="
+            value: core
+          - attr: role
+            operator: "=="
+            value: leaf
+    inter_metro_link:
+      capacity: 3_200
+      cost: 1
+      attrs:
+        link_type: inter_metro_corridor
+      match:
+        conditions:
+          - attr: role
+            operator: "=="
+            value: core
+          - attr: role
+            operator: "=="
+            value: leaf
+        logic: "or"
+    dc_to_pop_link:
+      capacity: 25_600
+      cost: 1
+      attrs:
+        link_type: dc_to_pop
+      match:
+        conditions:
+          - attr: role
+            operator: "=="
+            value: core
+          - attr: role
+            operator: "=="
+            value: dc
+          - attr: role
+            operator: "=="
+            value: leaf
+        logic: "or"
+  build_overrides:
+    - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
+      site_blueprint: Clos_16_8
+      dc_regions_per_metro: 1
+      dc_region_blueprint: DCRegion
+
+  capacity_allocation:
+    enabled: false
+
+components:
+  assignments:
+    core:
+      hw_component: CoreRouter
+    leaf:
+      hw_component: LeafRouter
+    spine:
+      hw_component: SpineRouter
+
+failure_policies:
+  assignments:
+    default: "mc_baseline"
+
+workflows:
+  assignments:
+    default: "capacity_analysis"
+
+visualization:
+  corridors:
+    use_real_geometry: true
+
+traffic:
+  enabled: true
+  model: gravity
+  gbps_per_mw: 250.0
+  mw_per_dc_region: 50.0
+  priority_ratios:
+    0: 1
+  matrix_name: baseline_traffic_matrix
+  gravity:
+    alpha: 1.0
+    beta: 0.8
+    min_distance_km: 200.0
+    exclude_same_metro: false
+    distance_metric: euclidean_km
+    emission: explicit_pairs
+    jitter_stddev: 0.0
+    rounding_gbps: 0.0
+
+data_sources:
+  uac_polygons: "data/tl_2020_us_uac20.zip"
+  tiger_roads: "data/tl_2024_us_primaryroads.zip"
+  conus_boundary: "data/cb_2024_us_state_500k.zip"
+
+projection:
+  target_crs: "EPSG:5070"
+
+clustering:
+  metro_clusters: 5
+  max_uac_radius_km: 100.0
+  export_clusters: false
+  export_integrated_graph: true
+
+  override_metro_clusters:
+    - "New York"
+    - "Washington"
+    - "Chicago"
+    - "Atlanta"
+    - "Columbus"
+
+  coordinate_precision: 1
+  area_precision: 2
+
+highway_processing:
+  min_edge_length_km: 0.0
+  snap_precision_m: 150.0
+  highway_classes: ["S1100"]
+  min_cycle_nodes: 3
+  filter_largest_component: true
+  validation_sample_size: 5
+
+corridors:
+  k_paths: 1
+  k_nearest: 6
+  max_edge_km: 1000.0
+  max_corridor_distance_km: 1500.0
+
+  risk_groups:
+    enabled: true
+    group_prefix: "corridor_risk"
+    exclude_metro_radius_shared: true
+
+validation:
+  max_metro_highway_distance_km: 50.0
+  require_connected: true
+  max_degree_threshold: 1000
+  high_degree_warning: 20
+  min_largest_component_fraction: 0.5

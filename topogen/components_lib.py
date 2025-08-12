@@ -18,7 +18,7 @@ import yaml
 _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
     "CoreRouter": {
-        "component_type": "chassis",
+        "component_type": "modular_chassis",
         "description": "16 slot, 36x800G ports per slot, 576 ports total",
         "capex": 650_000.0,
         "power_watts": 23_000.0,  # without optics, typical consumption
@@ -26,6 +26,26 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "capacity": 460_800.0,  # Gbps
         "ports": 576,
         "attrs": {"role": "core"},
+    },
+    "LeafRouter": {
+        "component_type": "fixed_chassis",
+        "description": "64x800G ports, Q4D chipset",
+        "capex": 85_000.0,
+        "power_watts": 2_000.0,  # without optics, typical consumption
+        "power_watts_max": 3_000.0,  # without optics, max consumption
+        "capacity": 51_200.0,  # Gbps
+        "ports": 64,
+        "attrs": {"role": "leaf"},
+    },
+    "SpineRouter": {
+        "component_type": "fixed_chassis",
+        "description": "64x1600G ports, TH6 chipset",
+        "capex": 55_000.0,
+        "power_watts": 2_000.0,  # without optics, typical consumption
+        "power_watts_max": 3_000.0,  # without optics, max consumption
+        "capacity": 102_400.0,  # Gbps
+        "ports": 64,
+        "attrs": {"role": "spine"},
     },
     "800G-ZR+": {
         "component_type": "optic",
@@ -35,6 +55,26 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "power_watts_max": 30.0,
         "capacity": 800.0,  # Gbps
         "ports": 1,
+        "attrs": {},
+    },
+    "1600G-2xDR4": {
+        "component_type": "optic",
+        "description": "1600G 2xDR4 pluggable optic",
+        "capex": 10_000.0,
+        "power_watts": 24.0,
+        "power_watts_max": 26.0,
+        "capacity": 1600.0,  # Gbps
+        "ports": 8,  # 8x200G ports
+        "attrs": {},
+    },
+    "800G-DR4": {
+        "component_type": "optic",
+        "description": "800G DR4 pluggable optic",
+        "capex": 10_000.0,
+        "power_watts": 29.0,
+        "power_watts_max": 30.0,
+        "capacity": 800.0,  # Gbps
+        "ports": 4,  # 4x200G ports
         "attrs": {},
     },
 }

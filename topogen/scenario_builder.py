@@ -16,7 +16,6 @@ from topogen.scenario.network import (
     _build_adjacency_section,
     _build_groups_section,
     _build_intra_metro_link_overrides,
-    _extract_corridor_edges,
     _extract_metros_from_graph,
 )
 from topogen.scenario.policies import (
@@ -37,7 +36,6 @@ __all__ = [
     "_build_groups_section",
     "_build_adjacency_section",
     "_build_intra_metro_link_overrides",
-    "_extract_corridor_edges",
     "_extract_metros_from_graph",
     "_build_failure_policy_set_section",
     "_build_workflow_section",

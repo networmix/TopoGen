@@ -13,7 +13,7 @@ nodes. See ``topogen.integrated_graph`` for building the integrated graph.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 import numpy as np
@@ -622,3 +622,34 @@ def validate_corridor_graph(
     logger.info(
         f"Corridor graph validation successful: {len(corridor_graph.nodes):,} metros, {corridor_edges:,} corridors, avg distance {avg_distance:.1f}km"
     )
+
+
+def extract_corridor_edges_for_metros_graph(graph: nx.Graph) -> list[dict[str, Any]]:
+    """Extract simplified metro-to-metro corridor edges for downstream pipelines.
+
+    Returns list entries with:
+    - source: metro node key
+    - target: metro node key
+    - length_km: corridor path length in km
+    - edge_type: 'corridor'
+    - risk_groups: list[str]
+    - capacity: optional capacity if already present
+    """
+    edges: list[dict[str, Any]] = []
+    for u, v, data in graph.edges(data=True):
+        src = graph.nodes[u]
+        tgt = graph.nodes[v]
+        if src.get("node_type") in {"metro", "metro+highway"} and tgt.get(
+            "node_type"
+        ) in {"metro", "metro+highway"}:
+            entry: dict[str, Any] = {
+                "source": u,
+                "target": v,
+                "length_km": data.get("length_km", 0.0),
+                "edge_type": data.get("edge_type", "corridor"),
+                "risk_groups": data.get("risk_groups", []),
+            }
+            if "capacity" in data:
+                entry["capacity"] = data["capacity"]
+            edges.append(entry)
+    return edges

@@ -51,7 +51,7 @@ def _determine_metro_settings(
     for metro in metros:
         metro_name = metro["name"]
 
-        # Seed with defaults
+        # Seed with defaults (single 'match' applied symmetrically)
         metro_settings = {
             "pop_per_metro": defaults.pop_per_metro,
             "site_blueprint": defaults.site_blueprint,
@@ -61,16 +61,19 @@ def _determine_metro_settings(
                 "capacity": defaults.intra_metro_link.capacity,
                 "cost": defaults.intra_metro_link.cost,
                 "attrs": defaults.intra_metro_link.attrs.copy(),
+                "match": defaults.intra_metro_link.match.copy(),
             },
             "inter_metro_link": {
                 "capacity": defaults.inter_metro_link.capacity,
                 "cost": defaults.inter_metro_link.cost,
                 "attrs": defaults.inter_metro_link.attrs.copy(),
+                "match": defaults.inter_metro_link.match.copy(),
             },
             "dc_to_pop_link": {
                 "capacity": defaults.dc_to_pop_link.capacity,
                 "cost": defaults.dc_to_pop_link.cost,
                 "attrs": defaults.dc_to_pop_link.attrs.copy(),
+                "match": defaults.dc_to_pop_link.match.copy(),
             },
         }
 
@@ -101,6 +104,12 @@ def _determine_metro_settings(
                     metro_settings["intra_metro_link"]["attrs"].update(
                         override_intra["attrs"]
                     )
+                if "match" in override_intra and isinstance(
+                    override_intra["match"], dict
+                ):
+                    metro_settings["intra_metro_link"]["match"] = override_intra[
+                        "match"
+                    ]
                 for key, value in override_intra.items():
                     if key != "attrs":
                         metro_settings["intra_metro_link"][key] = value
@@ -110,6 +119,12 @@ def _determine_metro_settings(
                     metro_settings["inter_metro_link"]["attrs"].update(
                         override_inter["attrs"]
                     )
+                if "match" in override_inter and isinstance(
+                    override_inter["match"], dict
+                ):
+                    metro_settings["inter_metro_link"]["match"] = override_inter[
+                        "match"
+                    ]
                 for key, value in override_inter.items():
                     if key != "attrs":
                         metro_settings["inter_metro_link"][key] = value
@@ -119,6 +134,10 @@ def _determine_metro_settings(
                     metro_settings["dc_to_pop_link"]["attrs"].update(
                         override_dc_pop["attrs"]
                     )
+                if "match" in override_dc_pop and isinstance(
+                    override_dc_pop["match"], dict
+                ):
+                    metro_settings["dc_to_pop_link"]["match"] = override_dc_pop["match"]
                 for key, value in override_dc_pop.items():
                     if key != "attrs":
                         metro_settings["dc_to_pop_link"][key] = value

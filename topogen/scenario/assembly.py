@@ -10,8 +10,13 @@ from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.log_config import get_logger
 
 from .config import _determine_metro_settings
+from .graph_pipeline import (
+    assign_per_link_capacity,
+    build_site_graph,
+    to_network_sections,
+)
 from .libraries import _build_blueprints_section, _build_components_section
-from .network import _build_network_section, _extract_metros_from_graph
+from .network import _extract_metros_from_graph
 from .policies import _build_failure_policy_set_section, _build_workflow_section
 from .risk import _build_risk_groups_section, _build_traffic_matrix_section
 
@@ -64,18 +69,37 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
 
     scenario["blueprints"] = _build_blueprints_section(used_blueprints, config)
     scenario["components"] = _build_components_section(config, used_blueprints)
-    scenario["network"] = _build_network_section(
-        metros, metro_settings, max_sites, max_dc_regions, graph, config
-    )
 
+    # New graph-based pipeline
+    logger.info("Building site-level MultiGraph")
+    G = build_site_graph(metros, metro_settings, graph, config)
+    logger.info("Assigning capacities from defaults split by adjacency")
+    assign_per_link_capacity(G, config)
+    logger.info("Serializing network sections from MultiGraph")
+    groups, adjacency = to_network_sections(G, metros, metro_settings, config)
+    scenario["network"] = {"groups": groups, "adjacency": adjacency}
+
+    # Persist the site-level network graph as an artefact
     try:
-        ca_cfg = getattr(config.build, "capacity_allocation", None)
-    except Exception:
-        ca_cfg = None
-    if ca_cfg and getattr(ca_cfg, "enabled", False):
-        from .capacity import _apply_hw_capacity_allocation
+        from pathlib import Path
 
-        _apply_hw_capacity_allocation(scenario, metros, metro_settings, graph, config)
+        from .graph_pipeline import save_site_graph_json
+
+        output_dir = Path.cwd()
+        prefix_path = getattr(config, "_source_path", None)
+        stem = Path(prefix_path).stem if isinstance(prefix_path, Path) else "scenario"
+        network_graph_path = output_dir / f"{stem}_network_graph.json"
+        logger.info(f"Saving site-level network graph to {network_graph_path}")
+        json_indent = int(
+            getattr(
+                getattr(config, "output", object()), "formatting", object()
+            ).json_indent  # type: ignore[attr-defined]
+            if hasattr(getattr(config, "output", object()), "formatting")
+            else 2
+        )
+        save_site_graph_json(G, network_graph_path, json_indent=json_indent)
+    except Exception as e:  # pragma: no cover - best-effort artefact save
+        logger.warning(f"Failed to save site-level network graph: {e}")
 
     risk_groups = _build_risk_groups_section(graph, config)
     if risk_groups:

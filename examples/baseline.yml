@@ -21,16 +21,35 @@ build:
       cost: 1
       attrs:
         link_type: intra_metro
+      match:
+        conditions:
+          - attr: role
+            operator: "=="
+            value: core
     inter_metro_link:
       capacity: 3_200
       cost: 1
       attrs:
         link_type: inter_metro_corridor
+      match:
+        conditions:
+          - attr: role
+            operator: "=="
+            value: core
     dc_to_pop_link:
       capacity: 25_600
       cost: 1
       attrs:
         link_type: dc_to_pop
+      match:
+        conditions:
+          - attr: role
+            operator: "=="
+            value: core
+          - attr: role
+            operator: "=="
+            value: dc
+        logic: "or"
   build_overrides:
     - metros:
         [

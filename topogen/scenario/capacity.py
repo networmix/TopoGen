@@ -1,7 +1,10 @@
-"""Hardware-aware capacity allocation for inter-metro links.
+"""Capacity allocation for inter-metro links.
 
-Rewrites cartesian inter-metro adjacencies into per-pair entries when
-platform constraints are present.
+Emits explicit per-POP-pair inter-metro adjacencies and computes per-link
+capacities. When platform constraints are present via component capacities,
+configured capacities are treated as minimums and remaining capacity is
+distributed using a round-robin strategy. Without hardware constraints,
+capacities remain at the configured base values.
 """
 
 from __future__ import annotations
@@ -21,17 +24,18 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 logger = get_logger(__name__)
 
 
-def _apply_hw_capacity_allocation(
+def _apply_capacity_allocation(
     scenario: dict[str, Any],
     metros: list[dict[str, Any]],
     metro_settings: dict[str, dict[str, Any]],
     graph: nx.Graph,
     config: "TopologyConfig",
 ) -> None:
-    """Apply hardware-aware capacity allocation by updating inter-metro capacities.
+    """Allocate inter-metro capacities and emit per-POP-pair adjacencies.
 
-    Keeps configured capacities as minimums and distributes remaining platform
-    capacity to inter-metro POP-to-POP links using a round-robin strategy.
+    Keeps configured capacities as minimums and, when platform capacity is
+    finite for any endpoint, distributes remaining capacity to inter-metro
+    POP-to-POP links using a round-robin strategy.
     """
     components: dict[str, dict[str, Any]] = scenario.get("components", {})
     blueprints: dict[str, dict[str, Any]] = scenario.get("blueprints", {})
@@ -105,7 +109,7 @@ def _apply_hw_capacity_allocation(
             if key in dc_budget:
                 dc_budget[key] = dc_budget.get(key, float("inf")) - s * c_dp
 
-    from .network import _extract_corridor_edges
+    from .adjacency import _extract_corridor_edges
 
     corridor_edges = _extract_corridor_edges(graph)
     sites_per_metro: dict[int, int] = {

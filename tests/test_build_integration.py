@@ -140,13 +140,16 @@ class TestBuildIntegration:
         assert len(pop_groups) == 3  # One per metro
         assert len(dc_groups) == 3  # One per metro
 
-        # Check groups use bracket expansion
+        # Check groups use bracket expansion; Denver has 4 POPs, others use defaults
         for group_name, group_def in groups.items():
             assert "metro" in group_name
             if "/pop[" in group_name:
-                assert "pop[1-4]" in group_name  # Max sites is 4 (Denver)
+                if group_def["attrs"].get("metro_name") == "Denver":
+                    assert "pop[1-4]" in group_name  # Override for Denver
+                else:
+                    assert "pop[1-" in group_name  # Bracket expansion present
             elif "/dc[" in group_name:
-                assert "dc[1-2]" in group_name  # Default DC regions
+                assert "dc[1-" in group_name  # Bracket expansion present
             assert "use_blueprint" in group_def
             assert "attrs" in group_def
 
@@ -163,14 +166,38 @@ class TestBuildIntegration:
 
         # Should have both intra-metro and inter-metro adjacency
         intra_metro_rules = [adj for adj in adjacency if "intra_metro" in str(adj)]
-        inter_metro_rules = [adj for adj in adjacency if "inter_metro" in str(adj)]
+        # Inter-metro links are emitted as explicit per-pair entries with attrs.link_type
+        inter_metro_rules = [
+            adj
+            for adj in adjacency
+            if adj.get("link_params", {}).get("attrs", {}).get("link_type")
+            == "inter_metro_corridor"
+        ]
 
-        # Denver (4 sites) and Salt Lake City (2 sites) should have intra-metro mesh
-        # Phoenix (2 sites) should also have intra-metro mesh
-        assert len(intra_metro_rules) == 3  # All 3 metros have >1 site
+        # Denver (4 sites) contributes 6 edges; each of the 2-site metros contributes 1 → total 8
+        assert len(intra_metro_rules) == 8
 
-        # Should have inter-metro corridor connectivity
-        assert len(inter_metro_rules) == 3  # 3 corridor edges in sample graph
+        # Should have inter-metro corridor connectivity for the 3 metro pairs
+        pairs = {
+            tuple(
+                sorted(
+                    (
+                        r.get("link_params", {})
+                        .get("attrs", {})
+                        .get("source_metro", ""),
+                        r.get("link_params", {})
+                        .get("attrs", {})
+                        .get("target_metro", ""),
+                    )
+                )
+            )
+            for r in inter_metro_rules
+        }
+        assert pairs == {
+            ("Denver", "Salt Lake City"),
+            ("Denver", "Phoenix"),
+            ("Phoenix", "Salt Lake City"),
+        }
 
     def test_scenario_yaml_format(self, sample_integrated_graph, sample_config):
         """Test that generated YAML follows expected format."""
@@ -268,32 +295,51 @@ class TestBuildIntegration:
         adjacency = scenario_data["network"]["adjacency"]
 
         # Find inter-metro corridor rules
-        corridor_rules = []
-        for rule in adjacency:
-            link_params = rule.get("link_params", {})
-            attrs = link_params.get("attrs", {})
-            if attrs.get("link_type") == "inter_metro_corridor":
-                corridor_rules.append(rule)
+        corridor_rules = [
+            rule
+            for rule in adjacency
+            if rule.get("link_params", {}).get("attrs", {}).get("link_type")
+            == "inter_metro_corridor"
+        ]
 
-        # Should have 3 corridor connections (triangle of metros)
-        assert len(corridor_rules) == 3
+        # Should have 3 unique metro pairs (triangle of metros)
+        pair_set = {
+            tuple(
+                sorted(
+                    (
+                        rule["link_params"]["attrs"]["source_metro"],
+                        rule["link_params"]["attrs"]["target_metro"],
+                    )
+                )
+            )
+            for rule in corridor_rules
+        }
+        assert pair_set == {
+            ("Denver", "Salt Lake City"),
+            ("Denver", "Phoenix"),
+            ("Phoenix", "Salt Lake City"),
+        }
 
-        # Check that corridor distances are preserved
-        for rule in corridor_rules:
-            attrs = rule["link_params"]["attrs"]
-            distance = attrs["distance_km"]
-            source_metro = attrs["source_metro"]
-            target_metro = attrs["target_metro"]
-
-            # Validate distance matches expected corridor lengths
-            if {source_metro, target_metro} == {"Denver", "Salt Lake City"}:
-                assert distance == 530.0
-            elif {source_metro, target_metro} == {"Denver", "Phoenix"}:
-                assert distance == 890.0
-            elif {source_metro, target_metro} == {"Salt Lake City", "Phoenix"}:
-                assert distance == 650.0
-            else:
-                pytest.fail(f"Unexpected metro pair: {source_metro} - {target_metro}")
+        # Check that corridor distances are preserved for each metro pair
+        expected = {
+            ("Denver", "Salt Lake City"): 530.0,
+            ("Denver", "Phoenix"): 890.0,
+            ("Phoenix", "Salt Lake City"): 650.0,
+        }
+        for pair, expected_distance in expected.items():
+            assert any(
+                (
+                    set(
+                        (
+                            r["link_params"]["attrs"]["source_metro"],
+                            r["link_params"]["attrs"]["target_metro"],
+                        )
+                    )
+                    == set(pair)
+                    and r["link_params"]["attrs"]["distance_km"] == expected_distance
+                )
+                for r in corridor_rules
+            ), f"Missing expected distance for pair {pair}"
 
     def test_empty_graph_handling(self):
         """Test handling of empty or minimal graphs."""
@@ -365,7 +411,8 @@ class TestBuildIntegration:
         intra_rules = [adj for adj in adjacency if "intra_metro" in str(adj)]
         inter_rules = [adj for adj in adjacency if "inter_metro" in str(adj)]
 
-        assert len(intra_rules) == 1  # Denver has 4 sites from override
+        # 4 POPs → 6 explicit one_to_one entries in the graph-based pipeline
+        assert len(intra_rules) == 6
         assert len(inter_rules) == 0  # No other metros to connect to
 
     def test_top_level_seed_default_and_override(

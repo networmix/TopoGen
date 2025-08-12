@@ -119,11 +119,17 @@ class LinkParams:
 
     Defines link properties with both functional parameters (capacity, cost)
     and metadata attributes that appear in the generated scenario.
+
+    Notes:
+        - ``match`` holds a NetGraph-style matcher object applied symmetrically to
+          both endpoints when emitting DSL. The graph-based pipeline stores this on
+          edges but does not interpret it during explicit pair serialization.
     """
 
     capacity: int
     cost: int
     attrs: dict[str, Any] = field(default_factory=dict)
+    match: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -141,17 +147,26 @@ class BuildDefaults:
     dc_region_blueprint: str = "DCRegion"
     intra_metro_link: LinkParams = field(
         default_factory=lambda: LinkParams(
-            capacity=400, cost=1, attrs={"link_type": "intra_metro"}
+            capacity=400,
+            cost=1,
+            attrs={"link_type": "intra_metro"},
+            match={},
         )
     )
     inter_metro_link: LinkParams = field(
         default_factory=lambda: LinkParams(
-            capacity=100, cost=1, attrs={"link_type": "inter_metro_corridor"}
+            capacity=100,
+            cost=1,
+            attrs={"link_type": "inter_metro_corridor"},
+            match={},
         )
     )
     dc_to_pop_link: LinkParams = field(
         default_factory=lambda: LinkParams(
-            capacity=400, cost=1, attrs={"link_type": "dc_to_pop"}
+            capacity=400,
+            cost=1,
+            attrs={"link_type": "dc_to_pop"},
+            match={},
         )
     )
 
@@ -587,6 +602,7 @@ class TopologyConfig:
                 **{"link_type": "intra_metro"},
                 **intra_metro_link_dict.get("attrs", {}),
             },
+            match=intra_metro_link_dict.get("match", {}),
         )
         inter_metro_link = LinkParams(
             capacity=inter_metro_link_dict.get("capacity", 100),
@@ -595,6 +611,7 @@ class TopologyConfig:
                 **{"link_type": "inter_metro_corridor"},
                 **inter_metro_link_dict.get("attrs", {}),
             },
+            match=inter_metro_link_dict.get("match", {}),
         )
         dc_to_pop_link = LinkParams(
             capacity=dc_to_pop_link_dict.get("capacity", 400),
@@ -603,6 +620,7 @@ class TopologyConfig:
                 **{"link_type": "dc_to_pop"},
                 **dc_to_pop_link_dict.get("attrs", {}),
             },
+            match=dc_to_pop_link_dict.get("match", {}),
         )
 
         # Create BuildDefaults with explicit parameters

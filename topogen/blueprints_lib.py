@@ -20,7 +20,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             "core": {
                 "node_count": 1,
                 "name_template": "core",
-                "attrs": {"role": "core", "hw_type": "router_chassis"},
+                "attrs": {"role": "core"},
             }
         },
         "adjacency": [],
@@ -30,7 +30,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             "core": {
                 "node_count": 4,
                 "name_template": "core{node_num}",
-                "attrs": {"role": "core", "hw_type": "router_chassis"},
+                "attrs": {"role": "core"},
             }
         },
         "adjacency": [
@@ -54,13 +54,12 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "attrs": {
                     "role": "spine",
                     "tier": "spine",
-                    "hw_type": "spine_chassis",
                 },
             },
             "leaf": {
                 "node_count": 16,
                 "name_template": "leaf{node_num}",
-                "attrs": {"role": "leaf", "tier": "leaf", "hw_type": "router_chassis"},
+                "attrs": {"role": "leaf", "tier": "leaf"},
             },
         },
         "adjacency": [
@@ -81,7 +80,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             "dc": {
                 "node_count": 1,
                 "name_template": "dc",
-                "attrs": {"role": "dc", "hw_type": "dc_node"},
+                "attrs": {"role": "dc"},
             }
         },
         "adjacency": [],

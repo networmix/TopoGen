@@ -76,6 +76,5 @@ def _build_blueprints_section(
                 if assignment:
                     if assignment.hw_component:
                         group_def["attrs"]["hw_component"] = assignment.hw_component
-                    # Preserve original hw_type if present; do not overwrite with component name
         result[blueprint_name] = blueprint
     return result

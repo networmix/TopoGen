@@ -168,12 +168,8 @@ class TestComponentsScenarioBuilder:
         clos_blueprint = blueprints[clos_name]
         spine_group = clos_blueprint["groups"]["spine"]
 
-        # Should preserve original attributes (not asserting exact hw_type value)
+        # Should preserve original attributes
         assert spine_group["attrs"]["role"] == "spine"
-        assert spine_group["attrs"].get("hw_type") in {
-            "spine_chassis",
-            "router_chassis",
-        }
         assert spine_group["attrs"]["tier"] == "spine"
 
         # And add new component assignment

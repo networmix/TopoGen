@@ -66,6 +66,17 @@ build:
   capacity_allocation:
     enabled: false
 
+  tm_sizing:
+    enabled: true
+    matrix_name: baseline_traffic_matrix
+    quantum_gbps: 3200.0
+    headroom: 1.3
+    alpha_dc_to_pop: 1.2
+    beta_intra_pop: 0.8
+    flow_placement: EQUAL_BALANCED
+    edge_select: ALL_MIN_COST
+    respect_min_base_capacity: true
+
 components:
   assignments:
     core:

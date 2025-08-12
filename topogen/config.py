@@ -187,6 +187,9 @@ class BuildConfig:
     capacity_allocation: "BuildCapacityAllocationConfig" = field(  # type: ignore[name-defined]
         default_factory=lambda: BuildCapacityAllocationConfig()
     )
+    tm_sizing: "BuildTmSizingConfig" = field(  # type: ignore[name-defined]
+        default_factory=lambda: BuildTmSizingConfig()
+    )
 
 
 @dataclass
@@ -203,6 +206,40 @@ class BuildCapacityAllocationConfig:
     """
 
     enabled: bool = False
+
+
+@dataclass
+class BuildTmSizingConfig:
+    """Traffic-matrix-based capacity sizing configuration.
+
+    When enabled, capacities are sized from an early traffic matrix and ECMP
+    routing on the site-level graph before DSL expansion. This stage computes
+    per-corridor loads from DC-to-DC demands, applies headroom, and quantizes
+    to discrete capacity increments. Local DC-to-PoP and PoP-to-PoP base
+    capacities are then derived from metro egress.
+
+    Attributes:
+        enabled: Enable TM-based sizing stage.
+        matrix_name: Traffic matrix name to use. Defaults to ``traffic.matrix_name``.
+        quantum_gbps: Capacity quantum Q in Gb/s for rounding up.
+        headroom: Headroom multiplier h applied to corridor loads before quantizing.
+        alpha_dc_to_pop: Fraction for DC→PoP base capacity relative to PoP egress.
+        beta_intra_pop: Fraction for intra-metro PoP↔PoP base capacity relative to
+            the minimum of the two PoP egress values.
+        flow_placement: Flow splitting policy. One of {"EQUAL_BALANCED", "PROPORTIONAL"}.
+        edge_select: Path selection policy. One of {"ALL_MIN_COST", "ALL_MIN_COST_WITH_CAP_REMAINING"}.
+        respect_min_base_capacity: If True, do not size below configured base capacities.
+    """
+
+    enabled: bool = False
+    matrix_name: str | None = None
+    quantum_gbps: float = 3200.0
+    headroom: float = 1.3
+    alpha_dc_to_pop: float = 1.2
+    beta_intra_pop: float = 0.8
+    flow_placement: str = "EQUAL_BALANCED"
+    edge_select: str = "ALL_MIN_COST"
+    respect_min_base_capacity: bool = True
 
 
 @dataclass
@@ -580,6 +617,7 @@ class TopologyConfig:
         build_defaults_dict = build_dict.get("build_defaults", {})
         build_overrides_list = build_dict.get("build_overrides", [])
         capacity_alloc_dict = build_dict.get("capacity_allocation", {})
+        tm_sizing_dict = build_dict.get("tm_sizing", {})
 
         if not isinstance(build_defaults_dict, dict):
             raise ValueError("'build_defaults' must be a dictionary")
@@ -589,6 +627,10 @@ class TopologyConfig:
             capacity_alloc_dict = {}
         if not isinstance(capacity_alloc_dict, dict):
             raise ValueError("'capacity_allocation' must be a dictionary if provided")
+        if tm_sizing_dict is None:
+            tm_sizing_dict = {}
+        if not isinstance(tm_sizing_dict, dict):
+            raise ValueError("'tm_sizing' must be a dictionary if provided")
 
         # Parse link parameter configurations
         intra_metro_link_dict = build_defaults_dict.get("intra_metro_link", {})
@@ -655,6 +697,41 @@ class TopologyConfig:
             enabled=bool(capacity_alloc_dict.get("enabled", False))
         )
 
+        # TM-based sizing configuration
+        _allowed_tm_keys = {
+            "enabled",
+            "matrix_name",
+            "quantum_gbps",
+            "headroom",
+            "alpha_dc_to_pop",
+            "beta_intra_pop",
+            "flow_placement",
+            "edge_select",
+            "respect_min_base_capacity",
+        }
+        _tm_extra = set(tm_sizing_dict.keys()) - _allowed_tm_keys
+        if _tm_extra:
+            raise ValueError(
+                f"Unknown keys in 'build.tm_sizing': {sorted(_tm_extra)}. Allowed keys: {sorted(_allowed_tm_keys)}"
+            )
+        tm_sizing = BuildTmSizingConfig(
+            enabled=bool(tm_sizing_dict.get("enabled", False)),
+            matrix_name=(
+                str(tm_sizing_dict.get("matrix_name"))
+                if tm_sizing_dict.get("matrix_name") is not None
+                else None
+            ),
+            quantum_gbps=float(tm_sizing_dict.get("quantum_gbps", 3200.0)),
+            headroom=float(tm_sizing_dict.get("headroom", 1.3)),
+            alpha_dc_to_pop=float(tm_sizing_dict.get("alpha_dc_to_pop", 1.2)),
+            beta_intra_pop=float(tm_sizing_dict.get("beta_intra_pop", 0.8)),
+            flow_placement=str(tm_sizing_dict.get("flow_placement", "EQUAL_BALANCED")),
+            edge_select=str(tm_sizing_dict.get("edge_select", "ALL_MIN_COST")),
+            respect_min_base_capacity=bool(
+                tm_sizing_dict.get("respect_min_base_capacity", True)
+            ),
+        )
+
         # Normalize list of overrides into slug->override mapping.
         # Schema per entry: { metros: [str, ...], <override_fields> }
         allowed_override_keys = {
@@ -703,6 +780,7 @@ class TopologyConfig:
             build_defaults=build_defaults,
             build_overrides=normalized_overrides,
             capacity_allocation=capacity_allocation,
+            tm_sizing=tm_sizing,
         )
 
         # Handle optional components configuration (assignments only)

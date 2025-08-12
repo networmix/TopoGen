@@ -13,6 +13,7 @@ from .config import _determine_metro_settings
 from .graph_pipeline import (
     assign_per_link_capacity,
     build_site_graph,
+    tm_based_size_capacities,
     to_network_sections,
 )
 from .libraries import _build_blueprints_section, _build_components_section
@@ -59,7 +60,23 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     # New graph-based pipeline builds the authoritative site graph first
     logger.info("Building site-level MultiGraph")
     G = build_site_graph(metros, metro_settings, graph, config)
-    logger.info("Assigning capacities from defaults split by adjacency")
+    # Optional TM-based sizing before per-link capacity split
+    try:
+        tm_based_size_capacities(G, metros, metro_settings, config)
+    except Exception:
+        # Fail fast with clear error; no silent fallback
+        raise
+    # Log clearly which capacity path is in effect
+    try:
+        tm_enabled = bool(
+            getattr(getattr(config.build, "tm_sizing", object()), "enabled", False)
+        )
+    except Exception:
+        tm_enabled = False
+    if tm_enabled:
+        logger.info("Assigning per-link capacities after TM-based sizing")
+    else:
+        logger.info("Assigning per-link capacities from configured base capacities")
     assign_per_link_capacity(G, config)
 
     # Determine used blueprints directly from the site graph (source of truth)

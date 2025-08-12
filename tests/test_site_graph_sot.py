@@ -35,10 +35,12 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     cfg.build.build_defaults.dc_region_blueprint = "DCRegion"
 
     # Provide explicit role->component assignments to be serialized per site
-    cfg.components.assignments.core.hw_component = "CoreRouter"
-    cfg.components.assignments.leaf.hw_component = "LeafRouter"
-    cfg.components.assignments.spine.hw_component = "SpineRouter"
-    cfg.components.assignments.dc.hw_component = "CoreRouter"
+    cfg.components.hw_component = {
+        "core": "CoreRouter",
+        "leaf": "LeafRouter",
+        "spine": "SpineRouter",
+        "dc": "CoreRouter",
+    }
 
     yaml_str = build_scenario(graph, cfg)
     data = yaml.safe_load(yaml_str)

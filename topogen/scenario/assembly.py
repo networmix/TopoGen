@@ -30,6 +30,29 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 logger = get_logger(__name__)
 
 
+def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
+    emit_anchors = bool(yaml_anchors)
+    if emit_anchors:
+        yaml_output = yaml.safe_dump(
+            scenario, sort_keys=False, default_flow_style=False
+        )
+    else:
+
+        class NoAliasDumper(yaml.SafeDumper):
+            def ignore_aliases(self, data):  # type: ignore[override]
+                return True
+
+        yaml_output = yaml.dump(
+            scenario,
+            Dumper=NoAliasDumper,
+            sort_keys=False,
+            default_flow_style=False,
+        )
+    yaml_output = _add_adjacency_comments(yaml_output)
+    logger.info("Generated NetGraph scenario YAML")
+    return yaml_output
+
+
 def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     """Build a NetGraph scenario YAML from an integrated metro-highway graph.
 
@@ -79,6 +102,26 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         logger.info("Assigning per-link capacities from configured base capacities")
     assign_per_link_capacity(G, config)
 
+    # Persist the site-level network graph JSON artefact in CWD
+    try:
+        from pathlib import Path
+
+        from .graph_pipeline import save_site_graph_json
+
+        output_dir = Path.cwd()
+        src_path = getattr(config, "_source_path", None)
+        stem = Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
+        network_graph_path = output_dir / f"{stem}_network_graph.json"
+        logger.info(
+            "Saving site-level network graph to JSON: %s",
+            str(network_graph_path),
+        )
+        fmt = getattr(getattr(config, "output", None), "formatting", None)
+        json_indent = int(getattr(fmt, "json_indent", 2)) if fmt is not None else 2
+        save_site_graph_json(G, network_graph_path, json_indent=json_indent)
+    except Exception as e:  # pragma: no cover - best-effort artefact save
+        logger.warning("Failed to save site-level network graph: %s", e)
+
     # Determine used blueprints directly from the site graph (source of truth)
     used_blueprints = {
         str(data.get("site_blueprint", "")) for _n, data in G.nodes(data=True)
@@ -98,62 +141,178 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     groups, adjacency = to_network_sections(G, metros, metro_settings, config)
     scenario["network"] = {"groups": groups, "adjacency": adjacency}
 
-    # Persist the site-level network graph as an artefact
-    try:
-        from pathlib import Path
-
-        from .graph_pipeline import save_site_graph_json
-
-        output_dir = Path.cwd()
-        prefix_path = getattr(config, "_source_path", None)
-        stem = Path(prefix_path).stem if isinstance(prefix_path, Path) else "scenario"
-        network_graph_path = output_dir / f"{stem}_network_graph.json"
-        logger.info(f"Saving site-level network graph to {network_graph_path}")
-        json_indent = int(
-            getattr(
-                getattr(config, "output", object()), "formatting", object()
-            ).json_indent  # type: ignore[attr-defined]
-            if hasattr(getattr(config, "output", object()), "formatting")
-            else 2
-        )
-        save_site_graph_json(G, network_graph_path, json_indent=json_indent)
-    except Exception as e:  # pragma: no cover - best-effort artefact save
-        logger.warning(f"Failed to save site-level network graph: {e}")
-
+    # Build risk groups and other sections prior to late HW so early exits still include them
     risk_groups = _build_risk_groups_section(graph, config)
     if risk_groups:
         scenario["risk_groups"] = risk_groups
-
     scenario["failure_policy_set"] = _build_failure_policy_set_section(config)
     traffic_section = _build_traffic_matrix_section(metros, metro_settings, config)
     if traffic_section:
         scenario["traffic_matrix_set"] = traffic_section
     scenario["workflow"] = _build_workflow_section(config)
+    # nothing to embed; keep scenario dict YAML-serializable only
+
+    # --- Late HW resolution using expanded DSL ---
+    from collections.abc import Mapping as _Mapping
+
+    comp_obj = getattr(config, "components", None)
+    raw_optics = getattr(comp_obj, "optics", {}) if comp_obj is not None else {}
+    optics_enabled = isinstance(raw_optics, _Mapping) and len(raw_optics) > 0
 
     try:
-        emit_anchors = bool(config.output.formatting.yaml_anchors)
-    except Exception:
-        emit_anchors = True
-    if emit_anchors:
-        yaml_output = yaml.safe_dump(
-            scenario, sort_keys=False, default_flow_style=False
+        from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
+
+        from topogen.components_lib import (
+            get_builtin_components as _get_components_lib,
         )
-    else:
-
-        class NoAliasDumper(yaml.SafeDumper):
-            def ignore_aliases(self, data):  # type: ignore[override]
-                return True
-
-        yaml_output = yaml.dump(
-            scenario,
-            Dumper=NoAliasDumper,
-            sort_keys=False,
-            default_flow_style=False,
+    except Exception as exc:
+        # If optics are configured, expansion is required
+        if optics_enabled:
+            raise RuntimeError(
+                "Late hardware resolution requires DSL expansion when optics mapping is configured"
+            ) from exc
+        _fmt = getattr(getattr(config, "output", None), "formatting", None)
+        _anchors = (
+            bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
         )
+        return _emit_yaml(scenario, yaml_anchors=_anchors)
 
-    yaml_output = _add_adjacency_comments(yaml_output)
-    logger.info("Generated NetGraph scenario YAML")
-    return yaml_output
+    def _count_for_optic(name: str, capacity: float) -> float:
+        comps = _get_components_lib() or {}
+        spec = comps.get(name)
+        if spec is None:
+            raise ValueError(f"Unknown component '{name}' in optics mapping")
+        ports = int(spec.get("ports", 0))
+        total = float(spec.get("capacity", 0.0))
+        if ports <= 0 or total <= 0.0:
+            raise ValueError(f"Optic '{name}' must have positive capacity and ports")
+        per_lane = total / float(ports)
+        import math as _m
+
+        lanes = float(_m.ceil(capacity / per_lane))
+        return lanes / float(ports)
+
+    # Build probe network from current scenario to inspect concrete roles per adjacency
+    try:
+        probe = {
+            "blueprints": scenario["blueprints"],
+            "network": scenario["network"],
+        }
+        net = _ng_expand(probe)
+    except Exception as exc:
+        if optics_enabled:
+            raise RuntimeError(
+                "Late hardware resolution failed to expand network DSL with optics configured"
+            ) from exc
+        _fmt = getattr(getattr(config, "output", None), "formatting", None)
+        _anchors = (
+            bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
+        )
+        return _emit_yaml(scenario, yaml_anchors=_anchors)
+
+    # Build endpoint role lookup
+    node_role: dict[str, str] = {}
+    for node in net.nodes.values():
+        r = str(node.attrs.get("role", "")).strip()
+        if r:
+            node_role[str(node.name)] = r
+
+    # Collect roles/capacities per adjacency id
+    from collections import defaultdict
+
+    per_adj: dict[str, list[tuple[str, str, float]]] = defaultdict(list)
+    for link in net.links.values():
+        src = str(link.source)
+        dst = str(link.target)
+        rs = node_role.get(src, "")
+        rd = node_role.get(dst, "")
+        if not (rs and rd):
+            continue
+        aid = str(link.attrs.get("adjacency_id", ""))
+        if not aid:
+            # Fallback to link_type when adjacency id is absent
+            aid = str(link.attrs.get("link_type", ""))
+        per_adj[aid].append((rs, rd, float(link.capacity)))
+
+    # Build optics lookup (unordered A|B and directional A-B)
+    optics_lookup: dict[tuple[str, str], str] = {}
+    if isinstance(raw_optics, _Mapping) and len(raw_optics) > 0:
+        for k, v in raw_optics.items():
+            key = str(k)
+            if "|" in key:
+                a, b = [p.strip() for p in key.split("|", 1)]
+                if a and b:
+                    optics_lookup[(a, b)] = str(v)
+                    optics_lookup[(b, a)] = str(v)
+            elif "-" in key:
+                a, b = [p.strip() for p in key.split("-", 1)]
+                optics_lookup[(a, b)] = str(v)
+        try:
+            logger.debug("Optics lookup built: %d entries", len(optics_lookup))
+        except Exception:
+            pass
+    # Augment class-level link_params when a single role pair is present post-expansion
+    if optics_lookup:
+        for adj in scenario["network"].get("adjacency", []):
+            lp = adj.get("link_params", {})
+            attrs = lp.get("attrs", {})
+            aid = str(attrs.get("adjacency_id") or attrs.get("link_type") or "")
+            if not aid or aid not in per_adj:
+                continue
+            entries = per_adj[aid]
+            roles = {r for s, t, _ in entries for r in (s, t)}
+            if len(roles) > 2:
+                raise ValueError(
+                    f"Adjacency '{aid}' expands to more than two roles: {sorted(roles)}"
+                )
+            pairs = {(s, t) for s, t, _ in entries}
+            if len(pairs) != 1:
+                # Mixed role-pairs in one class: leave HW unset
+                try:
+                    logger.info(
+                        "HW: skip adj='%s' due to multiple role pairs: %s",
+                        aid,
+                        sorted(list(pairs)),
+                    )
+                except Exception:
+                    pass
+                continue
+            (sr, tr) = next(iter(pairs))
+            optic = optics_lookup.get((sr, tr))
+            if not optic:
+                try:
+                    logger.info(
+                        "HW: no optic configured for adj='%s' pair=(%s,%s); skipping",
+                        aid,
+                        sr,
+                        tr,
+                    )
+                except Exception:
+                    pass
+                continue
+            cap = float(entries[0][2])
+            count = _count_for_optic(optic, cap)
+            attrs.setdefault("hardware", {})
+            attrs["hardware"]["source"] = {"component": optic, "count": float(count)}
+            attrs["hardware"]["target"] = {"component": optic, "count": float(count)}
+            lp["attrs"] = attrs
+            adj["link_params"] = lp
+            try:
+                logger.info(
+                    "HW: adj='%s' pair=(%s,%s) optic=%s capacity=%s count=%.3f",
+                    aid,
+                    sr,
+                    tr,
+                    optic,
+                    f"{cap:.0f}",
+                    float(count),
+                )
+            except Exception:
+                pass
+
+    _fmt = getattr(getattr(config, "output", None), "formatting", None)
+    _anchors = bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
+    return _emit_yaml(scenario, yaml_anchors=_anchors)
 
 
 def _add_adjacency_comments(yaml_content: str) -> str:

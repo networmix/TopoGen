@@ -26,6 +26,7 @@ from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
 from ngraph.graph.strict_multidigraph import StrictMultiDiGraph as _NgSMDG
 
 from topogen.blueprints_lib import get_builtin_blueprints as _get_builtins
+from topogen.components_lib import get_builtin_components as _get_components_lib
 from topogen.corridors import (
     extract_corridor_edges_for_metros_graph as _extract_corridor_edges,
 )
@@ -53,23 +54,15 @@ def _component_assignments_for_site(
     """
     roles_for_kind = ["core", "leaf", "spine"] if site_kind == "pop" else ["dc"]
     result: dict[str, dict[str, Any]] = {}
-    components_cfg = getattr(config, "components", None)
-    assignments = getattr(components_cfg, "assignments", None)
+    comp_cfg = getattr(config, "components", object())
+    role_to_platform = getattr(comp_cfg, "hw_component", {}) or {}
+    if not isinstance(role_to_platform, dict):
+        role_to_platform = {}
 
     for role in roles_for_kind:
-        entry = getattr(assignments, role, None) if assignments is not None else None
-        if entry is None:
-            continue
-        role_map: dict[str, Any] = {}
-        # Only include keys that are set to non-empty values to keep JSON concise
-        hw = getattr(entry, "hw_component", "")
+        hw = str(role_to_platform.get(role, "")).strip()
         if hw:
-            role_map["hw_component"] = hw
-        optics = getattr(entry, "optics", "")
-        if optics:
-            role_map["optics"] = optics
-        if role_map:
-            result[role] = role_map
+            result[role] = {"hw_component": hw}
     return result
 
 
@@ -138,6 +131,47 @@ def _add_intra_metro_edges(
             u = _site_node_id(idx, "pop", i)
             v = _site_node_id(idx, "pop", j)
             cost = arc_ceil(s, i, j)
+            # Build symmetric match if role_pairs provided
+            rp = (
+                link_cfg.get("role_pairs", [])
+                if isinstance(link_cfg, dict)
+                else getattr(link_cfg, "role_pairs", [])
+            )
+            if rp:
+                roles: set[str] = set()
+                for item in rp:
+                    if isinstance(item, str):
+                        parts = [p.strip() for p in item.split("|") if p.strip()]
+                    elif isinstance(item, (list, tuple)) and len(item) == 2:
+                        parts = [str(item[0]).strip(), str(item[1]).strip()]
+                    else:
+                        parts = []
+                    for r in parts:
+                        if r:
+                            roles.add(r)
+                try:
+                    logger.debug(
+                        "intra_metro: metro=%s role_pairs=%s -> match.roles=%s",
+                        metro_name,
+                        rp,
+                        sorted(list(roles)),
+                    )
+                except Exception:
+                    pass
+                match_obj = {
+                    "conditions": [
+                        {"attr": "role", "operator": "==", "value": r}
+                        for r in sorted(roles)
+                    ]
+                }
+
+            else:
+                match_obj = (
+                    link_cfg.get("match", {})
+                    if isinstance(link_cfg, dict)
+                    else getattr(link_cfg, "match", {})
+                ) or {}
+
             G.add_edge(
                 u,
                 v,
@@ -149,12 +183,8 @@ def _add_intra_metro_edges(
                 distance_km=cost,
                 source_metro=metro_name,
                 target_metro=metro_name,
-                match=(
-                    link_cfg.get("match", {})
-                    if isinstance(link_cfg, dict)
-                    else getattr(link_cfg, "match", {})
-                )
-                or {},
+                match=match_obj,
+                role_pairs=rp,
             )
 
 
@@ -204,6 +234,48 @@ def _add_dc_to_pop_edges(
             arc = steps * ((2.0 * math.pi * _radius_km) / float(n))
             return int(math.ceil(arc))
 
+        # Build symmetric match if role_pairs provided
+        rp = (
+            link_cfg.get("role_pairs", [])
+            if isinstance(link_cfg, dict)
+            else getattr(link_cfg, "role_pairs", [])
+        )
+        if rp:
+            roles: set[str] = set()
+            for item in rp:
+                if isinstance(item, str):
+                    parts = [p.strip() for p in item.split("|") if p.strip()]
+                elif isinstance(item, (list, tuple)) and len(item) == 2:
+                    parts = [str(item[0]).strip(), str(item[1]).strip()]
+                else:
+                    parts = []
+                for r in parts:
+                    if r:
+                        roles.add(r)
+            try:
+                logger.debug(
+                    "dc_to_pop: metro=%s role_pairs=%s -> match.roles=%s",
+                    metro_name,
+                    rp,
+                    sorted(list(roles)),
+                )
+            except Exception:
+                pass
+            match_obj = {
+                "conditions": [
+                    {"attr": "role", "operator": "==", "value": r}
+                    for r in sorted(roles)
+                ],
+                "logic": "or",
+            }
+
+        else:
+            match_obj = (
+                link_cfg.get("match", {})
+                if isinstance(link_cfg, dict)
+                else getattr(link_cfg, "match", {})
+            ) or {}
+
         for dc in range(1, d + 1):
             for p in range(1, s + 1):
                 u = _site_node_id(idx, "dc", dc)
@@ -222,6 +294,7 @@ def _add_dc_to_pop_edges(
                 )
                 # Enforce strictly positive cost to avoid zero-length links
                 cost_arc = max(1, int(raw_arc))
+
                 G.add_edge(
                     u,
                     v,
@@ -233,12 +306,8 @@ def _add_dc_to_pop_edges(
                     distance_km=cost_arc,
                     source_metro=metro_name,
                     target_metro=metro_name,
-                    match=(
-                        link_cfg.get("match", {})
-                        if isinstance(link_cfg, dict)
-                        else getattr(link_cfg, "match", {})
-                    )
-                    or {},
+                    match=match_obj,
+                    role_pairs=rp,
                 )
 
 
@@ -310,13 +379,55 @@ def _add_inter_metro_edges(
                     risk_groups=risk_groups,
                     euclidean_km=euclid_km,
                     detour_ratio=detour_ratio,
-                    # Symmetric match applied to both endpoints
+                    # Symmetric match applied to both endpoints; build from role_pairs if present
                     match=(
-                        src_cfg.get("match", {})
+                        {
+                            "conditions": [
+                                {
+                                    "attr": "role",
+                                    "operator": "==",
+                                    "value": r,
+                                }
+                                for r in sorted(
+                                    {
+                                        part.strip()
+                                        for item in (
+                                            src_cfg.get("role_pairs", [])
+                                            if isinstance(src_cfg, dict)
+                                            else getattr(src_cfg, "role_pairs", [])
+                                        )
+                                        for part in (
+                                            item.split("|")
+                                            if isinstance(item, str)
+                                            else [
+                                                str(item[0]) if len(item) > 0 else "",
+                                                str(item[1]) if len(item) > 1 else "",
+                                            ]
+                                            if isinstance(item, (list, tuple))
+                                            else []
+                                        )
+                                        if part.strip()
+                                    }
+                                )
+                            ],
+                            "logic": "or",
+                        }
+                        if (
+                            src_cfg.get("role_pairs", [])
+                            if isinstance(src_cfg, dict)
+                            else getattr(src_cfg, "role_pairs", [])
+                        )
+                        else (
+                            src_cfg.get("match", {})
+                            if isinstance(src_cfg, dict)
+                            else getattr(src_cfg, "match", {})
+                        )
+                    ),
+                    role_pairs=(
+                        src_cfg.get("role_pairs", [])
                         if isinstance(src_cfg, dict)
-                        else getattr(src_cfg, "match", {})
-                    )
-                    or {},
+                        else getattr(src_cfg, "role_pairs", [])
+                    ),
                 )
 
 
@@ -496,6 +607,238 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
 
         per_link = base_capacity / float(num_links)
         G.edges[u, v, k]["capacity"] = per_link
+
+
+def resolve_and_assign_link_hardware(G: nx.MultiGraph, config: TopologyConfig) -> None:
+    """Assign per-end optics for each edge using explicit roles or overrides.
+
+    Rules:
+      - No inference. Use explicit unordered role-pairs configured on the link class.
+      - Per-end explicit overrides may be provided via existing edge-level
+        mapping ``hardware: {source:{component,count?}, target:{...}}``.
+        When present but count is missing, compute count.
+      - Otherwise, derive optic component for each end from
+        ``config.components.assignments.<role>.optics``.
+      - Compute lanes and counts deterministically. Rounding on lanes is up.
+      - Store resolved mapping under edge attribute ``hardware`` so it is
+        serialized into link_params.attrs.hardware later.
+    """
+    logger.info("Resolving link hardware for %d edges", G.number_of_edges())
+
+    components = _get_components_lib()
+
+    def _get_comp(name: str) -> dict[str, Any]:
+        if not name:
+            raise ValueError("Optic component name must be non-empty")
+        if name not in components:
+            raise ValueError(f"Unknown component '{name}' in optics assignment")
+        return components[name]
+
+    # Build optics lookup: role-pair mapping only (streamlined). Accepts
+    # direction-specific keys "A-B" and unordered keys "A|B" that apply to both.
+    rolepair_to_optic: dict[tuple[str, str], str] = {}
+    try:
+        comp_cfg = getattr(config, "components", object())
+        # Mapping: optics: "src-dst" -> component
+        optics_map = getattr(comp_cfg, "optics", {}) or {}
+        for k, v in optics_map.items():
+            key = str(k)
+            if "|" in key:  # unordered
+                a, b = key.split("|", 1)
+                a, b = a.strip(), b.strip()
+                if a and b:
+                    rolepair_to_optic[(a, b)] = str(v)
+                    rolepair_to_optic[(b, a)] = str(v)
+            elif "-" in key:  # directional
+                src_r, dst_r = key.split("-", 1)
+                rolepair_to_optic[(src_r.strip(), dst_r.strip())] = str(v)
+    except Exception:
+        pass
+
+    import math as _m
+
+    edges_total = G.number_of_edges()
+    edges_with_roles = 0
+    edges_with_hw = 0
+    edges_with_overrides = 0
+
+    for u, v, k, data in G.edges(keys=True, data=True):
+        # Capacity must exist and be positive
+        cap_val = data.get("capacity", data.get("base_capacity"))
+        if cap_val is None:
+            raise ValueError(f"Edge {u}-{v} missing capacity for hardware assignment")
+        try:
+            link_capacity = float(cap_val)
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(
+                f"Edge {u}-{v} has non-numeric capacity: {cap_val!r}"
+            ) from exc
+        if link_capacity <= 0.0:
+            raise ValueError(
+                f"Edge {u}-{v} has non-positive capacity {link_capacity}; expected > 0"
+            )
+
+        # Determine endpoint roles: if exactly one unordered role-pair is
+        # configured on the edge, use it. Otherwise skip HW assignment.
+        role_src = ""
+        role_dst = ""
+        if isinstance(data.get("role_pairs"), list):
+            rp_list = list(data.get("role_pairs") or [])
+            if len(rp_list) == 1:
+                item = rp_list[0]
+                a: str | None = None
+                b: str | None = None
+                if isinstance(item, str):
+                    if "|" in item:
+                        parts = [p.strip() for p in item.split("|", 1)]
+                        if len(parts) == 2:
+                            a, b = parts[0], parts[1]
+                    elif "-" in item:
+                        parts = [p.strip() for p in item.split("-", 1)]
+                        if len(parts) == 2:
+                            a, b = parts[0], parts[1]
+                elif isinstance(item, (list, tuple)) and len(item) == 2:
+                    a, b = str(item[0]).strip(), str(item[1]).strip()
+                if a and b:
+                    role_src, role_dst = a, b
+
+        # Prepare existing per-edge override mapping if present
+        existing_hw = data.get("hardware")
+        src_map = None
+        dst_map = None
+        if isinstance(existing_hw, dict):
+            src_map = existing_hw.get("source")
+            dst_map = existing_hw.get("target")
+
+        def _resolve_end(
+            explicit_map: Any,
+            end_role: str,
+            other_role: str,
+            _cap: float = link_capacity,
+        ) -> dict[str, Any] | None:
+            # 1) If explicit per-edge component is present, use it (compute count if missing)
+            if isinstance(explicit_map, dict) and explicit_map.get("component"):
+                comp_name = str(explicit_map.get("component"))
+                comp_def = _get_comp(comp_name)
+                ports = int(comp_def.get("ports", 0))
+                total_capacity = float(comp_def.get("capacity", 0.0))
+                if ports <= 0 or total_capacity <= 0.0:
+                    raise ValueError(
+                        f"Optic '{comp_name}' must declare positive capacity and ports"
+                    )
+                per_lane = total_capacity / float(ports)
+                cnt_val = explicit_map.get("count")
+                lanes: float
+                if cnt_val is None:
+                    lanes = float(_m.ceil(_cap / per_lane))
+                    count = lanes / float(ports)
+                else:
+                    lanes = float("nan")
+                    count = float(cnt_val)
+                    if count <= 0:
+                        raise ValueError(
+                            f"Explicit count for optic '{comp_name}' must be positive"
+                        )
+                    # Ensure declared capacity is sufficient
+                    if (count * total_capacity) + 1e-9 < _cap:
+                        raise ValueError(
+                            f"Edge requires {_cap} Gb/s but '{comp_name}' count={count} provides only {count * total_capacity} Gb/s"
+                        )
+                logger.debug(
+                    (
+                        "HW override end role=%s other=%s optic=%s per_lane=%s lanes=%s count=%s"
+                    ),
+                    end_role,
+                    other_role,
+                    comp_name,
+                    f"{per_lane:,.1f}",
+                    f"{lanes:,.3f}",
+                    f"{count:,.3f}",
+                )
+                return {"component": comp_name, "count": float(count)}
+
+            # 2) Per-role-pair optic applied when (end_role, other_role) exists.
+            if end_role and other_role and (end_role, other_role) in rolepair_to_optic:
+                comp_name = rolepair_to_optic[(end_role, other_role)]
+                comp_def = _get_comp(comp_name)
+                ports = int(comp_def.get("ports", 0))
+                total_capacity = float(comp_def.get("capacity", 0.0))
+                if ports <= 0 or total_capacity <= 0.0:
+                    raise ValueError(
+                        f"Optic '{comp_name}' must declare positive capacity and ports"
+                    )
+                per_lane = total_capacity / float(ports)
+                lanes = float(_m.ceil(_cap / per_lane))
+                count = lanes / float(ports)
+                logger.debug(
+                    (
+                        "HW role-pair end role=%s other=%s optic=%s per_lane=%s lanes=%s count=%s"
+                    ),
+                    end_role,
+                    other_role,
+                    comp_name,
+                    f"{per_lane:,.1f}",
+                    f"{lanes:,.3f}",
+                    f"{count:,.3f}",
+                )
+                return {"component": comp_name, "count": float(count)}
+
+            # 3) No assignment for this end
+            return None
+
+            # No assignment for this end
+            return None
+
+        if role_src and role_dst:
+            edges_with_roles += 1
+        else:
+            logger.debug(
+                "Edge %s->%s missing endpoint roles; skipping hardware assignment",
+                u,
+                v,
+            )
+
+        src_hw = _resolve_end(src_map, role_src, role_dst)
+        # For equal roles (core-core etc.), pair appears identical both sides, so dst end will get the same optic.
+        dst_hw = _resolve_end(dst_map, role_dst, role_src)
+
+        # If neither end is assigned, skip attaching hardware
+        if src_hw is None and dst_hw is None:
+            continue
+
+        hw_struct: dict[str, Any] = {}
+        if src_hw is not None:
+            hw_struct["source"] = src_hw
+        if dst_hw is not None:
+            hw_struct["target"] = dst_hw
+
+        G.edges[u, v, k]["hardware"] = hw_struct
+
+        edges_with_hw += 1
+        if isinstance(src_map, dict) or isinstance(dst_map, dict):
+            edges_with_overrides += 1
+        try:
+            logger.debug(
+                ("HW assigned %s->%s roles=(%s,%s) src=%s x %s; dst=%s x %s"),
+                u,
+                v,
+                role_src or "",
+                role_dst or "",
+                (src_hw or {}).get("component") if src_hw else None,
+                f"{(src_hw or {}).get('count', 0.0):.3f}" if src_hw else None,
+                (dst_hw or {}).get("component") if dst_hw else None,
+                f"{(dst_hw or {}).get('count', 0.0):.3f}" if dst_hw else None,
+            )
+        except Exception:
+            pass
+
+    logger.info(
+        "Hardware resolved for %d of %d edges (with_roles=%d, overrides=%d)",
+        edges_with_hw,
+        edges_total,
+        edges_with_roles,
+        edges_with_overrides,
+    )
 
 
 def _parse_tm_endpoint_to_metro_idx(endpoint: str) -> int | None:
@@ -836,7 +1179,8 @@ def to_network_sections(
         idx = metro_idx_map[name]
         s = int(metro_settings[name]["pop_per_metro"])  # type: ignore[index]
         d = int(metro_settings[name]["dc_regions_per_metro"])  # type: ignore[index]
-        groups[f"metro{idx}/pop[1-{s}]"] = {
+        pop_group_path = f"metro{idx}/pop[1-{s}]"
+        groups[pop_group_path] = {
             "use_blueprint": metro_settings[name]["site_blueprint"],
             "attrs": {
                 "metro_name": name,
@@ -848,8 +1192,19 @@ def to_network_sections(
                 "node_type": "pop",
             },
         }
+        try:
+            logger.debug(
+                "group: path=%s use_blueprint=%s node_type=pop metro=%s count=%d",
+                pop_group_path,
+                metro_settings[name]["site_blueprint"],
+                name,
+                s,
+            )
+        except Exception:
+            pass
         if d > 0:
-            groups[f"metro{idx}/dc[1-{d}]"] = {
+            dc_group_path = f"metro{idx}/dc[1-{d}]"
+            groups[dc_group_path] = {
                 "use_blueprint": metro_settings[name]["dc_region_blueprint"],
                 "attrs": {
                     "metro_name": name,
@@ -870,10 +1225,20 @@ def to_network_sections(
                     ),
                 },
             }
+            try:
+                logger.debug(
+                    "group: path=%s use_blueprint=%s node_type=dc_region metro=%s count=%d",
+                    dc_group_path,
+                    metro_settings[name]["dc_region_blueprint"],
+                    name,
+                    d,
+                )
+            except Exception:
+                pass
 
     # Adjacency as explicit per-pair entries from graph edges
     adjacency: list[dict[str, Any]] = []
-    for u, v, data in G.edges(data=True):
+    for u, v, k, data in G.edges(keys=True, data=True):
         # Only serialize if capacity assigned
         cap = data.get("capacity", data.get("base_capacity", 1))
         cost = int(data.get("cost", 1))
@@ -882,6 +1247,10 @@ def to_network_sections(
             "source_metro": data.get("source_metro"),
             "target_metro": data.get("target_metro"),
         }
+        # Tag this adjacency with a stable site-edge key and optional adjacency id
+        attrs["site_edge"] = f"{u}|{v}|{k}"
+        if "adjacency_id" in data:
+            attrs["adjacency_id"] = data.get("adjacency_id")
         if "distance_km" in data:
             attrs["distance_km"] = int(
                 data["distance_km"]
@@ -895,6 +1264,10 @@ def to_network_sections(
                 data["detour_ratio"]
             )  # corridor length / euclidean
         link_params = {"capacity": cap, "cost": cost, "attrs": attrs}
+        # Include computed per-end hardware, if present on this edge
+        hw = data.get("hardware")
+        if isinstance(hw, dict) and hw:
+            link_params["attrs"]["hardware"] = hw
         # Risk groups belong at link_params level to align with validation/tests
         if "risk_groups" in data and data["risk_groups"]:
             link_params["risk_groups"] = data["risk_groups"]

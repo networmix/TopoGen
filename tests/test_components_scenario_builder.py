@@ -4,9 +4,6 @@ import pytest
 
 from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import (
-    ComponentAssignment,
-    ComponentAssignments,
-    ComponentsConfig,
     TopologyConfig,
 )
 from topogen.scenario_builder import (
@@ -19,19 +16,21 @@ class TestComponentsScenarioBuilder:
     """Test component-related scenario builder functionality."""
 
     def create_test_config(self) -> TopologyConfig:
-        """Create a test configuration with component assignments."""
+        """Create a test configuration with streamlined role mappings."""
         config = TopologyConfig()
-
-        # Set up component assignments
-        config.components = ComponentsConfig(
-            assignments=ComponentAssignments(
-                spine=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
-                leaf=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
-                core=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
-                dc=ComponentAssignment(hw_component="CoreRouter", optics="800G-ZR+"),
-            ),
-        )
-
+        # Streamlined mapping: role -> platform, and role-pair -> optic (source end)
+        config.components.hw_component = {
+            "spine": "CoreRouter",
+            "leaf": "CoreRouter",
+            "core": "CoreRouter",
+            "dc": "CoreRouter",
+        }
+        config.components.optics = {
+            "core-core": "800G-ZR+",
+            # Add a couple to exercise inclusion; actual adjacency tests are elsewhere
+            "leaf-spine": "800G-DR4",
+            "spine-leaf": "1600G-2xDR4",
+        }
         return config
 
     def test_build_components_section_basic(self):
@@ -92,8 +91,8 @@ class TestComponentsScenarioBuilder:
         """Test warning when referenced component is not found."""
         config = self.create_test_config()
 
-        # Reference a non-existent component
-        config.components.assignments.spine.hw_component = "NonExistentChassis"
+        # Reference a non-existent component via streamlined mapping
+        config.components.hw_component["spine"] = "NonExistentChassis"
 
         used_blueprints = {"Clos_64_256"}
 

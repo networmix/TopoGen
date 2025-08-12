@@ -52,6 +52,13 @@ def _determine_metro_settings(
         metro_name = metro["name"]
 
         # Seed with defaults (single 'match' applied symmetrically)
+        def _rp_list(obj: Any) -> list[str | list[str]]:
+            try:
+                rp = getattr(obj, "role_pairs", None)
+            except Exception:  # pragma: no cover - defensive for mocks
+                return []
+            return list(rp) if isinstance(rp, list) else []
+
         metro_settings = {
             "pop_per_metro": defaults.pop_per_metro,
             "site_blueprint": defaults.site_blueprint,
@@ -62,18 +69,21 @@ def _determine_metro_settings(
                 "cost": defaults.intra_metro_link.cost,
                 "attrs": defaults.intra_metro_link.attrs.copy(),
                 "match": defaults.intra_metro_link.match.copy(),
+                "role_pairs": _rp_list(defaults.intra_metro_link),
             },
             "inter_metro_link": {
                 "capacity": defaults.inter_metro_link.capacity,
                 "cost": defaults.inter_metro_link.cost,
                 "attrs": defaults.inter_metro_link.attrs.copy(),
                 "match": defaults.inter_metro_link.match.copy(),
+                "role_pairs": _rp_list(defaults.inter_metro_link),
             },
             "dc_to_pop_link": {
                 "capacity": defaults.dc_to_pop_link.capacity,
                 "cost": defaults.dc_to_pop_link.cost,
                 "attrs": defaults.dc_to_pop_link.attrs.copy(),
                 "match": defaults.dc_to_pop_link.match.copy(),
+                "role_pairs": _rp_list(defaults.dc_to_pop_link),
             },
         }
 

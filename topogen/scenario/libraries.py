@@ -24,23 +24,17 @@ def _build_components_section(
     """
     components = get_builtin_components()
     referenced_components: set[str] = set()
-    assignments = config.components.assignments
-    if assignments.spine.hw_component:
-        referenced_components.add(assignments.spine.hw_component)
-    if assignments.leaf.hw_component:
-        referenced_components.add(assignments.leaf.hw_component)
-    if assignments.core.hw_component:
-        referenced_components.add(assignments.core.hw_component)
-    if assignments.dc.hw_component:
-        referenced_components.add(assignments.dc.hw_component)
-    if assignments.spine.optics:
-        referenced_components.add(assignments.spine.optics)
-    if assignments.leaf.optics:
-        referenced_components.add(assignments.leaf.optics)
-    if assignments.core.optics:
-        referenced_components.add(assignments.core.optics)
-    if assignments.dc.optics:
-        referenced_components.add(assignments.dc.optics)
+    # Streamlined: include platforms from hw_component mapping and optics from role-pair mapping
+    role_to_platform = getattr(config.components, "hw_component", {}) or {}
+    optics_map = getattr(config.components, "optics", {}) or {}
+    if isinstance(role_to_platform, dict):
+        for v in role_to_platform.values():
+            if isinstance(v, str) and v:
+                referenced_components.add(v)
+    if isinstance(optics_map, dict):
+        for v in optics_map.values():
+            if isinstance(v, str) and v:
+                referenced_components.add(v)
     result: dict[str, Any] = {}
     for comp_name in sorted(referenced_components):
         if comp_name in components:
@@ -59,22 +53,54 @@ def _build_blueprints_section(
     from copy import deepcopy
 
     builtin_blueprints = get_builtin_blueprints()
-    assignments = config.components.assignments
+    # Streamlined: use only role->platform mapping
+    role_to_platform = getattr(config.components, "hw_component", {}) or {}
+    if not isinstance(role_to_platform, dict):
+        role_to_platform = {}
     result: dict[str, Any] = {}
+    total_groups = 0
+    groups_with_role = 0
+    groups_with_hw = 0
     for blueprint_name in sorted(used_blueprints):
         if blueprint_name not in builtin_blueprints:
             raise ValueError(f"Unknown blueprint: {blueprint_name}")
         blueprint = deepcopy(builtin_blueprints[blueprint_name])
         if "groups" in blueprint:
             for group_name, group_def in blueprint["groups"].items():
+                total_groups += 1
                 if "attrs" not in group_def:
                     group_def["attrs"] = {}
                 role = group_def["attrs"].get("role")
-                if not role:
-                    role = group_name.lower()
-                assignment = getattr(assignments, role, None)
-                if assignment:
-                    if assignment.hw_component:
-                        group_def["attrs"]["hw_component"] = assignment.hw_component
+                if not isinstance(role, str) or not role:
+                    raise ValueError(
+                        f"Blueprint '{blueprint_name}' group '{group_name}' is missing required 'role' attribute"
+                    )
+                groups_with_role += 1
+                hw_name = role_to_platform.get(role, "")
+                if hw_name:
+                    # Keep legacy field for tests/back-compat within TopoGen repo
+                    group_def["attrs"]["hw_component"] = hw_name
+                    # Emit ngraph-compatible node hardware mapping as well
+                    group_def["attrs"]["hardware"] = {
+                        "component": hw_name,
+                        "count": 1,
+                    }
+                    groups_with_hw += 1
+                    logger.info(
+                        "HW: node blueprint=%s group=%s role=%s platform=%s",
+                        blueprint_name,
+                        group_name,
+                        role,
+                        hw_name,
+                    )
         result[blueprint_name] = blueprint
+    try:
+        logger.info(
+            "Node hardware assigned for %d of %d blueprint groups (with_role=%d)",
+            groups_with_hw,
+            total_groups,
+            groups_with_role,
+        )
+    except Exception:
+        pass
     return result

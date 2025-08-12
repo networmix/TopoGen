@@ -116,14 +116,11 @@ def build_command(args: argparse.Namespace) -> None:
         sys.exit(3)  # Validation failure
     except ValueError as e:
         logger.error(f"Validation error: {e}")
-        print(f"❌ Validation error: {e}")
         print("💡 Check input data quality and configuration parameters")
         sys.exit(3)  # Validation failure
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
-        print(f"❌ ERROR: {e}")
         print("💡 Use -v for detailed error information")
-
         sys.exit(1)  # Runtime error
 
 

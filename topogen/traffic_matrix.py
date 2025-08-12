@@ -646,7 +646,7 @@ def generate_traffic_matrix(
                 logger.debug("traffic: failed to write debug JSON to %s", str(out_path))
     except Exception:  # pragma: no cover - logging only
         pass
-    # Pretty-print the final matrix for visibility in verbose mode
+    # Pretty-print the final matrix for visibility in verbose mode (single emission)
     try:
         pretty = {
             str(traffic_cfg.matrix_name): [

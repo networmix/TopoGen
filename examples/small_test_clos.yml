@@ -17,47 +17,18 @@ build:
     intra_metro_link:
       capacity: 12_800
       cost: 1
-      attrs:
-        link_type: intra_metro
-      match:
-        conditions:
-          - attr: role
-            operator: "=="
-            value: core
-          - attr: role
-            operator: "=="
-            value: leaf
+      attrs: { link_type: intra_metro }
+      role_pairs: ["core|leaf"]
     inter_metro_link:
       capacity: 3_200
       cost: 1
-      attrs:
-        link_type: inter_metro_corridor
-      match:
-        conditions:
-          - attr: role
-            operator: "=="
-            value: core
-          - attr: role
-            operator: "=="
-            value: leaf
-        logic: "or"
+      attrs: { link_type: inter_metro_corridor }
+      role_pairs: ["core|leaf"]
     dc_to_pop_link:
       capacity: 25_600
       cost: 1
-      attrs:
-        link_type: dc_to_pop
-      match:
-        conditions:
-          - attr: role
-            operator: "=="
-            value: core
-          - attr: role
-            operator: "=="
-            value: dc
-          - attr: role
-            operator: "=="
-            value: leaf
-        logic: "or"
+      attrs: { link_type: dc_to_pop }
+      role_pairs: ["dc|core", "dc|leaf"]
   build_overrides:
     - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
       site_blueprint: Clos_16_8
@@ -79,13 +50,17 @@ build:
     respect_min_base_capacity: true
 
 components:
-  assignments:
-    core:
-      hw_component: CoreRouter
-    leaf:
-      hw_component: LeafRouter
-    spine:
-      hw_component: SpineRouter
+  hw_component:
+    core: CoreRouter
+    leaf: LeafRouter
+    spine: SpineRouter
+    dc: {}
+  optics:
+    core|core: 800G-ZR+
+    leaf|leaf: 800G-ZR+
+    core|leaf: 800G-ZR+
+    leaf|spine: 800G-DR4
+    spine|leaf: 1600G-2xDR4
 
 failure_policies:
   assignments:

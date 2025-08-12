@@ -130,6 +130,11 @@ class LinkParams:
     cost: int
     attrs: dict[str, Any] = field(default_factory=dict)
     match: dict[str, Any] = field(default_factory=dict)
+    # Unordered role-pairs allowed for this link type. Examples:
+    #   ["core|core", "core|leaf"] or [["core", "core"], ["core", "leaf"]]
+    # The pipeline will auto-render a symmetric match from the union of roles.
+    role_pairs: list[Any] = field(default_factory=list)
+    # endpoint_roles removed: explicit direction should not be configured.
 
 
 @dataclass
@@ -280,6 +285,11 @@ class ComponentsConfig:
     """
 
     assignments: ComponentAssignments = field(default_factory=ComponentAssignments)
+    # New streamlined mappings (preferred over assignments when provided)
+    # hw_component: role -> platform component name
+    # optics: "srcRole-dstRole" -> optic component name (applies to source end)
+    hw_component: dict[str, str] = field(default_factory=dict)
+    optics: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -653,6 +663,7 @@ class TopologyConfig:
                 **intra_metro_link_dict.get("attrs", {}),
             },
             match=intra_metro_link_dict.get("match", {}),
+            role_pairs=intra_metro_link_dict.get("role_pairs", []) or [],
         )
         inter_metro_link = LinkParams(
             capacity=inter_metro_link_dict.get("capacity", 100),
@@ -662,6 +673,7 @@ class TopologyConfig:
                 **inter_metro_link_dict.get("attrs", {}),
             },
             match=inter_metro_link_dict.get("match", {}),
+            role_pairs=inter_metro_link_dict.get("role_pairs", []) or [],
         )
         dc_to_pop_link = LinkParams(
             capacity=dc_to_pop_link_dict.get("capacity", 400),
@@ -671,6 +683,7 @@ class TopologyConfig:
                 **dc_to_pop_link_dict.get("attrs", {}),
             },
             match=dc_to_pop_link_dict.get("match", {}),
+            role_pairs=dc_to_pop_link_dict.get("role_pairs", []) or [],
         )
 
         # Create BuildDefaults with explicit parameters
@@ -783,7 +796,7 @@ class TopologyConfig:
             tm_sizing=tm_sizing,
         )
 
-        # Handle optional components configuration (assignments only)
+        # Handle optional components configuration (streamlined mappings)
         components_dict = config_dict.get("components", {})
         if not isinstance(components_dict, dict):
             raise ValueError("'components' configuration section must be a dictionary")
@@ -806,7 +819,21 @@ class TopologyConfig:
             dc=dc_assignment,
         )
 
-        components = ComponentsConfig(assignments=assignments)
+        # New streamlined mappings
+        hw_component_map = components_dict.get("hw_component", {}) or {}
+        optics_map = components_dict.get("optics", {}) or {}
+        if hw_component_map is not None and not isinstance(hw_component_map, dict):
+            raise ValueError(
+                "'components.hw_component' must be a mapping when provided"
+            )
+        if optics_map is not None and not isinstance(optics_map, dict):
+            raise ValueError("'components.optics' must be a mapping when provided")
+
+        components = ComponentsConfig(
+            assignments=assignments,
+            hw_component=hw_component_map if isinstance(hw_component_map, dict) else {},
+            optics=optics_map if isinstance(optics_map, dict) else {},
+        )
 
         # Handle optional failure_policies configuration (assignments only)
         failure_policies_dict = config_dict.get("failure_policies", {})

@@ -1,4 +1,4 @@
-"""Traffic and risk sections for scenario building."""
+"""Risk groups section for scenario building."""
 
 from __future__ import annotations
 
@@ -8,21 +8,11 @@ from typing import TYPE_CHECKING, Any
 import networkx as nx
 
 from topogen.log_config import get_logger
-from topogen.traffic_matrix import generate_traffic_matrix
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
     from topogen.config import TopologyConfig
 
 logger = get_logger(__name__)
-
-
-def _build_traffic_matrix_section(
-    metros: list[dict[str, Any]],
-    metro_settings: dict[str, dict[str, Any]],
-    config: "TopologyConfig",
-) -> dict[str, list[dict[str, Any]]]:
-    """Build the ``traffic_matrix_set`` section if enabled."""
-    return generate_traffic_matrix(metros, metro_settings, config)
 
 
 def _build_risk_groups_section(

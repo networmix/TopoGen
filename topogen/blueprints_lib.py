@@ -70,7 +70,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "pattern": "mesh",
                 "link_params": {
                     "capacity": 3_200,
-                    "cost": 0.1,
+                    "cost": 1,
                     "attrs": {"link_type": "leaf_spine"},
                 },
             }

@@ -18,7 +18,8 @@ from .graph_pipeline import (
 from .libraries import _build_blueprints_section, _build_components_section
 from .network import _extract_metros_from_graph
 from .policies import _build_failure_policy_set_section, _build_workflow_section
-from .risk import _build_risk_groups_section, _build_traffic_matrix_section
+from .risk import _build_risk_groups_section
+from .traffic import _build_traffic_matrix_section
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
     import networkx as nx

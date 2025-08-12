@@ -22,10 +22,8 @@ from topogen.scenario.policies import (
     _build_failure_policy_set_section,
     _build_workflow_section,
 )
-from topogen.scenario.risk import (
-    _build_risk_groups_section,
-    _build_traffic_matrix_section,
-)
+from topogen.scenario.risk import _build_risk_groups_section
+from topogen.scenario.traffic import _build_traffic_matrix_section
 
 __all__ = [
     "build_scenario",

@@ -138,3 +138,52 @@ network:
         yaml_text, integrated_graph_path=None, run_ngraph=False
     )
     assert any("appears isolated" in s for s in issues)
+
+
+def test_dc_capacity_vs_demand_validation():
+    # Build a simple scenario with one DC and a DC->PoP adjacency that has limited capacity
+    data = _minimal_scenario()
+    # Add one dc_to_pop adjacency with target_capacity 1000
+    data["network"]["adjacency"] = [
+        {
+            "source": "metro1/dc1",
+            "target": "metro1/pop1",
+            "pattern": "one_to_one",
+            "link_params": {
+                "capacity": 1000.0,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "dc_to_pop",
+                    "source_metro": "Denver",
+                    "target_metro": "Denver",
+                    "target_capacity": 1000.0,
+                },
+            },
+        }
+    ]
+    # Traffic matrix with a single class that demands 1200 out of the DC and 800 into the DC
+    data["traffic_matrix_set"] = {
+        "tm": [
+            {
+                "source_path": "^metro1/dc1/.*",
+                "sink_path": "^metro1/dc1/.*",
+                "mode": "pairwise",
+                "priority": 0,
+                "demand": 1200.0,
+            },
+            {
+                "source_path": "^metro2/dc1/.*",
+                "sink_path": "^metro1/dc1/.*",
+                "mode": "pairwise",
+                "priority": 0,
+                "demand": 800.0,
+            },
+        ]
+    }
+    issues = validate_scenario_dict(data)
+    # Egress 1200 > capacity 1000 => violation
+    assert any(
+        "egress demand" in s and "exceeds adjacency capacity" in s for s in issues
+    )
+    # Ingress 800 <= capacity 1000 => no ingress violation for metro1/dc1
+    assert not any("ingress demand 800.0" in s for s in issues)

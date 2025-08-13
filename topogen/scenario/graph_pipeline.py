@@ -152,6 +152,7 @@ def _add_intra_metro_edges(
                 key=f"{adj_id}:{i}-{j}",
                 link_type="intra_metro",
                 base_capacity=base_capacity,
+                target_capacity=base_capacity,
                 cost=cost,
                 adjacency_id=adj_id,
                 distance_km=cost,
@@ -275,6 +276,7 @@ def _add_dc_to_pop_edges(
                     key=f"{adj_id}:{dc}-{p}",
                     link_type="dc_to_pop",
                     base_capacity=base_capacity,
+                    target_capacity=base_capacity,
                     cost=cost_arc,
                     adjacency_id=adj_id,
                     distance_km=cost_arc,
@@ -345,6 +347,7 @@ def _add_inter_metro_edges(
                     key=f"{adj_id}:{p}-{q}",
                     link_type="inter_metro_corridor",
                     base_capacity=base_capacity,
+                    target_capacity=base_capacity,
                     cost=cost,
                     adjacency_id=adj_id,
                     distance_km=cost,
@@ -822,6 +825,19 @@ def tm_based_size_capacities(
     h_factor = float(getattr(sizing_cfg, "headroom", 1.3))
     respect_min = bool(getattr(sizing_cfg, "respect_min_base_capacity", True))
 
+    # Snapshot pre-adjustment aggregated capacities per directed metro corridor
+    prev_corridor_caps: dict[tuple[str, str], float] = {}
+    for _u, _v, _k, data in G.edges(keys=True, data=True):
+        if str(data.get("link_type")) != "inter_metro_corridor":
+            continue
+        src_name = data.get("source_metro")
+        tgt_name = data.get("target_metro")
+        if not isinstance(src_name, str) or not isinstance(tgt_name, str):
+            continue
+        prev_cap = float(data.get("base_capacity", data.get("capacity", 0.0)))
+        key = (src_name, tgt_name)
+        prev_corridor_caps[key] = prev_corridor_caps.get(key, 0.0) + prev_cap
+
     # Apply sized capacities to inter-metro edges in G
     for (u_g, v_g, k_g), L in edge_loads.items():
         try:
@@ -840,6 +856,55 @@ def tm_based_size_capacities(
         prev = float(data.get("base_capacity", 0.0))
         new_base = max(prev, sized) if respect_min else sized
         G.edges[u_g, v_g, k_g]["base_capacity"] = new_base
+        # Keep target_capacity aligned with total intended capacity for the adjacency
+        G.edges[u_g, v_g, k_g]["target_capacity"] = new_base
+
+    # Aggregate post-adjustment capacities per directed metro corridor
+    post_corridor_caps: dict[tuple[str, str], float] = {}
+    for _u2, _v2, _k2, data in G.edges(keys=True, data=True):
+        if str(data.get("link_type")) != "inter_metro_corridor":
+            continue
+        src_name = data.get("source_metro")
+        tgt_name = data.get("target_metro")
+        if not isinstance(src_name, str) or not isinstance(tgt_name, str):
+            continue
+        cap = float(data.get("base_capacity", data.get("capacity", 0.0)))
+        key = (src_name, tgt_name)
+        post_corridor_caps[key] = post_corridor_caps.get(key, 0.0) + cap
+
+    # Log corridor capacity deltas (per directed pair)
+    if post_corridor_caps:
+        try:
+            total_before = sum(
+                prev_corridor_caps.get(k, 0.0) for k in post_corridor_caps
+            )
+            total_after = sum(post_corridor_caps.values())
+            logger.info(
+                "TM sizing: corridor capacity totals (Gbps) before=%s after=%s delta=%s",
+                f"{total_before:,.1f}",
+                f"{total_after:,.1f}",
+                f"{(total_after - total_before):,.1f}",
+            )
+            # Only emit lines for pairs that changed
+            for pair in sorted(post_corridor_caps):
+                before = float(prev_corridor_caps.get(pair, 0.0))
+                after = float(post_corridor_caps[pair])
+                if abs(after - before) <= 0.0:
+                    continue
+                factor = (after / before) if before > 0.0 else float("inf")
+                src, dst = pair
+                logger.info(
+                    "TM sizing: %s -> %s corridor capacity %s -> %s (delta=%s, x%s)",
+                    src,
+                    dst,
+                    f"{before:,.1f}",
+                    f"{after:,.1f}",
+                    f"{(after - before):,.1f}",
+                    "inf" if not (factor < float("inf")) else f"{factor:.2f}",
+                )
+        except Exception:
+            # Logging must not affect sizing; swallow any formatting errors
+            pass
 
     # Compute PoP egress based on sized corridor capacities
     pop_egress: dict[str, float] = {}
@@ -881,6 +946,7 @@ def tm_based_size_capacities(
         prev = float(data.get("base_capacity", 0.0))
         new_base = max(prev, sized) if respect_min else sized
         G.edges[u_g, v_g, k_g]["base_capacity"] = new_base
+        G.edges[u_g, v_g, k_g]["target_capacity"] = new_base
 
     # Derive PoP<->PoP (intra-metro) base capacities
     for u_g, v_g, k_g, data in G.edges(keys=True, data=True):
@@ -895,6 +961,7 @@ def tm_based_size_capacities(
         prev = float(data.get("base_capacity", 0.0))
         new_base = max(prev, sized) if respect_min else sized
         G.edges[u_g, v_g, k_g]["base_capacity"] = new_base
+        G.edges[u_g, v_g, k_g]["target_capacity"] = new_base
 
     logger.info(
         "TM sizing: applied capacities (Q=%s Gb/s, h=%s, alpha=%s, beta=%s)",
@@ -990,6 +1057,12 @@ def to_network_sections(
             "source_metro": data.get("source_metro"),
             "target_metro": data.get("target_metro"),
         }
+        # Emit total expected capacity for the adjacency (pre per-link split)
+        try:
+            tcap = float(data.get("target_capacity", data.get("base_capacity", 0.0)))
+        except Exception:
+            tcap = float(data.get("base_capacity", 0.0))
+        attrs["target_capacity"] = tcap
         # Tag this adjacency with a stable site-edge key and optional adjacency id
         attrs["site_edge"] = f"{u}|{v}|{k}"
         if "adjacency_id" in data:

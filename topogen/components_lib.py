@@ -19,12 +19,12 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
     "CoreRouter": {
         "component_type": "chassis",
-        "description": "16 slot, 36x800G ports per slot, 576 ports total",
+        "description": "16 slot, 32x800G ports per slot, 512 ports total",
         "capex": 650_000.0,
-        "power_watts": 23_000.0,  # without optics, typical consumption
-        "power_watts_max": 30_000.0,  # without optics, max consumption
-        "capacity": 460_800.0,  # Gbps
-        "ports": 576,
+        "power_watts": 22_000.0,  # without optics, typical consumption
+        "power_watts_max": 29_000.0,  # without optics, max consumption
+        "capacity": 409_600.0,  # Gbps
+        "ports": 512,
         "attrs": {"role": "core"},
     },
     "LeafRouter": {

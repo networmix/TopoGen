@@ -56,6 +56,7 @@ components:
     core|core: 800G-ZR+
     leaf|leaf: 800G-ZR+
     core|leaf: 800G-ZR+
+    leaf|dc: 800G-ZR+
     leaf|spine: 800G-DR4
     spine|leaf: 1600G-2xDR4
 
@@ -74,8 +75,8 @@ visualization:
 traffic:
   enabled: true
   model: gravity
-  gbps_per_mw: 250.0
-  mw_per_dc_region: 500.0
+  gbps_per_mw: 400.0
+  mw_per_dc_region: 400.0
   priority_ratios:
     0: 1
   matrix_name: baseline_traffic_matrix

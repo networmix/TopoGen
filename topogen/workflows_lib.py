@@ -18,6 +18,21 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
     "capacity_analysis": [
         {"step_type": "NetworkStats", "name": "network_statistics"},
         {
+            "step_type": "MaximumSupportedDemandAnalysis",
+            "name": "msd_baseline_tm",
+            "matrix_name": "baseline_traffic_matrix",
+            "acceptance_rule": "hard",
+            "alpha_start": 1.0,
+            "growth_factor": 2.0,
+            "alpha_min": 1e-6,
+            "alpha_max": 1e9,
+            "resolution": 0.01,
+            "max_bracket_iters": 16,
+            "max_bisect_iters": 32,
+            "seeds_per_alpha": 3,
+            "placement_rounds": "auto",
+        },
+        {
             "step_type": "CapacityEnvelopeAnalysis",
             "name": "capacity_envelope",
             "source_path": "(metro[0-9]+/dc[0-9]+)",

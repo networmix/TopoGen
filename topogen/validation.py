@@ -196,6 +196,133 @@ def validate_scenario_dict(
             if key_re.match(str(gkey)):
                 issues.append(f"{gkey} appears isolated (no adjacency references)")
 
+    # --- DC demand vs adjacency capacity check ---
+    try:
+        # Helper: extract concrete path string from endpoint (string or mapping)
+        def _endpoint_path(ep: Any) -> str:
+            """Return path string from endpoint spec.
+
+            Args:
+                ep: Endpoint spec: string path or mapping with 'path'.
+
+            Returns:
+                String path; empty when not found.
+            """
+
+            if isinstance(ep, str):
+                return ep
+            if isinstance(ep, dict):
+                p = ep.get("path")
+                return str(p) if p is not None else ""
+            return ""
+
+        # Helper: parse DC identifier from a path or regex like '^metro3/dc2/.*'
+        dc_re = re.compile(r"\^?/?(metro\d+)/dc(\d+)")
+
+        def _parse_dc_key(path: str) -> str | None:
+            """Return canonical DC key 'metroN/dcM' when present in the path.
+
+            Args:
+                path: Endpoint path or regex.
+
+            Returns:
+                Canonical dc key or None when not a DC path.
+            """
+
+            m = dc_re.search(str(path))
+            if not m:
+                return None
+            metro = m.group(1)
+            dc_idx = m.group(2)
+            return f"{metro}/dc{int(dc_idx)}"
+
+        # Aggregate per-DC total adjacency capacity (sum of DC->PoP adjacencies)
+        dc_capacity: dict[str, float] = {}
+        if isinstance(adjacency, list):
+            for rule in adjacency:
+                if not isinstance(rule, dict):
+                    continue
+                src = _endpoint_path(rule.get("source"))
+                dst = _endpoint_path(rule.get("target"))
+                lp = (
+                    rule.get("link_params", {})
+                    if isinstance(rule.get("link_params"), dict)
+                    else {}
+                )
+                attrs = lp.get("attrs", {}) if isinstance(lp.get("attrs"), dict) else {}
+                # Prefer target_capacity (total intended per-adjacency capacity); fallback to per-link capacity
+                try:
+                    cap_val = float(
+                        attrs.get("target_capacity", lp.get("capacity", 0.0))
+                    )
+                except Exception:
+                    cap_val = float(lp.get("capacity", 0.0))
+                # Attribute link_type can guide us, but robustly rely on path parsing
+                for endpoint in (src, dst):
+                    key = _parse_dc_key(endpoint)
+                    if key:
+                        dc_capacity[key] = dc_capacity.get(key, 0.0) + cap_val
+
+        # Aggregate per-DC egress/ingress demand across all matrices
+        dc_egress: dict[str, float] = {}
+        dc_ingress: dict[str, float] = {}
+        tm_set = (data or {}).get("traffic_matrix_set") or {}
+        if isinstance(tm_set, dict):
+            for _mname, entries in tm_set.items():
+                if not isinstance(entries, list):
+                    continue
+                for d in entries:
+                    if not isinstance(d, dict):
+                        continue
+                    try:
+                        demand_val = float(d.get("demand", 0.0))
+                    except Exception:
+                        demand_val = 0.0
+                    if demand_val <= 0.0:
+                        continue
+                    s_path = str(d.get("source_path", ""))
+                    t_path = str(d.get("sink_path", ""))
+                    s_dc = _parse_dc_key(s_path)
+                    t_dc = _parse_dc_key(t_path)
+                    # Only count demands that explicitly target a single DC endpoint
+                    if s_dc:
+                        dc_egress[s_dc] = dc_egress.get(s_dc, 0.0) + demand_val
+                    if t_dc:
+                        dc_ingress[t_dc] = dc_ingress.get(t_dc, 0.0) + demand_val
+
+        # Compare per-DC totals; log and record violations
+        all_dcs = set(dc_capacity) | set(dc_egress) | set(dc_ingress)
+        for dc_key in sorted(all_dcs):
+            cap = float(dc_capacity.get(dc_key, 0.0))
+            eg = float(dc_egress.get(dc_key, 0.0))
+            ing = float(dc_ingress.get(dc_key, 0.0))
+            try:
+                logger.info(
+                    "dc capacity check: %s capacity=%s egress_demand=%s ingress_demand=%s",
+                    dc_key,
+                    f"{cap:,.1f}",
+                    f"{eg:,.1f}",
+                    f"{ing:,.1f}",
+                )
+            except Exception:
+                pass
+            eps = 1e-9
+            if eg > cap + eps:
+                issues.append(
+                    (
+                        f"dc capacity: {dc_key} egress demand {eg:,.1f} exceeds adjacency capacity {cap:,.1f}"
+                    )
+                )
+            if ing > cap + eps:
+                issues.append(
+                    (
+                        f"dc capacity: {dc_key} ingress demand {ing:,.1f} exceeds adjacency capacity {cap:,.1f}"
+                    )
+                )
+    except Exception as e:
+        # Never fail overall validation due to DC capacity audit; report as issue
+        issues.append(f"dc capacity audit failed: {e}")
+
     return issues
 
 
@@ -239,6 +366,7 @@ def validate_scenario_yaml(
 
     # Optional ngraph validation and topology checks
     if run_ngraph:
+        # Basic schema/graph build check + isolation detection
         try:
             from ngraph.scenario import Scenario  # type: ignore[import-untyped]
 
@@ -262,5 +390,86 @@ def validate_scenario_yaml(
                 )
         except Exception as e:
             issues.append(f"ngraph schema: {e}")
+
+        # Hardware capacity feasibility check using DSL expansion (Explorer analogue)
+        try:
+            from ngraph.dsl.blueprints.expand import (  # type: ignore[import-untyped]
+                expand_network_dsl as _ng_expand,
+            )
+
+            from topogen.components_lib import (
+                get_builtin_components as _get_components_lib,
+            )
+
+            # Build a minimal DSL consisting of blueprints + network only
+            d = yaml.safe_load(scenario_yaml) or {}
+            dsl = {
+                "blueprints": (d.get("blueprints") or {}),
+                "network": (d.get("network") or {}),
+            }
+            net = _ng_expand(dsl)
+
+            comp_lib = _get_components_lib()
+
+            # Pre-compute total attached capacity per node (sum of incident link capacities)
+            attached: dict[str, float] = {}
+            for link in net.links.values():
+                cap = float(getattr(link, "capacity", 0.0) or 0.0)
+                src = str(getattr(link, "source", ""))
+                dst = str(getattr(link, "target", ""))
+                if src:
+                    attached[src] = attached.get(src, 0.0) + cap
+                if dst:
+                    attached[dst] = attached.get(dst, 0.0) + cap
+
+            # Helper to extract node hardware (component name and count)
+            def _node_hw(node_attrs: dict[str, object]) -> tuple[str | None, float]:
+                hw = node_attrs.get("hardware")
+                if isinstance(hw, dict):
+                    comp_name = str(hw.get("component", "")).strip()
+                    if comp_name:
+                        try:
+                            count = float(hw.get("count", 1.0))
+                        except Exception:
+                            count = 1.0
+                        return comp_name, count
+                # Fallback to role->platform mapping if present in scenario components
+                role = str(node_attrs.get("role", "")).strip()
+                comps_section = (d.get("components") or {}).get("hw_component", {})
+                if isinstance(comps_section, dict) and role in comps_section:
+                    comp_name = str(comps_section.get(role) or "").strip()
+                    if comp_name:
+                        return comp_name, 1.0
+                return None, 0.0
+
+            # Check each node against its hardware capacity
+            for node in net.nodes.values():
+                node_name = str(getattr(node, "name", ""))
+                if not node_name:
+                    continue
+                comp_name, count = _node_hw(getattr(node, "attrs", {}) or {})
+                if not comp_name or count <= 0.0:
+                    # No hardware assignment for this node; skip feasibility
+                    continue
+                comp = comp_lib.get(comp_name)
+                if comp is None:
+                    issues.append(
+                        f"hardware capacity: node '{node_name}' references unknown component '{comp_name}'"
+                    )
+                    continue
+                hw_cap = float(comp.get("capacity", 0.0)) * float(count)
+                total_attached = float(attached.get(node_name, 0.0))
+                if total_attached > hw_cap + 1e-9:
+                    issues.append(
+                        (
+                            "hardware capacity: node '\n"
+                            f"{node_name}\n' total attached capacity {total_attached:,.0f} "
+                            f"exceeds hardware capacity {hw_cap:,.0f} from component "
+                            f"'{comp_name}' (hw_count={count:g})."
+                        ).replace("\n", "")
+                    )
+        except Exception as e:
+            # Include context but do not stop other validations
+            issues.append(f"ngraph explorer: {e}")
 
     return issues

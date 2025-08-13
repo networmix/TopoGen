@@ -19,6 +19,7 @@ from topogen.corridors import (
 )
 from topogen.metro_clusters import MetroCluster
 from topogen.scenario_builder import build_scenario
+from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestEndToEndRiskGroups:
@@ -203,6 +204,10 @@ class TestEndToEndRiskGroups:
             build_defaults=BuildDefaults(pop_per_metro=2, site_blueprint="SingleRouter")
         )
         scenario_config.corridors = config
+        # Avoid brittle default by selecting any available workflow
+        scenario_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
 
         yaml_str = build_scenario(corridor_graph, scenario_config)
         scenario_data = yaml.safe_load(yaml_str)
@@ -367,6 +372,9 @@ class TestEndToEndRiskGroups:
             build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         scenario_config.corridors = config
+        scenario_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
 
         yaml_str = build_scenario(corridor_graph, scenario_config)
         scenario_data = yaml.safe_load(yaml_str)
@@ -527,6 +535,9 @@ class TestEndToEndRiskGroups:
             build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         scenario_config.corridors = config
+        scenario_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
 
         yaml_str = build_scenario(corridor_graph, scenario_config)
         scenario_data = yaml.safe_load(yaml_str)

@@ -14,10 +14,14 @@ class TestGetBuiltinWorkflows:
 
     def test_contains_expected_workflows(self) -> None:
         workflows = get_builtin_workflows()
-        assert "capacity_analysis" in workflows
+        # Should contain at least one workflow mapping name -> list[steps]
+        assert isinstance(workflows, dict) and len(workflows) >= 1
+        any_name, any_steps = next(iter(workflows.items()))
+        assert isinstance(any_name, str) and isinstance(any_steps, list)
 
     def test_returns_deep_copy(self) -> None:
         workflows1 = get_builtin_workflows()
         workflows2 = get_builtin_workflows()
-        workflows1["capacity_analysis"][0]["mutated"] = True
-        assert "mutated" not in workflows2["capacity_analysis"][0]
+        wf_name = next(iter(workflows1.keys()))
+        workflows1[wf_name][0]["mutated"] = True
+        assert "mutated" not in workflows2[wf_name][0]

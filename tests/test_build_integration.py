@@ -9,6 +9,7 @@ import yaml
 from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import TopologyConfig
 from topogen.scenario_builder import build_scenario
+from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestBuildIntegration:
@@ -112,6 +113,10 @@ class TestBuildIntegration:
 
     def test_build_scenario_complete(self, sample_integrated_graph, sample_config):
         """Test complete scenario building with realistic data."""
+        # Pick a current built-in workflow name dynamically
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
 
         # Parse the YAML to ensure it's valid
@@ -201,6 +206,9 @@ class TestBuildIntegration:
 
     def test_scenario_yaml_format(self, sample_integrated_graph, sample_config):
         """Test that generated YAML follows expected format."""
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
 
         # Should be valid YAML
@@ -226,11 +234,17 @@ class TestBuildIntegration:
     def test_yaml_anchors_toggle(self, sample_integrated_graph, sample_config):
         """Disabling yaml anchors should remove &/* alias tokens from YAML text."""
         # Default: anchors enabled (may or may not appear depending on sharing)
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_with_default = build_scenario(sample_integrated_graph, sample_config)
         assert yaml_with_default  # sanity
 
         # Disable anchors
         sample_config.output.formatting.yaml_anchors = False
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_no_anchors = build_scenario(sample_integrated_graph, sample_config)
 
         # Basic sanity: valid YAML
@@ -245,6 +259,9 @@ class TestBuildIntegration:
 
     def test_metro_override_application(self, sample_integrated_graph, sample_config):
         """Test that metro overrides are correctly applied."""
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -289,6 +306,9 @@ class TestBuildIntegration:
         self, sample_integrated_graph, sample_config
     ):
         """Test that corridor connectivity between metros is preserved."""
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -351,6 +371,9 @@ class TestBuildIntegration:
 
         # Empty graph
         empty_graph = nx.Graph()
+        config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(empty_graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -394,6 +417,9 @@ class TestBuildIntegration:
             radius_km=50.0,
         )
 
+        config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -420,12 +446,18 @@ class TestBuildIntegration:
     ):
         """Top-level scenario 'seed' should exist and reflect config override."""
         # Default (42)
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
         scenario_data = yaml.safe_load(yaml_str)
         assert scenario_data.get("seed") == 42
 
         # Override
         sample_config.output.scenario_seed = 123
+        sample_config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str2 = build_scenario(sample_integrated_graph, sample_config)
         scenario_data2 = yaml.safe_load(yaml_str2)
         assert scenario_data2.get("seed") == 123

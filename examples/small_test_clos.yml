@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Clos-16-8"
+    title: "Small Test: East Coast, Clos_16_8"
 
   formatting:
     json_indent: 2
@@ -66,7 +66,7 @@ failure_policies:
 
 workflows:
   assignments:
-    default: "capacity_analysis"
+    default: "design_analysis_brief"
 
 visualization:
   corridors:

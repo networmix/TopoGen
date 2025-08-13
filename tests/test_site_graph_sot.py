@@ -7,6 +7,7 @@ import yaml
 
 from topogen.config import TopologyConfig
 from topogen.scenario_builder import build_scenario
+from topogen.workflows_lib import get_builtin_workflows
 
 
 def _single_metro_graph() -> nx.Graph:
@@ -36,6 +37,8 @@ def test_sites_section_includes_per_site_blueprint_and_components():
 
     # Per-site assignments removed; blueprint-level hardware covers nodes
 
+    # Select any available workflow so the scenario builder can proceed without assuming names
+    cfg.workflows.assignments.default = next(iter(get_builtin_workflows().keys()))
     yaml_str = build_scenario(graph, cfg)
     data = yaml.safe_load(yaml_str)
 

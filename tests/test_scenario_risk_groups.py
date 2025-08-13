@@ -11,6 +11,7 @@ from topogen.config import (
     TopologyConfig,
 )
 from topogen.scenario_builder import _build_risk_groups_section, build_scenario
+from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestScenarioRiskGroups:
@@ -109,6 +110,10 @@ class TestScenarioRiskGroups:
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
 
         # Generate scenario
+        # Ensure a current default workflow is selected to keep scenario building stable
+        config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -182,6 +187,9 @@ class TestScenarioRiskGroups:
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
 
+        config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -228,6 +236,9 @@ class TestScenarioRiskGroups:
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=False)  # Disabled
 
+        config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -299,6 +310,9 @@ class TestScenarioRiskGroups:
             build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
 
+        config.workflows.assignments.default = next(
+            iter(get_builtin_workflows().keys())
+        )
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 

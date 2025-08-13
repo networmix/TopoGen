@@ -14,8 +14,7 @@ import yaml
 
 # Built-in workflow definitions required by the pipeline
 _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
-    "empty": [],
-    "capacity_analysis": [
+    "design_analysis_brief": [
         {"step_type": "NetworkStats", "name": "network_statistics"},
         {
             "step_type": "MaximumSupportedDemandAnalysis",
@@ -61,14 +60,16 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "store_failure_patterns": False,
             "include_flow_details": False,
             "alpha": "auto",
+            "availability_percentiles": [50, 95, 99, 99.9, 99.99],
         },
-        # {
-        #     "step_type": "CostPowerEfficiency",
-        #     "name": "cost_power_efficiency",
-        #     "include_disabled": True,
-        #     "collect_node_hw_entries": True,
-        # },
-    ],
+        {
+            "step_type": "CostPowerEfficiency",
+            "name": "cost_power_efficiency",
+            "delivered_bandwidth_key": "delivered_gbps_p99_99",
+            "include_disabled": True,
+            "collect_node_hw_entries": True,
+        },
+    ]
 }
 
 

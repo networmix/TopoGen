@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
+
 from topogen.validation import validate_scenario_dict, validate_scenario_yaml
 
 
@@ -187,3 +189,145 @@ def test_dc_capacity_vs_demand_validation():
     )
     # Ingress 800 <= capacity 1000 => no ingress violation for metro1/dc1
     assert not any("ingress demand 800.0" in s for s in issues)
+
+
+def test_groups_that_expand_to_zero_nodes_are_flagged(monkeypatch):
+    # Patch DSL expansion to return zero nodes and zero links
+    class _FakeNet:
+        def __init__(self) -> None:
+            self.nodes = {}
+            self.links = {}
+
+    def _fake_expand(_dsl: dict):  # noqa: ANN001
+        return _FakeNet()
+
+    monkeypatch.setattr(
+        "ngraph.dsl.blueprints.expand.expand_network_dsl", _fake_expand, raising=True
+    )
+
+    # Patch Scenario.from_yaml to avoid schema errors and isolation noise
+    class _FakeScenario:
+        @classmethod
+        def from_yaml(cls, _y: str):  # noqa: ANN001
+            return cls()
+
+        class network:  # noqa: N801 - name per production API
+            @staticmethod
+            def to_strict_multidigraph(add_reverse: bool = True):  # noqa: FBT001, FBT002
+                class _G:
+                    @staticmethod
+                    def get_nodes():
+                        return {}
+
+                    @staticmethod
+                    def get_edges():
+                        return {}
+
+                return _G()
+
+    monkeypatch.setattr("ngraph.scenario.Scenario", _FakeScenario, raising=True)
+    # A group with zero count via an invalid blueprint should be flagged.
+    # Use a blueprint that exists but set an impossible range in the group path.
+    data = {
+        "blueprints": {},
+        "network": {
+            "groups": {
+                # Invalid range [1-0] yields zero nodes
+                "metro1/pop[1-0]": {
+                    "use_blueprint": "SingleRouter",
+                    "attrs": {
+                        "metro_name": "X",
+                        "metro_name_orig": "X",
+                        "metro_id": 1,
+                        "location_x": 0.0,
+                        "location_y": 0.0,
+                    },
+                }
+            },
+            "adjacency": [],
+        },
+        "failure_policy_set": {},
+        "traffic_matrix_set": {},
+        "workflow": [],
+    }
+    issues = validate_scenario_yaml(
+        yaml.safe_dump(data, sort_keys=False),
+        integrated_graph_path=None,
+        run_ngraph=True,
+    )
+    assert any("expands to 0 nodes" in s for s in issues)
+
+
+def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
+    # Patch DSL expansion to return zero nodes and zero links
+    class _FakeNet:
+        def __init__(self) -> None:
+            self.nodes = {}
+            self.links = {}
+
+    def _fake_expand(_dsl: dict):  # noqa: ANN001
+        return _FakeNet()
+
+    monkeypatch.setattr(
+        "ngraph.dsl.blueprints.expand.expand_network_dsl", _fake_expand, raising=True
+    )
+
+    # Patch Scenario.from_yaml to avoid schema errors and isolation noise
+    class _FakeScenario:
+        @classmethod
+        def from_yaml(cls, _y: str):  # noqa: ANN001
+            return cls()
+
+        class network:  # noqa: N801 - name per production API
+            @staticmethod
+            def to_strict_multidigraph(add_reverse: bool = True):  # noqa: FBT001, FBT002
+                class _G:
+                    @staticmethod
+                    def get_nodes():
+                        return {}
+
+                    @staticmethod
+                    def get_edges():
+                        return {}
+
+                return _G()
+
+    monkeypatch.setattr("ngraph.scenario.Scenario", _FakeScenario, raising=True)
+    # Construct a scenario with a valid group but an adjacency using nonexistent endpoints
+    data = {
+        "network": {
+            "groups": {
+                "metro1/pop[1]": {
+                    "use_blueprint": "SingleRouter",
+                    "attrs": {
+                        "metro_name": "Y",
+                        "metro_name_orig": "Y",
+                        "metro_id": 1,
+                        "location_x": 0.0,
+                        "location_y": 0.0,
+                    },
+                },
+            },
+            "adjacency": [
+                {
+                    "source": "metro1/missing",
+                    "target": "metro1/also_missing",
+                    "pattern": "one_to_one",
+                    "link_params": {"capacity": 100.0},
+                }
+            ],
+        },
+        "failure_policy_set": {},
+        "traffic_matrix_set": {},
+        "workflow": [],
+    }
+    issues = validate_scenario_yaml(
+        yaml.safe_dump(data, sort_keys=False),
+        integrated_graph_path=None,
+        run_ngraph=True,
+    )
+    assert any("adjacency[0] expands to 0 links" in s for s in issues)
+
+
+def yaml_dump(d: dict) -> str:
+    return yaml.safe_dump(d, sort_keys=False)

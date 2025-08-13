@@ -153,8 +153,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             # Inter-group (reduced): ring-of-cliques, one_to_one, 2×800G per pair ≈ 1.6 Tb/s
             # A<->B and A<->D
             {
-                "source": "leafA{idx}",
-                "target": "leafB{idx}",
+                "source": "leafA/leafA{idx}",
+                "target": "leafB/leafB{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -165,8 +165,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafA{idx}",
-                "target": "leafD{idx}",
+                "source": "leafA/leafA{idx}",
+                "target": "leafD/leafD{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -178,8 +178,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             },
             # B<->C and C<->D
             {
-                "source": "leafB{idx}",
-                "target": "leafC{idx}",
+                "source": "leafB/leafB{idx}",
+                "target": "leafC/leafC{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -190,8 +190,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafC{idx}",
-                "target": "leafD{idx}",
+                "source": "leafC/leafC{idx}",
+                "target": "leafD/leafD{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -277,8 +277,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             # 3×800G per pair (2.4 Tb/s).
             # A<->B (idx) and (idx+1)
             {
-                "source": "leafA{idx}",
-                "target": "leafB{idx}",
+                "source": "leafA/leafA{idx}",
+                "target": "leafB/leafB{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -289,8 +289,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafA{idx}",
-                "target": "leafB{jdx}",
+                "source": "leafA/leafA{idx}",
+                "target": "leafB/leafB{jdx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
@@ -302,8 +302,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             },
             # B<->C
             {
-                "source": "leafB{idx}",
-                "target": "leafC{idx}",
+                "source": "leafB/leafB{idx}",
+                "target": "leafC/leafC{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -314,8 +314,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafB{idx}",
-                "target": "leafC{jdx}",
+                "source": "leafB/leafB{idx}",
+                "target": "leafC/leafC{jdx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
@@ -327,8 +327,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             },
             # C<->D
             {
-                "source": "leafC{idx}",
-                "target": "leafD{idx}",
+                "source": "leafC/leafC{idx}",
+                "target": "leafD/leafD{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -339,8 +339,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafC{idx}",
-                "target": "leafD{jdx}",
+                "source": "leafC/leafC{idx}",
+                "target": "leafD/leafD{jdx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
@@ -352,8 +352,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             },
             # D<->A
             {
-                "source": "leafD{idx}",
-                "target": "leafA{idx}",
+                "source": "leafD/leafD{idx}",
+                "target": "leafA/leafA{idx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
@@ -364,8 +364,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafD{idx}",
-                "target": "leafA{jdx}",
+                "source": "leafD/leafD{idx}",
+                "target": "leafA/leafA{jdx}",
                 "pattern": "one_to_one",
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",

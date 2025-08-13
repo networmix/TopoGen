@@ -83,6 +83,8 @@ workflows:
 visualization:
   corridors:
     use_real_geometry: true
+  site_graph:
+    export: true
 
 traffic:
   enabled: true

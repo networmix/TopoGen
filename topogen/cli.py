@@ -76,12 +76,31 @@ def build_command(args: argparse.Namespace) -> None:
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
-        # Default output to '<config_stem>_scenario.yml' in CWD
+        # Compute output directory and scenario path.
+        # If -o is a directory, write '<stem>_scenario.yml' inside it.
+        # If -o is a file, use it directly and treat its parent as output dir.
+        prefix_path = getattr(config_obj, "_source_path", config_path)
+        stem = Path(prefix_path).stem if isinstance(prefix_path, Path) else "scenario"
         if getattr(args, "output", None):
-            output_path = Path(args.output)
+            output_arg = Path(args.output)
+            if output_arg.suffix.lower() in {".yml", ".yaml"}:
+                output_dir = output_arg.parent
+                output_path = output_arg
+            else:
+                output_dir = output_arg
+                output_path = output_dir / f"{stem}_scenario.yml"
         else:
-            prefix = getattr(config_obj, "_source_path", config_path)
-            output_path = Path.cwd() / f"{Path(prefix).stem}_scenario.yml"
+            output_dir = Path.cwd()
+            output_path = output_dir / f"{stem}_scenario.yml"
+        # Persist chosen output directory on config for downstream artefacts
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+        try:
+            config_obj._output_dir = output_dir  # type: ignore[attr-defined]
+        except Exception:
+            pass
 
         # Attach optional debug directory to config for downstream use
         if getattr(args, "debug_dir", None):
@@ -145,10 +164,12 @@ def _run_pipeline(
     from topogen import load_from_json
     from topogen.scenario_builder import build_scenario
 
-    # Check for integrated graph in cwd, using config-stem prefix
+    # Check for integrated graph in configured output dir (fallback to CWD)
     source_path = getattr(config, "_source_path", None)
     prefix = Path(source_path).stem if isinstance(source_path, Path) else "scenario"
-    graph_path = Path.cwd() / f"{prefix}_integrated_graph.json"
+    output_dir = getattr(config, "_output_dir", None)
+    base_dir = Path(output_dir) if isinstance(output_dir, (str, Path)) else Path.cwd()
+    graph_path = base_dir / f"{prefix}_integrated_graph.json"
     if not graph_path.exists():
         print("❌ No integrated graph found!")
         print("   Run generation first: python -m topogen generate")
@@ -219,8 +240,9 @@ def _run_generation(config: TopologyConfig) -> None:
     print("Integrated Graph Generation Pipeline")
     print("=" * 50)
 
-    # Artefacts in CWD with config-based prefix
-    output_dir = Path.cwd()
+    # Artefacts in configured output directory (fallback to CWD)
+    cfg_out = getattr(config, "_output_dir", None)
+    output_dir = Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
 
     # Output path for integrated graph
     source_path = getattr(config, "_source_path", None)
@@ -247,7 +269,7 @@ def _run_generation(config: TopologyConfig) -> None:
     print("🔗 Ready for topology generation with:")
     print(
         f"   python -m topogen build -c {getattr(config, '_source_path', 'config.yml')}"
-        f" -o {output_dir / f'{prefix}_scenario.yml'}"
+        f" -o {output_dir}"
     )
 
 
@@ -260,6 +282,14 @@ def generate_command(args: argparse.Namespace) -> None:
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
+        # If output directory provided, persist on config
+        if getattr(args, "output", None):
+            try:
+                out_dir = Path(args.output)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                config_obj._output_dir = out_dir  # type: ignore[attr-defined]
+            except Exception:
+                pass
 
         # Run generation pipeline
         _run_generation(config_obj)
@@ -378,6 +408,15 @@ def main() -> None:
         nargs="?",
         default="config.yml",
         help="Configuration file path (default: config.yml)",
+    )
+    generate_parser.add_argument(
+        "-o",
+        "--output",
+        default=None,
+        help=(
+            "Output directory for integrated graph JSON and preview JPEG. "
+            "Defaults to CWD."
+        ),
     )
 
     generate_parser.set_defaults(func=generate_command)

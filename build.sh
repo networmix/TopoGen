@@ -114,11 +114,7 @@ if ! command -v "${TOPGEN_INVOKE[0]}" >/dev/null 2>&1; then
   fi
 fi
 
-# Resolve project root as the directory of this script for relative data paths
-SCRIPT_DIR=$(cd "$(dirname -- "$0")" && pwd)
-
 echo "🚀 TopoGen batch run"
-echo "📁 Configs: $CONFIGS_DIR"
 OUTPUT_DIR_PRINT=${OUTPUT_DIR%/.}
 CONFIGS_DIR_PRINT=${CONFIGS_DIR%/.}
 echo "📁 Configs: $CONFIGS_DIR_PRINT"
@@ -149,7 +145,6 @@ build_config=0
 build_skipped=0
 build_other=0
 
-summary_lines=()
 row_names=()
 row_gen=()
 row_build=()
@@ -194,14 +189,12 @@ while IFS= read -r -d '' cfg; do
   echo "   📦 Workdir: $(abs_path "$workdir")"
 
   graph_work="$workdir/${stem}_integrated_graph.json"
-  graph_repo="$SCRIPT_DIR/${stem}_integrated_graph.json"
-  vis_repo="$SCRIPT_DIR/${stem}_integrated_graph.jpg"
 
   gen_ec=0
   if [[ "$FORCE" == "true" ]]; then
     run_generate=true
   else
-    if [[ -f "$graph_work" || -f "$graph_repo" ]]; then
+    if [[ -f "$graph_work" ]]; then
       run_generate=false
     else
       run_generate=true
@@ -209,19 +202,12 @@ while IFS= read -r -d '' cfg; do
   fi
 
   if [[ "$run_generate" == "true" ]]; then
-    # Run generate in project root so relative data paths in configs work
-    # Artefacts are produced in project root; we will move them to workdir
-    (cd "$SCRIPT_DIR" && "${TOPGEN_INVOKE[@]}" generate "$cfg_abs") 2>&1 | tee "$workdir/generate.log"
+    # Run generate writing artefacts directly to workdir via -o
+    ("${TOPGEN_INVOKE[@]}" generate "$cfg_abs" -o "$workdir") 2>&1 | tee "$workdir/generate.log"
     gen_ec=${PIPESTATUS[0]}
   else
     # Use cached artefacts
-    if [[ -f "$graph_repo" && ! -f "$graph_work" ]]; then
-      mv -f "$graph_repo" "$workdir/" || die "Failed to move integrated graph to $workdir"
-    fi
-    # Move optional visualization if present
-    if [[ -f "$vis_repo" && ! -f "$workdir/${stem}_integrated_graph.jpg" ]]; then
-      mv -f "$vis_repo" "$workdir/" || true
-    fi
+    : # artefacts already in workdir from previous run
     echo "⏭️  Skipping generate: found existing ${stem}_integrated_graph.json" | tee "$workdir/generate.log" >/dev/null
     gen_ec=100  # special code for 'cached'
   fi
@@ -246,18 +232,7 @@ while IFS= read -r -d '' cfg; do
   build_ec=-1
   scenario_out="$workdir/${stem}_scenario.yml"
   if [[ $gen_ec -eq 0 || $gen_ec -eq 100 ]]; then
-    # Move integrated graph (and optional visualization) from project root to workdir
-    graph_src="$SCRIPT_DIR/${stem}_integrated_graph.json"
-    if [[ -f "$graph_src" && ! -f "$workdir/${stem}_integrated_graph.json" ]]; then
-      mv -f "$graph_src" "$workdir/" || die "Failed to move integrated graph to $workdir"
-    fi
-    vis_src="$SCRIPT_DIR/${stem}_integrated_graph.jpg"
-    if [[ -f "$vis_src" && ! -f "$workdir/${stem}_integrated_graph.jpg" ]]; then
-      mv -f "$vis_src" "$workdir/" || true
-    fi
-
-    # Run build in workdir so it finds the integrated graph by prefix
-    pushd "$workdir" >/dev/null || die "Cannot enter $workdir"
+    # Run build writing scenario into workdir via -o
     ("${TOPGEN_INVOKE[@]}" build "$cfg_abs" -o "$scenario_out") 2>&1 | tee "$workdir/build.log"
     build_ec=${PIPESTATUS[0]}
     case "$build_ec" in
@@ -272,7 +247,7 @@ while IFS= read -r -d '' cfg; do
       *)
         build_icon="❌"; build_note="exit $build_ec"; build_other=$((build_other + 1));;
     esac
-    popd >/dev/null || true
+    :
   else
     build_skipped=$((build_skipped + 1))
   fi

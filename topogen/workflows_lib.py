@@ -25,7 +25,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "growth_factor": 2.0,
             "alpha_min": 1e-6,
             "alpha_max": 1e9,
-            "resolution": 0.01,
+            "resolution": 0.05,
             "max_bracket_iters": 16,
             "max_bisect_iters": 32,
             "seeds_per_alpha": 3,

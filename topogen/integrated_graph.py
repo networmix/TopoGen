@@ -666,8 +666,11 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
         try:
             from topogen.visualization import export_integrated_graph_map
 
-            # Use config-derived prefix and CWD for artefacts
-            output_dir = Path.cwd()
+            # Use config-derived prefix and configured output directory
+            cfg_out = getattr(config, "_output_dir", None)
+            output_dir = (
+                Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
+            )
             prefix = getattr(config, "_source_path", None)
             stem = Path(prefix).stem if isinstance(prefix, Path) else "scenario"
             visualization_path = output_dir / f"{stem}_integrated_graph.jpg"
@@ -682,6 +685,7 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
                 use_real_geometry=bool(
                     getattr(config, "_use_real_corridor_geometry", False)
                 ),
+                dpi=int(getattr(config, "_visualization_dpi", 300)),
             )
         except Exception as e:
             raise RuntimeError(

@@ -489,6 +489,8 @@ class TopologyConfig:
     traffic: TrafficConfig = field(default_factory=TrafficConfig)
     # Visualization behavior; default False keeps previous straight-line rendering
     _use_real_corridor_geometry: bool = False
+    _export_site_graph: bool = False
+    _visualization_dpi: int = 300
     _source_path: Path | None = None
     # Optional instrumentation fields for debugging/export
     _debug_dir: Path | None = None
@@ -999,6 +1001,20 @@ class TopologyConfig:
                 "'visualization.corridors' must be a dictionary if provided"
             )
         use_real_geometry = bool(vis_corridors.get("use_real_geometry", False))
+        vis_site = vis.get("site_graph", {}) or {}
+        if not isinstance(vis_site, dict):
+            raise ValueError(
+                "'visualization.site_graph' must be a dictionary if provided"
+            )
+        export_site_graph = bool(vis_site.get("export", False))
+        # Optional global visualization DPI
+        dpi_val = vis.get("dpi", 300)
+        try:
+            visualization_dpi = int(dpi_val)
+            if visualization_dpi <= 0:
+                raise ValueError
+        except Exception as exc:
+            raise ValueError("'visualization.dpi' must be a positive integer") from exc
 
         # Create main configuration
         cfg = cls(
@@ -1017,6 +1033,8 @@ class TopologyConfig:
         )
         # Attach dynamic flag for visualization behavior; default False if unspecified
         cfg._use_real_corridor_geometry = use_real_geometry
+        cfg._export_site_graph = export_site_graph
+        cfg._visualization_dpi = visualization_dpi
         return cfg
 
     def validate(self) -> None:

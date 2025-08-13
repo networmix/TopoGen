@@ -10,6 +10,7 @@ import geopandas as gpd  # type: ignore
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+from matplotlib.patches import Circle
 from shapely.geometry import LineString, Point
 
 from topogen.log_config import get_logger
@@ -175,6 +176,7 @@ def export_integrated_graph_map(
     target_crs: str,
     *,
     use_real_geometry: bool = False,
+    dpi: int = 150,
 ) -> None:
     """Export JPEG preview map of integrated graph with metro clusters and corridors.
 
@@ -184,6 +186,7 @@ def export_integrated_graph_map(
         output_path: Path to save JPEG file.
         conus_boundary_path: Path to CONUS boundary shapefile for visual context.
         target_crs: Target coordinate reference system.
+        dpi: Output image dots-per-inch when saving.
 
     Raises:
         RuntimeError: If JPEG export fails for any critical reason.
@@ -211,8 +214,11 @@ def export_integrated_graph_map(
                 f"Cannot create map: CONUS boundary file not found at {conus_boundary_path}"
             )
 
-        # Extract metro centroids
+        # Extract metro centroids and radii (meters in target CRS)
         centroids = np.array([metro.coordinates for metro in metros])
+        metro_radii_m = [
+            float(getattr(metro, "radius_km", 0.0)) * 1000.0 for metro in metros
+        ]
 
         # Extract corridor connections from graph
         corridor_lines = []
@@ -406,6 +412,73 @@ def export_integrated_graph_map(
             except Exception as e:
                 raise RuntimeError(f"Failed to plot corridor connections: {e}") from e
 
+        # Plot metro circles (accurate radius) behind points
+        try:
+            for (x0, y0), r_m in zip(centroids, metro_radii_m, strict=False):
+                if r_m > 0.0:
+                    circ = Circle(
+                        (float(x0), float(y0)),
+                        float(r_m),
+                        fill=True,
+                        facecolor="royalblue",
+                        edgecolor="royalblue",
+                        linewidth=0.8,
+                        alpha=0.2,
+                        zorder=1,
+                    )
+                    ax.add_patch(circ)
+        except Exception as e:
+            raise RuntimeError(f"Failed to draw metro radius circles: {e}") from e
+
+        # Metro name labels outside the circle with leader lines (deterministic angles)
+        label_extent_x: list[float] = []
+        label_extent_y: list[float] = []
+        try:
+            import math as _m
+
+            metro_names_list = [str(m.name) for m in metros]
+            for (x0, y0), r_m, label in zip(
+                centroids, metro_radii_m, metro_names_list, strict=False
+            ):
+                try:
+                    if float(r_m) <= 0.0:
+                        continue
+                    h = abs(hash(label))
+                    phi = (h % 360) * _m.pi / 180.0
+                    offset = max(0.08 * float(r_m), 8000.0)
+                    bx = float(x0) + float(r_m) * _m.cos(phi)
+                    by = float(y0) + float(r_m) * _m.sin(phi)
+                    lx = float(x0) + (float(r_m) + offset) * _m.cos(phi)
+                    ly = float(y0) + (float(r_m) + offset) * _m.sin(phi)
+                    ax.plot(
+                        [bx, lx],
+                        [by, ly],
+                        color="gray",
+                        linewidth=0.5,
+                        alpha=0.5,
+                        zorder=2,
+                    )
+                    ha = "left" if _m.cos(phi) >= 0.0 else "right"
+                    ax.text(
+                        lx,
+                        ly,
+                        label,
+                        fontsize=8,
+                        color="black",
+                        ha=ha,
+                        va="center",
+                        zorder=6,
+                        bbox=dict(
+                            boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.5
+                        ),
+                    )
+                    label_extent_x.append(lx)
+                    label_extent_y.append(ly)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
         # Plot metro centroids
         try:
             metros_gdf.plot(
@@ -436,6 +509,26 @@ def export_integrated_graph_map(
                 fontsize=14,
                 pad=20,
             )
+            # Include metro circle extents (and labels) in view
+            try:
+                circ_xs: list[float] = []
+                circ_ys: list[float] = []
+                for (x0, y0), r_m in zip(centroids, metro_radii_m, strict=False):
+                    circ_xs.extend([float(x0) - float(r_m), float(x0) + float(r_m)])
+                    circ_ys.extend([float(y0) - float(r_m), float(y0) + float(r_m)])
+                all_xs = circ_xs + label_extent_x
+                all_ys = circ_ys + label_extent_y
+                if len(all_xs) >= 2 and len(all_ys) >= 2:
+                    pad = 0.05
+                    min_x, max_x = min(all_xs), max(all_xs)
+                    min_y, max_y = min(all_ys), max(all_ys)
+                    dx = max_x - min_x
+                    dy = max_y - min_y
+                    if dx > 0 and dy > 0:
+                        ax.set_xlim(min_x - pad * dx, max_x + pad * dx)
+                        ax.set_ylim(min_y - pad * dy, max_y + pad * dy)
+            except Exception:
+                pass
             plt.tight_layout()
         except Exception as e:
             raise RuntimeError(f"Failed to style the plot: {e}") from e
@@ -443,9 +536,9 @@ def export_integrated_graph_map(
         # Save JPEG - this is critical
         try:
             logger.debug(
-                f"Saving integrated graph visualization to {output_path} (DPI=150, format=JPEG)"
+                f"Saving integrated graph visualization to {output_path} (DPI={int(dpi)}, format=JPEG)"
             )
-            plt.savefig(output_path, dpi=150, format="jpeg", bbox_inches="tight")
+            plt.savefig(output_path, dpi=int(dpi), format="jpeg", bbox_inches="tight")
         except Exception as e:
             raise RuntimeError(f"Failed to save JPEG file to {output_path}: {e}") from e
         finally:
@@ -487,3 +580,353 @@ def export_integrated_graph_map(
             raise RuntimeError(
                 f"Unexpected error during integrated graph map export: {e}"
             ) from e
+
+
+def export_site_graph_map(
+    G: nx.MultiGraph,
+    output_path: Path,
+    *,
+    figure_size: tuple[int, int] = (14, 10),
+    metro_scale: float = 1.0,
+    dpi: int = 300,
+    target_crs: str | None = None,
+) -> None:
+    """Export a JPEG visualization of the site-level network graph.
+
+    Draws each metro's radius as a thin circle, places sites at their assigned
+    ``pos_x``/``pos_y`` coordinates, and renders edges as straight segments
+    between sites. Each edge is labeled with its adjacency capacity
+    (``target_capacity`` if present; else ``base_capacity``; else ``capacity``).
+
+    Required node attributes:
+        - ``pos_x`` and ``pos_y``: site coordinates in target CRS units.
+        - ``center_x`` and ``center_y``: metro center coordinates.
+        - ``radius_m``: metro radius in meters.
+
+    Args:
+        G: Site-level MultiGraph with required node metadata.
+        output_path: Path to save the JPEG.
+        figure_size: Matplotlib figure size in inches (width, height).
+        metro_scale: Multiplier applied to visualized metro circle radius.
+        dpi: Output image dots-per-inch when saving.
+        target_crs: Target coordinate reference system string for basemap.
+
+    Raises:
+        ValueError: If required attributes are missing.
+        RuntimeError: If rendering or file output fails.
+    """
+    fig = None
+    try:
+        logger.info(f"Exporting site graph visualization to {output_path}")
+
+        if G is None or G.number_of_nodes() == 0:
+            raise ValueError("Cannot create site graph map: graph is empty or None")
+
+        # Validate node attributes and collect per-metro circle parameters
+        metros: dict[int, tuple[float, float, float]] = {}
+        metro_names: dict[int, str] = {}
+        xs: list[float] = []
+        ys: list[float] = []
+        for node_id, data in G.nodes(data=True):
+            try:
+                x = float(data["pos_x"])  # type: ignore[index]
+                y = float(data["pos_y"])  # type: ignore[index]
+                cx = float(data["center_x"])  # type: ignore[index]
+                cy = float(data["center_y"])  # type: ignore[index]
+                r = float(data["radius_m"])  # type: ignore[index]
+                idx = int(data.get("metro_idx", 0))
+            except Exception as exc:
+                raise ValueError(
+                    f"Node '{node_id}' missing required visualization attributes"
+                ) from exc
+            xs.append(x)
+            ys.append(y)
+            if idx not in metros:
+                metros[idx] = (cx, cy, r)
+            # Capture metro canonical name if present
+            try:
+                name_val = str(data.get("metro_name", "")).strip()
+                if name_val:
+                    metro_names[idx] = name_val
+            except Exception:
+                pass
+
+        # Create figure/axes
+        try:
+            fig, ax = plt.subplots(figsize=figure_size)
+        except Exception as e:
+            raise RuntimeError(f"Failed to create matplotlib figure: {e}") from e
+
+        # Draw metro circles (light outline) and labels (outside the circle)
+        label_extent_x: list[float] = []
+        label_extent_y: list[float] = []
+        for _idx, (cx, cy, r) in metros.items():
+            rr = float(r) * float(metro_scale)
+            if rr > 0.0:
+                try:
+                    circ = Circle(
+                        (cx, cy),
+                        rr,
+                        fill=False,
+                        edgecolor="gray",
+                        linewidth=0.8,
+                        alpha=0.6,
+                    )
+                    ax.add_patch(circ)
+                except Exception as e:
+                    raise RuntimeError(f"Failed to draw metro circle: {e}") from e
+            # Metro name label outside the circle at deterministic angle
+            try:
+                label = metro_names.get(_idx, f"metro{_idx}")
+                import math as _m
+
+                h = abs(hash(label))
+                phi = (h % 360) * _m.pi / 180.0
+                # Offset beyond the circle radius
+                offset = max(0.08 * rr, 8000.0)
+                lx = float(cx) + (rr + offset) * _m.cos(phi)
+                ly = float(cy) + (rr + offset) * _m.sin(phi)
+                # Keep extents inclusive of labels for autoscale
+                label_extent_x.append(lx)
+                label_extent_y.append(ly)
+                # Leader line from circle boundary to label
+                bx = float(cx) + rr * _m.cos(phi)
+                by = float(cy) + rr * _m.sin(phi)
+                ax.plot(
+                    [bx, lx], [by, ly], color="gray", linewidth=0.5, alpha=0.5, zorder=3
+                )
+                ha = "left" if _m.cos(phi) >= 0.0 else "right"
+                ax.text(
+                    lx,
+                    ly,
+                    label,
+                    fontsize=8,
+                    color="black",
+                    ha=ha,
+                    va="center",
+                    zorder=4,
+                    bbox=dict(
+                        boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.5
+                    ),
+                )
+            except Exception:
+                pass
+
+        # Draw edges and labels
+        for u, v, k, data in G.edges(keys=True, data=True):
+            try:
+                ux = float(G.nodes[u]["pos_x"])  # type: ignore[index]
+                uy = float(G.nodes[u]["pos_y"])  # type: ignore[index]
+                vx = float(G.nodes[v]["pos_x"])  # type: ignore[index]
+                vy = float(G.nodes[v]["pos_y"])  # type: ignore[index]
+            except Exception as e:
+                raise ValueError(f"Edge {u}-{v} endpoints missing positions") from e
+
+            try:
+                ax.plot([ux, vx], [uy, vy], color="steelblue", linewidth=1.2, alpha=0.9)
+            except Exception as e:
+                raise RuntimeError(f"Failed to draw edge {u}-{v}") from e
+
+            # Label with adjacency capacity (prefer total target capacity)
+            val = data.get(
+                "target_capacity", data.get("base_capacity", data.get("capacity", None))
+            )
+            # Skip inter-metro adjacency labels; corridor will be labeled once per metro pair
+            if str(data.get("link_type", "")) == "inter_metro_corridor":
+                continue
+            if val is not None:
+                try:
+                    cap = float(val)
+                    # Deterministic jitter to reduce overlap across edges
+                    edge_key = f"{u}|{v}|{k}"
+                    h = abs(hash(edge_key))
+                    # Along-edge parameter in [0.35, 0.65]
+                    t = 0.35 + 0.30 * ((h % 7) / 6.0)
+                    mx = (1.0 - t) * ux + t * vx
+                    my = (1.0 - t) * uy + t * vy
+                    # Slight perpendicular offset for readability (vary magnitude/sign)
+                    dx = vx - ux
+                    dy = vy - uy
+                    import math as _m
+
+                    length = _m.hypot(dx, dy)
+                    if length > 0.0:
+                        step = (h >> 3) % 4  # 0..3
+                        off_frac = 0.03 + 0.02 * float(step)  # 0.03..0.09
+                        sign = -1.0 if ((h >> 9) % 2 == 0) else 1.0
+                        off = sign * off_frac
+                        ox = -dy * off
+                        oy = dx * off
+                    else:
+                        ox = 0.0
+                        oy = 0.0
+                    ax.text(
+                        mx + ox,
+                        my + oy,
+                        f"{cap:,.0f}",
+                        fontsize=6,
+                        color="black",
+                        ha="center",
+                        va="center",
+                        bbox=dict(
+                            boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.6
+                        ),
+                        zorder=5,
+                    )
+                except Exception:
+                    # Labeling is optional; continue on format errors
+                    pass
+
+        # Aggregate corridor capacities per directed metro pair and place labels along centerline
+        corridor_caps: dict[tuple[str, str], float] = {}
+        for _u2, _v2, _k2, d2 in G.edges(keys=True, data=True):
+            if str(d2.get("link_type", "")) != "inter_metro_corridor":
+                continue
+            s_name = d2.get("source_metro")
+            t_name = d2.get("target_metro")
+            if not isinstance(s_name, str) or not isinstance(t_name, str):
+                continue
+            cap_val = d2.get("target_capacity", d2.get("base_capacity", None))
+            try:
+                cap_num = float(cap_val) if cap_val is not None else 0.0
+            except Exception:
+                cap_num = 0.0
+            key = (s_name, t_name)
+            corridor_caps[key] = corridor_caps.get(key, 0.0) + cap_num
+
+        # Build name -> (cx, cy) lookup from collected metros and names
+        name_to_center: dict[str, tuple[float, float]] = {}
+        for idx, (cx, cy, _r) in metros.items():
+            nm = metro_names.get(idx, f"metro{idx}")
+            name_to_center[nm] = (float(cx), float(cy))
+
+        # Place corridor labels
+        corr_label_x: list[float] = []
+        corr_label_y: list[float] = []
+        for (s_name, t_name), cap_num in corridor_caps.items():
+            a = name_to_center.get(str(s_name))
+            b = name_to_center.get(str(t_name))
+            if a is None or b is None:
+                continue
+            ax0, ay0 = a
+            bx0, by0 = b
+            dx = bx0 - ax0
+            dy = by0 - ay0
+            import math as _m
+
+            length = _m.hypot(dx, dy)
+            if length <= 0.0:
+                continue
+            # Along-line parameter and perpendicular offset based on pair hash
+            h = abs(hash(f"{s_name}->{t_name}"))
+            tpar = 0.45 + 0.10 * ((h % 5) / 4.0)  # 0.45..0.55
+            mx = ax0 + tpar * dx
+            my = ay0 + tpar * dy
+            step = (h >> 3) % 4
+            off_frac = 0.04 + 0.02 * float(step)  # 0.04..0.10
+            sign = -1.0 if ((h >> 9) % 2 == 0) else 1.0
+            ox = sign * (-dy) * off_frac
+            oy = sign * (dx) * off_frac
+            lx = mx + ox
+            ly = my + oy
+            corr_label_x.append(lx)
+            corr_label_y.append(ly)
+            try:
+                ax.text(
+                    lx,
+                    ly,
+                    f"{cap_num:,.0f}",
+                    fontsize=7,
+                    color="black",
+                    ha="center",
+                    va="center",
+                    bbox=dict(
+                        boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.6
+                    ),
+                    zorder=5,
+                )
+            except Exception:
+                pass
+
+        # Draw site nodes on top
+        try:
+            ax.scatter(
+                xs,
+                ys,
+                s=20,
+                c="crimson",
+                alpha=0.9,
+                edgecolors="white",
+                linewidths=0.6,
+                zorder=3,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to draw site nodes: {e}") from e
+
+        # Add basemap using contextily to match integrated graph background
+        try:
+            if isinstance(target_crs, str) and target_crs.strip():
+                import contextily as _cx  # type: ignore
+
+                _cx.add_basemap(ax, crs=target_crs, attribution=False, alpha=0.3)
+        except Exception as e:
+            raise RuntimeError(f"Failed to add basemap to site graph: {e}") from e
+
+        # Style and bounds
+        try:
+            ax.set_aspect("equal", adjustable="datalim")
+            pad = 0.05
+            # Include scaled metro circles and external labels in extent
+            circ_xs: list[float] = []
+            circ_ys: list[float] = []
+            for cx, cy, r in metros.values():
+                rr = float(r) * float(metro_scale)
+                circ_xs.extend([float(cx) - rr, float(cx) + rr])
+                circ_ys.extend([float(cy) - rr, float(cy) + rr])
+            all_xs = xs + circ_xs + label_extent_x + corr_label_x
+            all_ys = ys + circ_ys + label_extent_y + corr_label_y
+            if all_xs and all_ys:
+                min_x, max_x = min(all_xs), max(all_xs)
+                min_y, max_y = min(all_ys), max(all_ys)
+                dx = max_x - min_x
+                dy = max_y - min_y
+                ax.set_xlim(min_x - pad * dx, max_x + pad * dx)
+                ax.set_ylim(min_y - pad * dy, max_y + pad * dy)
+            ax.set_axis_off()
+            ax.set_title("Site-level Network Graph", fontsize=14, pad=16)
+            plt.tight_layout()
+        except Exception as e:
+            raise RuntimeError(f"Failed to style site graph plot: {e}") from e
+
+        # Save JPEG
+        try:
+            plt.savefig(output_path, dpi=int(dpi), format="jpeg", bbox_inches="tight")
+        except Exception as e:
+            raise RuntimeError(f"Failed to save site graph JPEG: {e}") from e
+        finally:
+            plt.close(fig)
+            fig = None
+
+        if not output_path.exists():
+            raise RuntimeError(f"JPEG file was not created at {output_path}")
+
+        size = output_path.stat().st_size
+        if size < 1000:
+            raise RuntimeError(f"JPEG file appears corrupt (only {size} bytes)")
+        logger.info(
+            f"Saved site graph visualization → {output_path} ({size / 1024:.1f} KB)"
+        )
+    except Exception as e:
+        if fig is not None:
+            try:
+                plt.close(fig)
+            except Exception:
+                pass
+        if output_path.exists():
+            try:
+                output_path.unlink()
+            except Exception:
+                pass
+        if isinstance(e, (ValueError, RuntimeError)):
+            raise
+        raise RuntimeError(f"Unexpected error during site graph map export: {e}") from e

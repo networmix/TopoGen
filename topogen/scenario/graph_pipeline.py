@@ -54,6 +54,103 @@ def _site_node_id(metro_idx: int, kind: str, ordinal: int) -> str:
     return f"metro{metro_idx}/{kind}{ordinal}"
 
 
+def _assign_site_positions(
+    G: nx.MultiGraph, metros: list[dict[str, Any]], metro_idx_map: dict[str, int]
+) -> None:
+    """Assign deterministic 2D positions for site nodes within each metro radius.
+
+    Positions are stored on nodes as ``pos_x`` and ``pos_y`` in the target CRS
+    coordinate units (meters for EPSG:5070). Sites are placed on rings centered
+    at the metro centroid, strictly within the metro radius to avoid overlap
+    with the outline.
+
+    Args:
+        G: Site-level MultiGraph with nodes carrying ``metro_idx``,
+            ``site_kind`` and ``site_ordinal`` attributes.
+        metros: List of metro dicts as produced by ``_extract_metros_from_graph``.
+        metro_idx_map: Mapping from metro name to metro index used in node ids.
+    """
+    # Build reverse map: idx -> metro record
+    idx_to_metro: dict[int, dict[str, Any]] = {}
+    for name, idx in metro_idx_map.items():
+        # ``metros`` is enumerated 1-based in _metro_index_maps; reconstruct by name
+        for m in metros:
+            if m.get("name") == name:
+                idx_to_metro[idx] = m
+                break
+
+    # Group nodes by metro index and site kind
+    by_idx_pop: dict[int, list[tuple[str, int]]] = {}
+    by_idx_dc: dict[int, list[tuple[str, int]]] = {}
+    for node_id, data in G.nodes(data=True):
+        try:
+            idx = int(data.get("metro_idx", 0))
+            kind = str(data.get("site_kind", ""))
+            ordn = int(data.get("site_ordinal", 0))
+        except Exception:
+            # Skip nodes without expected metadata
+            continue
+        if kind == "pop":
+            by_idx_pop.setdefault(idx, []).append((str(node_id), ordn))
+        elif kind == "dc":
+            by_idx_dc.setdefault(idx, []).append((str(node_id), ordn))
+
+    # Assign positions per metro
+    import math as _m
+
+    for idx, metro in idx_to_metro.items():
+        cx = float(metro.get("x", 0.0))
+        cy = float(metro.get("y", 0.0))
+        r_km = float(metro.get("radius_km", 0.0))
+        r_m = max(0.0, 1000.0 * r_km)
+
+        # POP ring radius and DC ring radius as fractions of metro radius
+        # Keep strictly inside the circle to avoid overlap with outline
+        r_pop = 0.70 * r_m if r_m > 0.0 else 0.0
+        r_dc = 0.40 * r_m if r_m > 0.0 else 0.0
+
+        # Deterministic angular placement
+        pops = sorted(by_idx_pop.get(idx, []), key=lambda t: t[1])
+        dcs = sorted(by_idx_dc.get(idx, []), key=lambda t: t[1])
+
+        # Helper to place nodes on a ring
+        def place_ring(
+            nodes: list[tuple[str, int]],
+            radius: float,
+            phase: float,
+            *,
+            center_x: float = cx,
+            center_y: float = cy,
+        ) -> None:
+            n = len(nodes)
+            if n == 0:
+                return
+            if n == 1:
+                theta = phase
+                x = center_x + radius * _m.cos(theta)
+                y = center_y + radius * _m.sin(theta)
+                G.nodes[nodes[0][0]]["pos_x"] = float(x)
+                G.nodes[nodes[0][0]]["pos_y"] = float(y)
+                return
+            for i, (node_name, _ord) in enumerate(nodes):
+                theta = phase + (2.0 * _m.pi * i) / float(n)
+                x = center_x + radius * _m.cos(theta)
+                y = center_y + radius * _m.sin(theta)
+                G.nodes[node_name]["pos_x"] = float(x)
+                G.nodes[node_name]["pos_y"] = float(y)
+
+        # Place POPs and DCs
+        place_ring(pops, r_pop, phase=0.0)
+        # Phase DC ring by 45 degrees to reduce overlap with POPs when counts match
+        place_ring(dcs, r_dc, phase=_m.pi / 4.0)
+
+        # Attach metro center and radius metadata to nodes (useful for visualization)
+        for node_name, _ in pops + dcs:
+            G.nodes[node_name]["center_x"] = float(cx)
+            G.nodes[node_name]["center_y"] = float(cy)
+            G.nodes[node_name]["radius_m"] = float(r_m)
+
+
 def _add_intra_metro_edges(
     G: nx.MultiGraph,
     metros: list[dict[str, Any]],
@@ -467,6 +564,9 @@ def build_site_graph(
                 site_ordinal=j,
                 site_blueprint=dc_blueprint,
             )
+
+    # Assign deterministic positions for visualization/export consumers
+    _assign_site_positions(G, metros, metro_idx_map)
 
     # Edges by category
     _add_intra_metro_edges(G, metros, metro_settings, config, metro_idx_map)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
@@ -102,13 +103,13 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         logger.info("Assigning per-link capacities from configured base capacities")
     assign_per_link_capacity(G, config)
 
-    # Persist the site-level network graph JSON artefact in CWD
+    # Persist the site-level network graph JSON artefact in configured output dir
     try:
-        from pathlib import Path
-
         from .graph_pipeline import save_site_graph_json
 
-        output_dir = Path.cwd()
+        # Prefer configured output directory; fallback to CWD
+        cfg_out = getattr(config, "_output_dir", None)
+        output_dir = Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
         src_path = getattr(config, "_source_path", None)
         stem = Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
         network_graph_path = output_dir / f"{stem}_network_graph.json"
@@ -121,6 +122,36 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         save_site_graph_json(G, network_graph_path, json_indent=json_indent)
     except Exception as e:  # pragma: no cover - best-effort artefact save
         logger.warning("Failed to save site-level network graph: %s", e)
+
+    # Optional: export a JPEG visualization of the site-level graph (match integrated graph DPI)
+    try:
+        if bool(getattr(config, "_export_site_graph", False)):
+            from topogen.visualization import export_site_graph_map
+
+            # Prefer configured output directory; fallback to CWD
+            cfg_out = getattr(config, "_output_dir", None)
+            output_dir = (
+                Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
+            )
+            try:
+                output_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            src_path = getattr(config, "_source_path", None)
+            stem = (
+                Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
+            )
+            site_vis_path = output_dir / f"{stem}_site_graph.jpg"
+            logger.info(
+                "Exporting site-level graph visualization to: %s", str(site_vis_path)
+            )
+            dpi = int(getattr(config, "_visualization_dpi", 300))
+            target_crs = str(
+                getattr(getattr(config, "projection", object()), "target_crs", "")
+            )
+            export_site_graph_map(G, site_vis_path, dpi=dpi, target_crs=target_crs)
+    except Exception as e:  # pragma: no cover - best-effort
+        logger.warning("Failed to export site-level graph visualization: %s", e)
 
     # Determine used blueprints directly from the site graph (source of truth)
     used_blueprints = {
@@ -160,7 +191,9 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     optics_enabled = isinstance(raw_optics, _Mapping) and len(raw_optics) > 0
 
     try:
-        from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
+        from ngraph.dsl.blueprints.expand import (  # type: ignore[import-not-found]
+            expand_network_dsl as _ng_expand,
+        )
 
         from topogen.components_lib import (
             get_builtin_components as _get_components_lib,

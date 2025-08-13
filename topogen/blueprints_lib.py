@@ -39,7 +39,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "target": "/core",
                 "pattern": "mesh",
                 "link_params": {
-                    "capacity": 400,
+                    "capacity": 12_800,
                     "cost": 1,
                     "attrs": {"link_type": "internal_mesh"},
                 },
@@ -84,6 +84,350 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             }
         },
         "adjacency": [],
+    },
+    "SlimFly_16x4": {
+        "groups": {
+            "leafA": {
+                "node_count": 4,
+                "name_template": "leafA{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "A"},
+            },
+            "leafB": {
+                "node_count": 4,
+                "name_template": "leafB{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "B"},
+            },
+            "leafC": {
+                "node_count": 4,
+                "name_template": "leafC{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "C"},
+            },
+            "leafD": {
+                "node_count": 4,
+                "name_template": "leafD{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "D"},
+            },
+        },
+        "adjacency": [
+            # Intra-group: dense (4×800G per pair ≈ 3.2 Tb/s)
+            {
+                "source": "/leafA",
+                "target": "/leafA",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            {
+                "source": "/leafB",
+                "target": "/leafB",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            {
+                "source": "/leafC",
+                "target": "/leafC",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            {
+                "source": "/leafD",
+                "target": "/leafD",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            # Inter-group (reduced): ring-of-cliques, one_to_one, 2×800G per pair ≈ 1.6 Tb/s
+            # A<->B and A<->D
+            {
+                "source": "leafA{idx}",
+                "target": "leafB{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 1_600,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            {
+                "source": "leafA{idx}",
+                "target": "leafD{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 1_600,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            # B<->C and C<->D
+            {
+                "source": "leafB{idx}",
+                "target": "leafC{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 1_600,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            {
+                "source": "leafC{idx}",
+                "target": "leafD{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 1_600,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+        ],
+    },
+    "SlimFly_16x4_2S": {
+        "groups": {
+            "spine": {
+                "node_count": 2,
+                "name_template": "spine{node_num}",
+                "attrs": {"role": "spine", "tier": "spine"},
+            },
+            "leafA": {
+                "node_count": 4,
+                "name_template": "leafA{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "A"},
+            },
+            "leafB": {
+                "node_count": 4,
+                "name_template": "leafB{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "B"},
+            },
+            "leafC": {
+                "node_count": 4,
+                "name_template": "leafC{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "C"},
+            },
+            "leafD": {
+                "node_count": 4,
+                "name_template": "leafD{node_num}",
+                "attrs": {"role": "leaf", "tier": "leaf", "group": "D"},
+            },
+        },
+        "adjacency": [
+            # Intra-group dense (4×800G per pair = 3.2 Tb/s)
+            {
+                "source": "/leafA",
+                "target": "/leafA",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            {
+                "source": "/leafB",
+                "target": "/leafB",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            {
+                "source": "/leafC",
+                "target": "/leafC",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            {
+                "source": "/leafD",
+                "target": "/leafD",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "intra_group"},
+                },
+            },
+            # Reduced inter-group: ring-of-cliques, two indexed pairs per neighbor,
+            # 3×800G per pair (2.4 Tb/s).
+            # A<->B (idx) and (idx+1)
+            {
+                "source": "leafA{idx}",
+                "target": "leafB{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            {
+                "source": "leafA{idx}",
+                "target": "leafB{jdx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            # B<->C
+            {
+                "source": "leafB{idx}",
+                "target": "leafC{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            {
+                "source": "leafB{idx}",
+                "target": "leafC{jdx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            # C<->D
+            {
+                "source": "leafC{idx}",
+                "target": "leafD{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            {
+                "source": "leafC{idx}",
+                "target": "leafD{jdx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            # D<->A
+            {
+                "source": "leafD{idx}",
+                "target": "leafA{idx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            {
+                "source": "leafD{idx}",
+                "target": "leafA{jdx}",
+                "pattern": "one_to_one",
+                "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 2_400,
+                    "cost": 1,
+                    "attrs": {"link_type": "inter_group"},
+                },
+            },
+            # Leaf<->Spine express (4×800G per leaf per spine = 3.2 Tb/s)
+            {
+                "source": "/leafA",
+                "target": "/spine",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "leaf_spine"},
+                },
+            },
+            {
+                "source": "/leafB",
+                "target": "/spine",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "leaf_spine"},
+                },
+            },
+            {
+                "source": "/leafC",
+                "target": "/spine",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "leaf_spine"},
+                },
+            },
+            {
+                "source": "/leafD",
+                "target": "/spine",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 3_200,
+                    "cost": 1,
+                    "attrs": {"link_type": "leaf_spine"},
+                },
+            },
+            # Optional: spine<->spine mesh for resilience (e.g., 12.8 Tb/s)
+            {
+                "source": "/spine",
+                "target": "/spine",
+                "pattern": "mesh",
+                "link_params": {
+                    "capacity": 12_800,
+                    "cost": 1,
+                    "attrs": {"link_type": "spine_mesh"},
+                },
+            },
+        ],
     },
 }
 

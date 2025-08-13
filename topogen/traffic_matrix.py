@@ -151,15 +151,21 @@ def generate_traffic_matrix(
         demands: list[dict[str, Any]] = []
         for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
             class_demand = offered_gbps * float(ratio)
-            demands.append(
-                {
-                    "source_path": source_regex,
-                    "sink_path": sink_regex,
-                    "mode": "pairwise",
-                    "priority": int(priority),
-                    "demand": float(class_demand),
-                }
-            )
+            entry = {
+                "source_path": source_regex,
+                "sink_path": sink_regex,
+                "mode": "pairwise",
+                "priority": int(priority),
+                "demand": float(class_demand),
+            }
+            # Optional per-priority flow policy config passthrough
+            try:
+                fpc = getattr(traffic_cfg, "flow_policy_config", {})
+                if isinstance(fpc, dict) and int(priority) in fpc:
+                    entry["flow_policy_config"] = str(fpc[int(priority)])
+            except Exception:  # pragma: no cover - logging only
+                pass
+            demands.append(entry)
         # Debug summary for uniform model
         try:
             for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
@@ -522,6 +528,11 @@ def generate_traffic_matrix(
                     "demand": demand_each,
                 }
             )
+            # Optional per-priority flow policy config passthrough
+            if isinstance(getattr(traffic_cfg, "flow_policy_config", {}), dict):
+                fpc = getattr(traffic_cfg, "flow_policy_config", {})
+                if int(priority) in fpc:
+                    demands[-1]["flow_policy_config"] = str(fpc[int(priority)])
             demands.append(
                 {
                     "source_path": dst,
@@ -531,6 +542,10 @@ def generate_traffic_matrix(
                     "demand": demand_each,
                 }
             )
+            if isinstance(getattr(traffic_cfg, "flow_policy_config", {}), dict):
+                fpc = getattr(traffic_cfg, "flow_policy_config", {})
+                if int(priority) in fpc:
+                    demands[-1]["flow_policy_config"] = str(fpc[int(priority)])
             # Track post-split rounded directed sum for delta diagnostics
             class_directed_sum += 2.0 * demand_each
 

@@ -34,6 +34,8 @@ def test_uniform_totals() -> None:
     cfg.traffic.mw_per_dc_region = 10.0
     cfg.traffic.priority_ratios = {0: 0.75, 1: 0.25}
     cfg.traffic.matrix_name = "tm"
+    # Per-priority flow policy mapping
+    cfg.traffic.flow_policy_config = {0: "SHORTEST_PATHS_ECMP", 1: "MIN_HOPS_NO_ECMP"}
 
     metros = _metros_ab()
     msettings = _metro_settings_two_one_dc()
@@ -41,7 +43,7 @@ def test_uniform_totals() -> None:
     tmset = generate_traffic_matrix(metros, msettings, cfg)
     demands = tmset[cfg.traffic.matrix_name]
 
-    # Two entries: one per class, pairwise regex
+    # Two entries: one per class, pairwise regex, with flow policy names attached
     assert len(demands) == 2
     offered = cfg.traffic.gbps_per_mw * (2 * cfg.traffic.mw_per_dc_region)
     per_class = [d for d in demands]
@@ -49,6 +51,8 @@ def test_uniform_totals() -> None:
     assert per_class[0]["mode"] == "pairwise"
     assert abs(float(per_class[0]["demand"]) - offered * 0.75) < 1e-9
     assert abs(float(per_class[1]["demand"]) - offered * 0.25) < 1e-9
+    assert per_class[0]["flow_policy_config"] == "SHORTEST_PATHS_ECMP"
+    assert per_class[1]["flow_policy_config"] == "MIN_HOPS_NO_ECMP"
 
 
 def test_gravity_two_dcs_symmetric_split_and_total() -> None:
@@ -60,6 +64,7 @@ def test_gravity_two_dcs_symmetric_split_and_total() -> None:
     cfg.traffic.gbps_per_mw = 100.0
     cfg.traffic.mw_per_dc_region = 10.0
     cfg.traffic.priority_ratios = {0: 1.0}
+    cfg.traffic.flow_policy_config = {0: "SHORTEST_PATHS_ECMP"}
     g = cfg.traffic.gravity
     g.alpha = 1.0
     g.beta = 1.0
@@ -79,6 +84,7 @@ def test_gravity_two_dcs_symmetric_split_and_total() -> None:
     total = sum(float(d["demand"]) for d in demands)
     # Offered = 100 * (10+10) = 2000; split equally A->B and B->A
     assert abs(total - 2000.0) < 1e-6
+    assert all(d.get("flow_policy_config") == "SHORTEST_PATHS_ECMP" for d in demands)
 
 
 def test_gravity_top_k_pruning_keeps_best_partners() -> None:

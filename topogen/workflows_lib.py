@@ -60,7 +60,14 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "seed": 42,
             "store_failure_patterns": False,
             "include_flow_details": False,
+            "alpha": "auto",
         },
+        # {
+        #     "step_type": "CostPowerEfficiency",
+        #     "name": "cost_power_efficiency",
+        #     "include_disabled": True,
+        #     "collect_node_hw_entries": True,
+        # },
     ],
 }
 

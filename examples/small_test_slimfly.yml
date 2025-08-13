@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Baseline"
+    title: "Small Test: East Coast, SlimFly_16x4"
 
   formatting:
     json_indent: 2
@@ -31,7 +31,7 @@ build:
       role_pairs: ["dc|core", "dc|leaf"]
   build_overrides:
     - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
-      site_blueprint: SingleRouter
+      site_blueprint: SlimFly_16x4
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 

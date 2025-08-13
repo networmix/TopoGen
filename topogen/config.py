@@ -370,6 +370,9 @@ class TrafficConfig:
         gbps_per_mw: Offered traffic per MW of DC power (Gbps/MW).
         mw_per_dc_region: Power per DC region (MW).
         priority_ratios: Mapping from priority class to ratio. Values must sum to 1.0.
+        flow_policy_config: Optional mapping from priority class to flow policy
+            configuration name to attach to each demand entry as
+            ``flow_policy_config``. Keys are integers matching priority classes.
         matrix_name: Name of the traffic matrix in the scenario.
         model: "uniform" (default) or "gravity".
         gravity: Parameters for gravity model when model == "gravity".
@@ -381,6 +384,7 @@ class TrafficConfig:
     priority_ratios: dict[int, float] = field(
         default_factory=lambda: {0: 0.3, 1: 0.3, 2: 0.4}
     )
+    flow_policy_config: dict[int, str] = field(default_factory=dict)
     matrix_name: str = "default"
     model: str = "uniform"
     gravity: TrafficGravityConfig = field(default_factory=TrafficGravityConfig)
@@ -877,6 +881,26 @@ class TopologyConfig:
                 raise ValueError("'traffic.gravity' must be a dictionary")
             gravity_cfg = TrafficGravityConfig(**gravity_dict)
 
+        # Normalize optional flow_policy_config mapping to int keys
+        fpc_input = traffic_dict.get("flow_policy_config")
+        if fpc_input is None:
+            flow_policy_cfg_map: dict[int, str] = {}
+        else:
+            if not isinstance(fpc_input, dict):
+                raise ValueError(
+                    "'traffic.flow_policy_config' must be a dictionary mapping "
+                    "priority class to policy name"
+                )
+            flow_policy_cfg_map = {}
+            for k, v in fpc_input.items():
+                try:
+                    key_int = int(k)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(
+                        "'traffic.flow_policy_config' keys must be integers"
+                    ) from exc
+                flow_policy_cfg_map[key_int] = str(v)
+
         # Compose TrafficConfig
         traffic = TrafficConfig(
             enabled=bool(traffic_dict.get("enabled", True)),
@@ -885,6 +909,7 @@ class TopologyConfig:
             priority_ratios=traffic_dict.get(
                 "priority_ratios", {0: 0.3, 1: 0.3, 2: 0.4}
             ),
+            flow_policy_config=flow_policy_cfg_map,
             matrix_name=str(traffic_dict.get("matrix_name", "default")),
             # Accept both "uniform" and the historical name "uniform_pairwise"
             model=(
@@ -914,6 +939,24 @@ class TopologyConfig:
             total_ratio = sum(traffic.priority_ratios.values())
             if abs(total_ratio - 1.0) > 1e-9:
                 raise ValueError("traffic.priority_ratios values must sum to 1.0")
+
+            # Validate optional per-priority flow policy mapping
+            if traffic.flow_policy_config:
+                # Keys must be subset of defined priority classes
+                extra_keys = [
+                    k for k in traffic.flow_policy_config.keys() if k not in classes
+                ]
+                if extra_keys:
+                    raise ValueError(
+                        "traffic.flow_policy_config contains unknown priority classes; "
+                        f"allowed: {classes}, got: {sorted(extra_keys)}"
+                    )
+                # Values must be non-empty strings
+                for v in traffic.flow_policy_config.values():
+                    if not isinstance(v, str) or not v.strip():
+                        raise ValueError(
+                            "traffic.flow_policy_config values must be non-empty strings"
+                        )
 
             # Validate traffic model
             if traffic.model not in {"uniform", "gravity"}:

@@ -345,6 +345,106 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
 
     _fmt = getattr(getattr(config, "output", None), "formatting", None)
     _anchors = bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
+    # Optional: export per-blueprint diagrams (abstract + concrete)
+    try:
+        if bool(getattr(config, "_export_blueprint_diagrams", False)):
+            from topogen.visualization import export_blueprint_diagram
+
+            # Determine used blueprints again (same as before)
+            used_blueprints = set(scenario.get("blueprints", {}).keys())
+            # Select a representative site with maximum attached capacity per blueprint
+            # Build lookup: site node name -> total incident link capacity from expanded net
+            attached: dict[str, float] = {}
+            for link in net.links.values():
+                cap = float(getattr(link, "capacity", 0.0) or 0.0)
+                s = str(getattr(link, "source", ""))
+                t = str(getattr(link, "target", ""))
+                if s:
+                    attached[s] = attached.get(s, 0.0) + cap
+                if t:
+                    attached[t] = attached.get(t, 0.0) + cap
+
+            # Build mapping: site path -> blueprint used (from groups section attrs)
+            # We use the authoritative groups section emitted earlier
+            site_to_bp: dict[str, str] = {}
+            for gpath, gdef in scenario.get("network", {}).get("groups", {}).items():
+                bp = str(gdef.get("use_blueprint", ""))
+                if not bp:
+                    continue
+                # Expand ranges like pop[1-4] into concrete prefixes
+                import re as _re
+
+                m = _re.match(r"^(?P<prefix>.+?)\[(?P<a>\d+)-(?:\d+)\]$", gpath)
+                if m:
+                    prefix = m.group("prefix")
+                    # Find any nodes whose path starts with this prefix in expanded net
+                    for node in net.nodes.values():
+                        nname = str(node.name)
+                        if nname.startswith(prefix.rstrip("/")):
+                            head = nname.split("/", 2)[0:2]
+                            site_path = "/".join(head)
+                            site_to_bp[site_path] = bp
+                else:
+                    # Non-ranged path; take as-is
+                    # Normalize to the first two components (site scope)
+                    head = gpath.split("/", 2)[0:2]
+                    site_path = "/".join(head)
+                    site_to_bp[site_path] = bp
+
+            # For each used blueprint, pick site with max attached capacity
+            bp_to_best_site: dict[str, str] = {}
+            for site_path, bp in site_to_bp.items():
+                # Aggregate attached over concrete nodes under the site
+                prefix = f"{site_path}/"
+                tot = 0.0
+                for node_name, val in attached.items():
+                    if str(node_name).startswith(prefix):
+                        tot += float(val)
+                prev_site = bp_to_best_site.get(bp)
+                if prev_site is None:
+                    bp_to_best_site[bp] = site_path
+                else:
+                    # Compare totals
+                    prev_tot = 0.0
+                    for node_name, val in attached.items():
+                        if str(node_name).startswith(f"{prev_site}/"):
+                            prev_tot += float(val)
+                    if tot > prev_tot:
+                        bp_to_best_site[bp] = site_path
+
+            # Export one diagram per blueprint actually used
+            cfg_out = getattr(config, "_output_dir", None)
+            output_dir = (
+                Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
+            )
+            try:
+                output_dir.mkdir(parents=True, exist_ok=True)
+            except Exception:
+                pass
+            src_path = getattr(config, "_source_path", None)
+            stem = (
+                Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
+            )
+            dpi = int(getattr(config, "_visualization_dpi", 300))
+            blueprints_defs = scenario.get("blueprints", {})
+            for bp in sorted(used_blueprints):
+                if bp not in blueprints_defs:
+                    continue
+                site = bp_to_best_site.get(bp)
+                if not site:
+                    continue
+                out_path = output_dir / f"{stem}_blueprint_{bp}.jpg"
+                export_blueprint_diagram(
+                    bp,
+                    blueprints_defs[bp],
+                    net,
+                    site,
+                    out_path,
+                    dpi=dpi,
+                )
+    except Exception as e:  # pragma: no cover - non-fatal visualization optional
+        logger.warning("Failed to export blueprint diagrams: %s", e)
+
     return _emit_yaml(scenario, yaml_anchors=_anchors)
 
 

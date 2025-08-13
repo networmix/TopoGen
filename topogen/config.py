@@ -492,6 +492,8 @@ class TopologyConfig:
     _export_site_graph: bool = False
     _visualization_dpi: int = 300
     _source_path: Path | None = None
+    # Export per-blueprint abstract+concrete diagrams
+    _export_blueprint_diagrams: bool = False
     # Optional instrumentation fields for debugging/export
     _debug_dir: Path | None = None
     _source_stem: str | None = None
@@ -1007,6 +1009,13 @@ class TopologyConfig:
                 "'visualization.site_graph' must be a dictionary if provided"
             )
         export_site_graph = bool(vis_site.get("export", False))
+        # Optional per-blueprint diagram export
+        vis_blueprints = vis.get("blueprints", {}) or {}
+        if not isinstance(vis_blueprints, dict):
+            raise ValueError(
+                "'visualization.blueprints' must be a dictionary if provided"
+            )
+        export_blueprints = bool(vis_blueprints.get("export", False))
         # Optional global visualization DPI
         dpi_val = vis.get("dpi", 300)
         try:
@@ -1035,6 +1044,7 @@ class TopologyConfig:
         cfg._use_real_corridor_geometry = use_real_geometry
         cfg._export_site_graph = export_site_graph
         cfg._visualization_dpi = visualization_dpi
+        cfg._export_blueprint_diagrams = export_blueprints
         return cfg
 
     def validate(self) -> None:

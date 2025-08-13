@@ -15,9 +15,9 @@
 # Behavior:
 # - Recursively finds *_scenario.yml / *_scenario.yaml files under <root_dir>.
 # - For each scenario, runs in its directory:
-#     ngraph inspect <file>   → writes notebook/artifacts (tool-defined)
-#     ngraph run <file>       → writes results JSON (tool-defined)
-#     ngraph report --html <file> → writes HTML report (tool-defined)
+#     ngraph inspect -o <dir> <file>
+#     ngraph run -o <dir> <file>
+#     ngraph report -o <dir> <results.json> --html --notebook <path>
 # - Logs for each step are saved next to the scenario file:
 #     <stem>.inspect.log, <stem>.run.log, <stem>.report.log
 # - If --force is not set and cached artifacts are found (results JSON + HTML),
@@ -63,7 +63,7 @@ EOF
 }
 
 ARGS=()
-while [[ $# > 0 ]]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --include)
       shift || true
@@ -146,8 +146,8 @@ passes_filters() {
 
 has_cached() {
   # Cached if expected results and HTML report exist
-  local dir="$1"; local stem="$2"
-  if [[ -f "$dir/$stem.json" && -f "$dir/$stem.html" ]]; then
+  local dir="$1"; local results_prefix="$2"
+  if [[ -f "$dir/$results_prefix.json" && -f "$dir/$results_prefix.html" ]]; then
     return 0
   fi
   return 1
@@ -176,6 +176,10 @@ while IFS= read -r -d '' scn; do
   scn_dir=$(cd "$(dirname -- "$scn")" && pwd)
   scn_base_noext=${scn_name%.*}
   scn_stem=${scn_base_noext}
+  results_prefix="$scn_stem.results"
+  results_json="$scn_dir/$results_prefix.json"
+  html_path="$scn_dir/$results_prefix.html"
+  ipynb_path="$scn_dir/$results_prefix.ipynb"
 
   echo "➡️  Scenario: $scn_name"
   echo "   📁 Dir:   $scn_dir"
@@ -184,7 +188,7 @@ while IFS= read -r -d '' scn; do
   log_run="$scn_dir/$scn_stem.run.log"
   log_rep="$scn_dir/$scn_stem.report.log"
 
-  if [[ "$FORCE" == "false" ]] && has_cached "$scn_dir" "$scn_stem"; then
+  if [[ "$FORCE" == "false" ]] && has_cached "$scn_dir" "$results_prefix"; then
     echo "⏭️  Cached: results + report found, skipping"
     ins_status="⏭️ cached"; run_status="⏭️ cached"; rep_status="⏭️ cached"
     ins_cached=$((ins_cached + 1))
@@ -192,23 +196,18 @@ while IFS= read -r -d '' scn; do
     rep_cached=$((rep_cached + 1))
   else
     # Inspect
-    (cd "$scn_dir" && "${NGRAPH_INVOKE[@]}" inspect "$scn_abs") 2>&1 | tee "$log_ins"
+    (cd "$scn_dir" && "${NGRAPH_INVOKE[@]}" inspect -o "$scn_dir" "$scn_abs") 2>&1 | tee "$log_ins"
     ins_ec=${PIPESTATUS[0]}
     if [[ $ins_ec -eq 0 ]]; then
       ins_status="✅"; ins_ok=$((ins_ok + 1))
       # Run
-      (cd "$scn_dir" && "${NGRAPH_INVOKE[@]}" run "$scn_abs") 2>&1 | tee "$log_run"
+      (cd "$scn_dir" && "${NGRAPH_INVOKE[@]}" run -o "$scn_dir" -r "$results_json" "$scn_abs") 2>&1 | tee "$log_run"
       run_ec=${PIPESTATUS[0]}
       if [[ $run_ec -eq 0 ]]; then
         run_status="✅"; run_ok=$((run_ok + 1))
         # Report
-        results_json="$scn_dir/$scn_stem.json"
-        # If the default name was not used, fallback to results.json
-        if [[ ! -f "$results_json" && -f "$scn_dir/results.json" ]]; then
-          results_json="$scn_dir/results.json"
-        fi
-        # Generate both HTML and Notebook deterministically named after the scenario stem
-        (cd "$scn_dir" && "${NGRAPH_INVOKE[@]}" report "$results_json" --html "$scn_dir/$scn_stem.html" --notebook "$scn_dir/$scn_stem.ipynb") 2>&1 | tee "$log_rep"
+        # Generate both HTML and Notebook under the scenario directory using the results-derived prefix
+        (cd "$scn_dir" && "${NGRAPH_INVOKE[@]}" report -o "$scn_dir" "$results_json" --html "$html_path" --notebook "$ipynb_path") 2>&1 | tee "$log_rep"
         rep_ec=${PIPESTATUS[0]}
         if [[ $rep_ec -eq 0 ]]; then
           rep_status="✅"; rep_ok=$((rep_ok + 1))

@@ -85,6 +85,8 @@ visualization:
     use_real_geometry: true
   site_graph:
     export: true
+  blueprints:
+    export: true
 
 traffic:
   enabled: true

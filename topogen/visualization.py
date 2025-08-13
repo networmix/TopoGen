@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import contextily as cx  # type: ignore
 import geopandas as gpd  # type: ignore
@@ -930,3 +930,261 @@ def export_site_graph_map(
         if isinstance(e, (ValueError, RuntimeError)):
             raise
         raise RuntimeError(f"Unexpected error during site graph map export: {e}") from e
+
+
+def export_blueprint_diagram(
+    blueprint_name: str,
+    blueprint_def: dict[str, Any],
+    net: Any,
+    selected_site_path: str,
+    output_path: Path,
+    *,
+    dpi: int = 300,
+    figure_size: tuple[int, int] = (14, 6),
+    seed: int = 7,
+) -> None:
+    """Export a two-panel diagram for a single blueprint.
+
+    Left panel: abstract group-level adjacency from the blueprint definition.
+    Right panel: concrete expanded nodes and internal links for one site instance
+    (selected by the caller), with external links shown as small markers from
+    internal nodes.
+
+    Args:
+        blueprint_name: Name of the blueprint.
+        blueprint_def: Blueprint mapping with ``groups`` and ``adjacency`` keys.
+        net: Expanded DSL network object (from ngraph) containing nodes/links.
+        selected_site_path: Site path prefix to visualize (e.g., "metro1/pop2").
+        output_path: Path where a JPEG will be saved.
+        dpi: Image DPI for saving.
+        figure_size: Matplotlib figure size.
+        seed: Layout seed for deterministic positioning.
+
+    Raises:
+        ValueError: On invalid inputs or missing data in the blueprint.
+        RuntimeError: If rendering or file IO fails.
+    """
+    fig = None
+    try:
+        if not isinstance(blueprint_def, dict):
+            raise ValueError("blueprint_def must be a mapping")
+        if "groups" not in blueprint_def or not isinstance(
+            blueprint_def.get("groups"), dict
+        ):
+            raise ValueError("blueprint_def must include a 'groups' mapping")
+        if "adjacency" not in blueprint_def or not isinstance(
+            blueprint_def.get("adjacency"), (list, tuple)
+        ):
+            raise ValueError("blueprint_def must include an 'adjacency' list")
+
+        # Build abstract graph from group-level definition
+        import networkx as _nx
+
+        abstract = _nx.MultiDiGraph()
+        groups = blueprint_def.get("groups", {})
+        for gname, gdef in groups.items():
+            count = int((gdef or {}).get("node_count", 0))
+            role = str(((gdef or {}).get("attrs", {}) or {}).get("role", ""))
+            lbl = f"{gname}\nN={count}" + (f"\nrole={role}" if role else "")
+            abstract.add_node(gname, label=lbl)
+
+        def _norm_group(sel: str) -> str:
+            s = str(sel).strip()
+            if s.startswith("/"):
+                s = s[1:]
+            # Take first path element, strip format vars like {idx}
+            s = s.split("/", 1)[0]
+            if "{" in s:
+                s = s.split("{", 1)[0]
+            return s
+
+        for adj in blueprint_def.get("adjacency", []) or []:
+            src = _norm_group(adj.get("source", ""))
+            dst = _norm_group(adj.get("target", ""))
+            pattern = str(adj.get("pattern", ""))
+            lp = adj.get("link_params", {}) or {}
+            attrs = lp.get("attrs", {}) or {}
+            # Prefer target_capacity when present in attrs; fallback to per-link capacity
+            cap_val = attrs.get("target_capacity", lp.get("capacity"))
+            cap_str = f"{float(cap_val):,.0f}" if cap_val is not None else ""
+            label = (pattern if pattern else "") + (f"\n{cap_str}" if cap_str else "")
+            if not (src and dst):
+                raise ValueError("Blueprint adjacency missing source or target group")
+            if src not in abstract:
+                abstract.add_node(src, label=src)
+            if dst not in abstract:
+                abstract.add_node(dst, label=dst)
+            abstract.add_edge(src, dst, label=label)
+
+        # Prepare concrete view from expanded net for the selected site
+        # Collect internal nodes strictly under the selected site (normalize to site head)
+        site_tag = str(selected_site_path)
+
+        def _site_head(name: str) -> str:
+            parts = str(name).split("/", 2)
+            return "/".join(parts[:2]) if len(parts) >= 2 else str(name)
+
+        internal_nodes: list[str] = []
+        for node in getattr(net, "nodes", {}).values():  # type: ignore[union-attr]
+            try:
+                nname = str(node.name)
+            except Exception:
+                nname = str(node)
+            if _site_head(nname) == site_tag:
+                internal_nodes.append(nname)
+        if not internal_nodes:
+            raise ValueError(
+                f"No expanded nodes found under site '{selected_site_path}'"
+            )
+
+        # Heuristic group name for layout from suffix before first digit
+        import re as _re
+
+        def _group_of(node_name: str) -> str:
+            tail = node_name.split("/", 2)[-1]
+            m = _re.match(r"([A-Za-z_]+)", tail)
+            return m.group(1) if m else tail
+
+        groups_concrete: dict[str, list[str]] = {}
+        for n in internal_nodes:
+            g = _group_of(n)
+            groups_concrete.setdefault(g, []).append(n)
+
+        # Layout: place groups on a circle; nodes of a group on a smaller sub-circle
+        import math as _m
+
+        rng = np.random.default_rng(seed)
+        K = max(1, len(groups_concrete))
+        R_group = 1.0
+        r_node = 0.25
+        group_angles = {
+            g: (2.0 * _m.pi * i) / float(K)
+            for i, g in enumerate(sorted(groups_concrete))
+        }
+        node_pos: dict[str, tuple[float, float]] = {}
+        for g, angle in group_angles.items():
+            gx = R_group * _m.cos(angle)
+            gy = R_group * _m.sin(angle)
+            members = groups_concrete[g]
+            n = len(members)
+            if n == 1:
+                node_pos[members[0]] = (gx, gy)
+            else:
+                # Small jittered ring
+                for j, nn in enumerate(sorted(members)):
+                    theta = (2.0 * _m.pi * j) / float(n)
+                    rr = r_node * (0.85 + 0.3 * rng.random())
+                    node_pos[nn] = (
+                        gx + rr * _m.cos(theta),
+                        gy + rr * _m.sin(theta),
+                    )
+
+        # Collect internal links only (strictly intra-site visualization)
+        internal_links: list[tuple[str, str, float]] = []
+        for link in getattr(net, "links", {}).values():  # type: ignore[union-attr]
+            try:
+                s_obj = link.source
+                t_obj = link.target
+                s = str(getattr(s_obj, "name", s_obj))
+                t = str(getattr(t_obj, "name", t_obj))
+                cap = float(getattr(link, "capacity", 0.0) or 0.0)
+            except Exception:
+                continue
+            if _site_head(s) == site_tag and _site_head(t) == site_tag:
+                internal_links.append((s, t, cap))
+
+        # Start figure
+        fig, axes = plt.subplots(1, 2, figsize=figure_size)
+        ax_abs, ax_conc = axes
+
+        # Abstract panel drawing
+        try:
+            pos = _nx.spring_layout(abstract, seed=seed)
+            _nx.draw_networkx_nodes(
+                abstract, pos, node_size=900, node_color="#f0f0ff", ax=ax_abs
+            )
+            _nx.draw_networkx_labels(
+                abstract,
+                pos,
+                labels={n: d.get("label", n) for n, d in abstract.nodes(data=True)},
+                font_size=8,
+                ax=ax_abs,
+            )
+            _nx.draw_networkx_edges(
+                abstract, pos, width=1.2, edge_color="#666", ax=ax_abs
+            )
+            _nx.draw_networkx_edge_labels(
+                abstract,
+                pos,
+                edge_labels={
+                    (u, v, k): d.get("label", "")
+                    for u, v, k, d in abstract.edges(keys=True, data=True)
+                },
+                font_size=7,
+                ax=ax_abs,
+            )
+            ax_abs.set_title(f"Abstract: {blueprint_name}")
+            ax_abs.set_axis_off()
+        except Exception as e:  # pragma: no cover - visualization fallback
+            raise RuntimeError(f"Failed to render abstract panel: {e}") from e
+
+        # Concrete panel drawing
+        try:
+            # Internal links
+            for s, t, _cap in internal_links:
+                if s in node_pos and t in node_pos:
+                    x0, y0 = node_pos[s]
+                    x1, y1 = node_pos[t]
+                    ax_conc.plot([x0, x1], [y0, y1], color="#4a90e2", linewidth=1.0)
+
+            # Internal nodes
+            xs = [node_pos[n][0] for n in internal_nodes if n in node_pos]
+            ys = [node_pos[n][1] for n in internal_nodes if n in node_pos]
+            ax_conc.scatter(
+                xs, ys, s=80, c="#cc2a36", edgecolors="white", linewidths=0.6
+            )
+            # Labels: short local names
+            for n in internal_nodes:
+                if n not in node_pos:
+                    continue
+                x, y = node_pos[n]
+                short = n.split("/", 2)[-1]
+                ax_conc.text(x, y, short, fontsize=7, ha="center", va="bottom")
+
+            # External adjacency markers intentionally omitted
+
+            ax_conc.set_title(f"Concrete: {selected_site_path}")
+            ax_conc.set_axis_off()
+        except Exception as e:  # pragma: no cover - visualization fallback
+            raise RuntimeError(f"Failed to render concrete panel: {e}") from e
+
+        fig.suptitle(f"Blueprint '{blueprint_name}' example", fontsize=12)
+        plt.tight_layout()
+
+        try:
+            plt.savefig(output_path, dpi=int(dpi), format="jpeg", bbox_inches="tight")
+        finally:
+            plt.close(fig)
+            fig = None
+
+        if not output_path.exists():
+            raise RuntimeError(f"JPEG file was not created at {output_path}")
+        if output_path.stat().st_size < 1000:
+            raise RuntimeError("Blueprint diagram JPEG appears corrupt (<1KB)")
+        logger.info("Saved blueprint diagram → %s", str(output_path))
+    except Exception as e:
+        if fig is not None:
+            try:
+                plt.close(fig)
+            except Exception:
+                pass
+        if output_path.exists():
+            try:
+                output_path.unlink()
+            except Exception:
+                pass
+        if isinstance(e, (ValueError, RuntimeError)):
+            raise
+        raise RuntimeError(
+            f"Unexpected error during blueprint diagram export: {e}"
+        ) from e

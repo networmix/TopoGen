@@ -41,7 +41,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 12_800,
                     "cost": 1,
-                    "attrs": {"link_type": "internal_mesh"},
+                    "attrs": {
+                        "link_type": "internal_mesh",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 16.0},
+                            "target": {"component": "800G-DR4", "count": 16.0},
+                        },
+                    },
                 },
             }
         ],
@@ -70,7 +76,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "leaf_spine"},
+                    "attrs": {
+                        "link_type": "leaf_spine",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "1600G-2xDR4", "count": 2.0},
+                        },
+                    },
                 },
             }
         ],
@@ -117,7 +129,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             {
@@ -127,7 +145,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             {
@@ -137,7 +161,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             {
@@ -147,7 +177,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             # Inter-group (reduced): ring-of-cliques, one_to_one, 2×800G per pair ≈ 1.6 Tb/s
@@ -161,7 +197,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 1_600,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 2.0},
+                            "target": {"component": "800G-DR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             {
@@ -173,7 +215,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 1_600,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 2.0},
+                            "target": {"component": "800G-DR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             # B<->C and C<->D
@@ -186,7 +234,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 1_600,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 2.0},
+                            "target": {"component": "800G-DR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             {
@@ -198,7 +252,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 1_600,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 2.0},
+                            "target": {"component": "800G-DR4", "count": 2.0},
+                        },
+                    },
                 },
             },
         ],
@@ -240,7 +300,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             {
@@ -250,7 +316,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             {
@@ -260,7 +332,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             {
@@ -270,7 +348,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "intra_group"},
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "800G-DR4", "count": 4.0},
+                        },
+                    },
                 },
             },
             # Reduced inter-group: ring-of-cliques, two indexed pairs per neighbor,
@@ -285,7 +369,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             {
@@ -297,7 +387,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             # B<->C
@@ -310,7 +406,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             {
@@ -322,7 +424,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             # C<->D
@@ -335,7 +443,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             {
@@ -347,7 +461,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             # D<->A
@@ -360,7 +480,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             {
@@ -372,7 +498,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 2_400,
                     "cost": 1,
-                    "attrs": {"link_type": "inter_group"},
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 3.0},
+                            "target": {"component": "800G-DR4", "count": 3.0},
+                        },
+                    },
                 },
             },
             # Leaf<->Spine express (4×800G per leaf per spine = 3.2 Tb/s)
@@ -383,7 +515,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "leaf_spine"},
+                    "attrs": {
+                        "link_type": "leaf_spine",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "1600G-2xDR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             {
@@ -393,7 +531,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "leaf_spine"},
+                    "attrs": {
+                        "link_type": "leaf_spine",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "1600G-2xDR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             {
@@ -403,7 +547,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "leaf_spine"},
+                    "attrs": {
+                        "link_type": "leaf_spine",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "1600G-2xDR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             {
@@ -413,7 +563,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 3_200,
                     "cost": 1,
-                    "attrs": {"link_type": "leaf_spine"},
+                    "attrs": {
+                        "link_type": "leaf_spine",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 4.0},
+                            "target": {"component": "1600G-2xDR4", "count": 2.0},
+                        },
+                    },
                 },
             },
             # Optional: spine<->spine mesh for resilience (e.g., 12.8 Tb/s)
@@ -424,7 +580,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "link_params": {
                     "capacity": 12_800,
                     "cost": 1,
-                    "attrs": {"link_type": "spine_mesh"},
+                    "attrs": {
+                        "link_type": "spine_mesh",
+                        "hardware": {
+                            "source": {"component": "1600G-2xDR4", "count": 8.0},
+                            "target": {"component": "1600G-2xDR4", "count": 8.0},
+                        },
+                    },
                 },
             },
         ],

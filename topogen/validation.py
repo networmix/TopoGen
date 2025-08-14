@@ -186,7 +186,7 @@ def validate_scenario_dict(
                     f"workflow step '{step_name}' references missing traffic matrix '{matrix_ref}'"
                 )
 
-    # Only perform a simple, non-DSL-specific fallback: if there is no adjacency
+    # Only perform a simple, non-DSL-specific check: if there is no adjacency
     # section or it is empty, every group is isolated by definition at the
     # scenario level. Rich endpoint parsing is intentionally avoided here.
     adjacency = network.get("adjacency", []) or []
@@ -250,7 +250,7 @@ def validate_scenario_dict(
                     else {}
                 )
                 attrs = lp.get("attrs", {}) if isinstance(lp.get("attrs"), dict) else {}
-                # Prefer target_capacity (total intended per-adjacency capacity); fallback to per-link capacity
+                # Prefer target_capacity (total intended per-adjacency capacity); otherwise use per-link capacity
                 try:
                     cap_val = float(
                         attrs.get("target_capacity", lp.get("capacity", 0.0))
@@ -453,7 +453,7 @@ def validate_scenario_yaml(
                         if cnt <= 0:
                             gpath = gid_to_path[gid]
                             try:
-                                logger.info(
+                                logger.error(
                                     "validation: group expands to zero nodes: %s",
                                     gpath,
                                 )
@@ -521,7 +521,7 @@ def validate_scenario_yaml(
                             except Exception:
                                 src = dst = patt = None
                             try:
-                                logger.info(
+                                logger.error(
                                     (
                                         "validation: adjacency[%d] expands to zero "
                                         "links: source=%r target=%r pattern=%r"
@@ -577,7 +577,7 @@ def validate_scenario_yaml(
                         for i, tag_val in enumerate(expected_tags):
                             if tag_val not in seen:
                                 try:
-                                    logger.info(
+                                    logger.error(
                                         (
                                             "validation: blueprint '%s' "
                                             "adjacency[%d] expands to zero links"
@@ -593,10 +593,408 @@ def validate_scenario_yaml(
             except Exception as e:
                 issues.append(f"adjacency/group expansion audit failed: {e}")
 
-            # Continue with hardware capacity feasibility check
+            # Continue with hardware capacity feasibility and assignment checks
             net = _ng_expand(dsl)
 
             comp_lib = _get_components_lib()
+
+            # --- Node role presence audit (roles are required by design) ---
+            try:
+                missing_role_count = 0
+                missing_role_samples: list[str] = []
+                for node in net.nodes.values():
+                    nname = str(getattr(node, "name", ""))
+                    role = str(getattr(node, "attrs", {}).get("role", "")).strip()
+                    if not role:
+                        missing_role_count += 1
+                        if (
+                            nname
+                            and len(missing_role_samples) < 5
+                            and nname not in missing_role_samples
+                        ):
+                            missing_role_samples.append(nname)
+                if missing_role_count:
+                    if missing_role_samples:
+                        examples = ", ".join(
+                            "'" + n + "'" for n in missing_role_samples
+                        )
+                        issues.append(
+                            f"node roles: {missing_role_count} node(s) missing role (e.g., {examples})"
+                        )
+                    else:
+                        issues.append("node roles: nodes missing role detected")
+            except Exception as e:
+                issues.append(f"node roles audit failed: {e}")
+
+            # --- Node hardware presence audit (assignment completeness) ---
+            try:
+                comps_section = (d.get("components") or {}).get("hw_component", {})
+                if isinstance(comps_section, dict) and comps_section:
+                    for node in net.nodes.values():
+                        nname = str(getattr(node, "name", ""))
+                        attrs = getattr(node, "attrs", {}) or {}
+                        role = str(attrs.get("role", "")).strip()
+                        if not role or role not in comps_section:
+                            continue
+                        hw = attrs.get("hardware")
+                        if (
+                            not isinstance(hw, dict)
+                            or not str(hw.get("component", "")).strip()
+                        ):
+                            issues.append(
+                                f"node hardware: role '{role}' mapped in components.hw_component but node '{nname}' has no hardware assignment"
+                            )
+                        else:
+                            # If present, also check capacity sufficiency against attached capacity
+                            try:
+                                comp_name = str(hw.get("component", "")).strip()
+                                count = float(hw.get("count", 1.0))
+                                comp = comp_lib.get(comp_name)
+                                if comp is None:
+                                    issues.append(
+                                        f"node hardware: node '{nname}' references unknown component '{comp_name}'"
+                                    )
+                                else:
+                                    hw_cap = float(comp.get("capacity", 0.0)) * float(
+                                        count
+                                    )
+                                    # total_attached computed later; defer compare by recording needed
+                            except (
+                                Exception
+                            ) as e2:  # pragma: no cover - be conservative
+                                issues.append(
+                                    f"node hardware: capacity calculation error for node '{nname}': {e2}"
+                                )
+            except Exception as e:  # pragma: no cover - validation should not crash
+                issues.append(f"node hardware audit failed: {e}")
+
+            # --- Link optics presence audit (per-end, unordered/directional semantics) ---
+            try:
+                # Build directional lookup: (src_role, dst_role) -> optic for source end
+                optics_cfg = (d.get("components") or {}).get("optics", {})
+                optics_map: dict[tuple[str, str], str] = {}
+                optics_values: dict[tuple[str, str], set[str]] = {}
+                mapping_conflicts: dict[tuple[str, str], set[str]] = {}
+                if isinstance(optics_cfg, dict) and optics_cfg:
+                    # First, collect '|' (unordered) declarations by pair signature
+                    unordered_by_pair: dict[
+                        frozenset[str], list[tuple[str, str, str]]
+                    ] = {}
+                    for key, val in optics_cfg.items():
+                        if not isinstance(val, str):
+                            continue
+                        k = str(key)
+                        if "-" in k and "|" not in k:
+                            a, b = [p.strip() for p in k.split("-", 1)]
+                            if a and b:
+                                key = (a, b)
+                                ov = str(val)
+                                if key not in optics_map:
+                                    optics_map[key] = ov
+                                if key not in optics_values:
+                                    optics_values[key] = set()
+                                optics_values[key].add(ov)
+                        elif "|" in k:
+                            a, b = [p.strip() for p in k.split("|", 1)]
+                            if a and b:
+                                sig = frozenset((a, b))
+                                unordered_by_pair.setdefault(sig, []).append(
+                                    (a, b, str(val))
+                                )
+                    # Resolve unordered declarations
+                    for _sig, entries in unordered_by_pair.items():
+                        if len(entries) == 1:
+                            a, b, ov = entries[0]
+                            # Single unordered spec applies to both ends
+                            for key in ((a, b), (b, a)):
+                                if key not in optics_map:
+                                    optics_map[key] = ov
+                                if key not in optics_values:
+                                    optics_values[key] = set()
+                                optics_values[key].add(ov)
+                        else:
+                            # Both directions present with '|': treat as ordered by left role
+                            for a, b, ov in entries:
+                                key = (a, b)
+                                if key not in optics_map:
+                                    optics_map[key] = ov
+                                if key not in optics_values:
+                                    optics_values[key] = set()
+                                optics_values[key].add(ov)
+
+                    # Detect conflicts: any pair assigned multiple different optics
+                    for key, values in optics_values.items():
+                        if len(values) > 1:
+                            mapping_conflicts[key] = values
+
+                if optics_map:
+                    # Helper to get role of a node by name
+                    def _role_of(node_name: str) -> str:
+                        try:
+                            return str(
+                                getattr(net.nodes[node_name], "attrs", {}).get(
+                                    "role", ""
+                                )
+                            )
+                        except Exception:
+                            return ""
+
+                    from collections import defaultdict as _dd
+
+                    miss_src: dict[tuple[str, str], int] = _dd(int)
+                    miss_tgt: dict[tuple[str, str], int] = _dd(int)
+                    miss_src_samples: dict[tuple[str, str], list[str]] = _dd(list)
+                    miss_tgt_samples: dict[tuple[str, str], list[str]] = _dd(list)
+                    # Missing mapping when hardware absent
+                    miss_map_src: dict[tuple[str, str], int] = _dd(int)
+                    miss_map_tgt: dict[tuple[str, str], int] = _dd(int)
+                    miss_map_src_samples: dict[tuple[str, str], list[str]] = _dd(list)
+                    miss_map_tgt_samples: dict[tuple[str, str], list[str]] = _dd(list)
+                    # Aggregation for blueprint-provided hardware checks
+                    bhw_missing_src: dict[tuple[str, str], int] = _dd(int)
+                    bhw_missing_tgt: dict[tuple[str, str], int] = _dd(int)
+                    bhw_cap_short: dict[tuple[str, str], int] = _dd(int)
+                    bhw_unknown_src: dict[tuple[str, str], int] = _dd(int)
+                    bhw_unknown_tgt: dict[tuple[str, str], int] = _dd(int)
+                    bhw_calc_err: dict[tuple[str, str], int] = _dd(int)
+                    bhw_samples: dict[tuple[str, str], list[str]] = _dd(list)
+
+                    for link in net.links.values():
+                        src = str(getattr(link, "source", ""))
+                        dst = str(getattr(link, "target", ""))
+                        if not src or not dst:
+                            continue
+                        rs = _role_of(src)
+                        rd = _role_of(dst)
+                        if not rs or not rd:
+                            continue
+                        attrs_link = getattr(link, "attrs", {}) or {}
+                        aid = str(attrs_link.get("adjacency_id", "")).strip()
+                        if not aid:
+                            aid = str(attrs_link.get("link_type", "")).strip()
+                        hw = attrs_link.get("hardware")
+                        # If hardware is present on the link, validate presence and capacity
+                        # and skip mapping enforcement for this link.
+                        if isinstance(hw, dict):
+                            src_hw = (
+                                hw.get("source")
+                                if isinstance(hw.get("source"), dict)
+                                else None
+                            )
+                            tgt_hw = (
+                                hw.get("target")
+                                if isinstance(hw.get("target"), dict)
+                                else None
+                            )
+                            if not src_hw:
+                                key = (rs, rd)
+                                bhw_missing_src[key] += 1
+                                if (
+                                    aid
+                                    and len(bhw_samples[key]) < 3
+                                    and aid not in bhw_samples[key]
+                                ):
+                                    bhw_samples[key].append(aid)
+                                continue
+                            if not tgt_hw:
+                                key = (rd, rs)
+                                bhw_missing_tgt[key] += 1
+                                if (
+                                    aid
+                                    and len(bhw_samples[key]) < 3
+                                    and aid not in bhw_samples[key]
+                                ):
+                                    bhw_samples[key].append(aid)
+                                continue
+                            # Capacity feasibility: component capacity * count must cover per-link capacity
+                            try:
+                                comp_src = str(src_hw.get("component", "")).strip()
+                                comp_tgt = str(tgt_hw.get("component", "")).strip()
+                                c_src = comp_lib.get(comp_src) if comp_src else None
+                                c_tgt = comp_lib.get(comp_tgt) if comp_tgt else None
+                                if comp_src and not c_src:
+                                    key = (rs, rd)
+                                    bhw_unknown_src[key] += 1
+                                    if (
+                                        aid
+                                        and len(bhw_samples[key]) < 3
+                                        and aid not in bhw_samples[key]
+                                    ):
+                                        bhw_samples[key].append(aid)
+                                if comp_tgt and not c_tgt:
+                                    key = (rd, rs)
+                                    bhw_unknown_tgt[key] += 1
+                                    if (
+                                        aid
+                                        and len(bhw_samples[key]) < 3
+                                        and aid not in bhw_samples[key]
+                                    ):
+                                        bhw_samples[key].append(aid)
+                                cnt_src = float(src_hw.get("count", 1.0))
+                                cnt_tgt = float(tgt_hw.get("count", 1.0))
+                                av_src = (
+                                    (float(c_src.get("capacity", 0.0)) * cnt_src)
+                                    if c_src
+                                    else 0.0
+                                )
+                                av_tgt = (
+                                    (float(c_tgt.get("capacity", 0.0)) * cnt_tgt)
+                                    if c_tgt
+                                    else 0.0
+                                )
+                                need = float(getattr(link, "capacity", 0.0) or 0.0)
+                                if av_src + 1e-9 < need or av_tgt + 1e-9 < need:
+                                    key = (rs, rd)
+                                    bhw_cap_short[key] += 1
+                                    if (
+                                        aid
+                                        and len(bhw_samples[key]) < 3
+                                        and aid not in bhw_samples[key]
+                                    ):
+                                        bhw_samples[key].append(aid)
+                            except Exception:
+                                key = (rs, rd)
+                                bhw_calc_err[key] += 1
+                                if (
+                                    aid
+                                    and len(bhw_samples[key]) < 3
+                                    and aid not in bhw_samples[key]
+                                ):
+                                    bhw_samples[key].append(aid)
+                            continue
+
+                        # Enforce mapping only when hardware is not already specified on the link
+                        req_src = optics_map.get((rs, rd))
+                        req_tgt = optics_map.get((rd, rs))
+                        if isinstance(req_src, str):
+                            key = (rs, rd)
+                            miss_src[key] += 1
+                            if (
+                                aid
+                                and len(miss_src_samples[key]) < 3
+                                and aid not in miss_src_samples[key]
+                            ):
+                                miss_src_samples[key].append(aid)
+                        else:
+                            # Mapping missing for source end
+                            key = (rs, rd)
+                            miss_map_src[key] += 1
+                            if (
+                                aid
+                                and len(miss_map_src_samples[key]) < 3
+                                and aid not in miss_map_src_samples[key]
+                            ):
+                                miss_map_src_samples[key].append(aid)
+                        if isinstance(req_tgt, str):
+                            key = (rd, rs)
+                            miss_tgt[key] += 1
+                            if (
+                                aid
+                                and len(miss_tgt_samples[key]) < 3
+                                and aid not in miss_tgt_samples[key]
+                            ):
+                                miss_tgt_samples[key].append(aid)
+                        else:
+                            # Mapping missing for target end
+                            key = (rd, rs)
+                            miss_map_tgt[key] += 1
+                            if (
+                                aid
+                                and len(miss_map_tgt_samples[key]) < 3
+                                and aid not in miss_map_tgt_samples[key]
+                            ):
+                                miss_map_tgt_samples[key].append(aid)
+
+                    # Emit aggregated issues
+                    # Mapping conflicts
+                    for (a, b), vals in sorted(mapping_conflicts.items()):
+                        vstr = ", ".join(sorted(vals))
+                        issues.append(
+                            f"optics mapping: conflicting values for roles ({a},{b}) -> {{{vstr}}}"
+                        )
+                    for (a, b), cnt in sorted(bhw_missing_src.items()):
+                        samples = bhw_samples.get((a, b), [])
+                        prefix = f"optics (blueprint): missing hardware on source end for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(bhw_missing_tgt.items()):
+                        samples = bhw_samples.get((a, b), [])
+                        prefix = f"optics (blueprint): missing hardware on target end for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(bhw_unknown_src.items()):
+                        samples = bhw_samples.get((a, b), [])
+                        prefix = f"optics (blueprint): unknown component on source end for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(bhw_unknown_tgt.items()):
+                        samples = bhw_samples.get((a, b), [])
+                        prefix = f"optics (blueprint): unknown component on target end for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(bhw_cap_short.items()):
+                        samples = bhw_samples.get((a, b), [])
+                        prefix = f"optics (blueprint): hardware capacity shortfall for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(bhw_calc_err.items()):
+                        samples = bhw_samples.get((a, b), [])
+                        prefix = f"optics (blueprint): capacity calculation error for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    # Missing-mapping issues when hardware absent
+                    for (a, b), cnt in sorted(miss_map_src.items()):
+                        samples = miss_map_src_samples.get((a, b), [])
+                        prefix = f"optics mapping: missing source-end mapping for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(miss_map_tgt.items()):
+                        samples = miss_map_tgt_samples.get((a, b), [])
+                        prefix = f"optics mapping: missing target-end mapping for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join("'" + s + "'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(miss_src.items()):
+                        samples = miss_src_samples.get((a, b), [])
+                        prefix = f"optics: missing hardware required by mapping on source end for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join(f"'{s}'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+                    for (a, b), cnt in sorted(miss_tgt.items()):
+                        samples = miss_tgt_samples.get((a, b), [])
+                        prefix = f"optics: missing hardware required by mapping on target end for roles ({a},{b}) - {cnt} links"
+                        if samples:
+                            sample_str = ", ".join(f"'{s}'" for s in samples)
+                            issues.append(f"{prefix} (e.g., adj={sample_str})")
+                        else:
+                            issues.append(prefix)
+            except Exception as e:  # pragma: no cover - validation should not crash
+                issues.append(f"link optics audit failed: {e}")
 
             # Pre-compute total attached capacity per node (sum of incident link capacities)
             attached: dict[str, float] = {}
@@ -620,16 +1018,10 @@ def validate_scenario_yaml(
                         except Exception:
                             count = 1.0
                         return comp_name, count
-                # Fallback to role->platform mapping if present in scenario components
-                role = str(node_attrs.get("role", "")).strip()
-                comps_section = (d.get("components") or {}).get("hw_component", {})
-                if isinstance(comps_section, dict) and role in comps_section:
-                    comp_name = str(comps_section.get(role) or "").strip()
-                    if comp_name:
-                        return comp_name, 1.0
+                # No fallback to mapping here: presence is checked separately; capacity only uses explicit node HW
                 return None, 0.0
 
-            # Check each node against its hardware capacity
+            # Check each node against its hardware capacity (explicit node HW only)
             for node in net.nodes.values():
                 node_name = str(getattr(node, "name", ""))
                 if not node_name:
@@ -658,5 +1050,12 @@ def validate_scenario_yaml(
         except Exception as e:
             # Include context but do not stop other validations
             issues.append(f"ngraph explorer: {e}")
+
+    # Log all issues at ERROR level for consistency
+    try:
+        for _msg in issues:
+            logger.error(_msg)
+    except Exception:  # pragma: no cover - logging must not break validation
+        pass
 
     return issues

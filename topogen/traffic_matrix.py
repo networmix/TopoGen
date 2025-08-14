@@ -428,13 +428,14 @@ def generate_traffic_matrix(
                 demand_each = round(demand_each_raw, 2)
             if demand_each <= 0.0:
                 continue
+            # Precompute Euclidean distance in km for attrs and logging
+            dist_km = _distance_km(m1, m2)
             # Pair-specific debug lines (both directions) with key parameters
             try:
                 w = weights[pair]
                 frac = w / total_w if total_w > 0 else 0.0
                 m_i = dc_mass[(m1, d1)]
                 m_j = dc_mass[(m2, d2)]
-                dist_km = _distance_km(m1, m2)
                 # Forward
                 logger.debug(
                     (
@@ -526,6 +527,7 @@ def generate_traffic_matrix(
                     "mode": "pairwise",
                     "priority": int(priority),
                     "demand": demand_each,
+                    "attrs": {"euclidean_km": float(dist_km)},
                 }
             )
             # Optional per-priority flow policy config passthrough
@@ -540,6 +542,7 @@ def generate_traffic_matrix(
                     "mode": "pairwise",
                     "priority": int(priority),
                     "demand": demand_each,
+                    "attrs": {"euclidean_km": float(dist_km)},
                 }
             )
             if isinstance(getattr(traffic_cfg, "flow_policy_config", {}), dict):

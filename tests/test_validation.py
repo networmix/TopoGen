@@ -331,3 +331,126 @@ def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
 
 def yaml_dump(d: dict) -> str:
     return yaml.safe_dump(d, sort_keys=False)
+
+
+def test_node_hardware_presence_audited():
+    # Scenario with a node role mapped to hardware but missing assignment on node
+    data = {
+        "blueprints": {
+            "SingleRouter": {
+                "groups": {
+                    "core": {
+                        "node_count": 1,
+                        "name_template": "core",
+                        "attrs": {"role": "core"},
+                    }
+                },
+                "adjacency": [],
+            }
+        },
+        "components": {
+            "CoreRouter": {
+                "component_type": "chassis",
+                "capacity": 1000.0,
+                "ports": 10,
+            },
+            "hw_component": {"core": "CoreRouter"},
+        },
+        "network": {
+            "groups": {
+                "metro1/pop[1]": {
+                    "use_blueprint": "SingleRouter",
+                    "attrs": {
+                        "metro_name": "X",
+                        "metro_id": 1,
+                        "location_x": 0.0,
+                        "location_y": 0.0,
+                    },
+                }
+            },
+            "adjacency": [],
+        },
+    }
+    issues = validate_scenario_yaml(
+        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+    )
+    assert any("node hardware:" in s for s in issues)
+
+
+def test_link_optics_presence_audited_unordered_and_directional():
+    # Build a tiny scenario with two roles A and B via a Clos-like blueprint adjacency
+    data = {
+        "blueprints": {
+            "Clos_2_1": {
+                "groups": {
+                    "spine": {
+                        "node_count": 1,
+                        "name_template": "spine{node_num}",
+                        "attrs": {"role": "spine"},
+                    },
+                    "leaf": {
+                        "node_count": 2,
+                        "name_template": "leaf{node_num}",
+                        "attrs": {"role": "leaf"},
+                    },
+                },
+                "adjacency": [
+                    {
+                        "source": "/leaf",
+                        "target": "/spine",
+                        "pattern": "mesh",
+                        "link_params": {
+                            "capacity": 100.0,
+                            "cost": 1,
+                            "attrs": {"link_type": "leaf_spine"},
+                        },
+                    }
+                ],
+            }
+        },
+        "components": {
+            # Provide optics definitions and expose mapping for validation
+            "800G-DR4": {"component_type": "optic", "capacity": 800.0, "ports": 4},
+            "1600G-2xDR4": {"component_type": "optic", "capacity": 1600.0, "ports": 8},
+            # First, unordered only (single 'leaf|spine') should require both ends to be that optic
+            "optics": {"leaf|spine": "800G-DR4"},
+        },
+        "network": {
+            "groups": {
+                "metro1/pop[1]": {
+                    "use_blueprint": "Clos_2_1",
+                    "attrs": {
+                        "metro_name": "X",
+                        "metro_id": 1,
+                        "location_x": 0.0,
+                        "location_y": 0.0,
+                    },
+                }
+            },
+            "adjacency": [],
+        },
+    }
+    # No hardware assigned on links in blueprint -> should flag both ends
+    issues = validate_scenario_yaml(
+        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+    )
+    assert any(
+        "optics: missing hardware required by mapping on source end" in s
+        for s in issues
+    )
+    assert any(
+        "optics: missing hardware required by mapping on target end" in s
+        for s in issues
+    )
+
+    # Now add directional override alongside unordered: both present means ordered interpretations.
+    data["components"]["optics"] = {
+        "leaf|spine": "800G-DR4",
+        "spine|leaf": "1600G-2xDR4",
+    }
+    issues2 = validate_scenario_yaml(
+        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+    )
+    # Still missing since blueprint didn't assign; we only assert presence of messages (not exact counts)
+    assert any("source end" in s for s in issues2)
+    assert any("target end" in s for s in issues2)

@@ -87,6 +87,42 @@ def test_gravity_two_dcs_symmetric_split_and_total() -> None:
     assert all(d.get("flow_policy_config") == "SHORTEST_PATHS_ECMP" for d in demands)
 
 
+def test_gravity_demands_include_euclidean_km_attr() -> None:
+    """Gravity demands carry per-entry attrs.euclidean_km for the pair.
+
+    Two metros A and B are 1 km apart; all emitted directed entries should
+    include attrs.euclidean_km == 1.0.
+    """
+
+    cfg = TopologyConfig()
+    cfg.traffic.enabled = True
+    cfg.traffic.model = "gravity"
+    cfg.traffic.gbps_per_mw = 100.0
+    cfg.traffic.mw_per_dc_region = 10.0
+    cfg.traffic.priority_ratios = {0: 1.0}
+
+    g = cfg.traffic.gravity
+    g.alpha = 1.0
+    g.beta = 1.0
+    g.min_distance_km = 1.0
+    g.exclude_same_metro = False
+    g.jitter_stddev = 0.0
+    g.rounding_gbps = 0.0
+
+    metros = _metros_ab()
+    msettings = _metro_settings_two_one_dc()
+
+    tmset = generate_traffic_matrix(metros, msettings, cfg)
+    demands = tmset[cfg.traffic.matrix_name]
+
+    assert demands and all(isinstance(d, dict) for d in demands)
+    for d in demands:
+        attrs = d.get("attrs", {})
+        assert isinstance(attrs, dict)
+        assert "euclidean_km" in attrs
+        assert abs(float(attrs["euclidean_km"]) - 1.0) < 1e-6
+
+
 def test_gravity_top_k_pruning_keeps_best_partners() -> None:
     """Top-K pruning keeps strongest partners and removes others."""
 

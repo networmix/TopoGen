@@ -415,7 +415,7 @@ def _add_inter_metro_edges(
             if isinstance(src_cfg, dict)
             else int(getattr(src_cfg, "capacity", 0))
         )
-        # Corridor length km preferred; fallback to source metro's configured cost
+        # Corridor length km preferred; otherwise use source metro's configured cost
         cost = int(
             math.ceil(
                 float(
@@ -680,11 +680,6 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
 
         per_link = base_capacity / float(num_links)
         G.edges[u, v, k]["capacity"] = per_link
-
-
-def resolve_and_assign_link_hardware(G: nx.MultiGraph, config: TopologyConfig) -> None:
-    """No-op: link hardware is assigned during YAML emission."""
-    return None
 
 
 def _parse_tm_endpoint_to_metro_idx(endpoint: str) -> int | None:

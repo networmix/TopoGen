@@ -369,7 +369,7 @@ mkdir -p "$OUTPUT_DIR_RAW" || die "Cannot create output directory: $OUTPUT_DIR_R
 CONFIGS_DIR=$(abs_path "$CONFIGS_DIR_RAW")
 OUTPUT_DIR=$(abs_path "$OUTPUT_DIR_RAW")
 
-# Detect TopoGen invoker once: prefer installed CLI, fallback to python -m.
+# Detect TopoGen invoker once: prefer installed CLI; otherwise python -m.
 TOPGEN_INVOKE=(topogen)
 if ! command -v "${TOPGEN_INVOKE[0]}" >/dev/null 2>&1; then
   if command -v python3 >/dev/null 2>&1; then

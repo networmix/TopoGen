@@ -45,7 +45,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "baseline": True,
             "failure_policy": "mc_baseline",
             "store_failure_patterns": False,
-            "include_flow_summary": False,
+            "include_flow_summary": True,
         },
         {
             "step_type": "TrafficMatrixPlacementAnalysis",
@@ -58,7 +58,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "baseline": True,
             "seed": 42,
             "store_failure_patterns": False,
-            "include_flow_details": False,
+            "include_flow_details": True,
             "alpha": "auto",
             "availability_percentiles": [50, 95, 99, 99.9, 99.99],
         },
@@ -68,6 +68,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "delivered_bandwidth_key": "delivered_gbps_p99_99",
             "include_disabled": True,
             "collect_node_hw_entries": True,
+            "collect_link_hw_entries": True,
         },
     ]
 }

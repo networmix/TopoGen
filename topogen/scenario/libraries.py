@@ -48,13 +48,19 @@ def _build_components_section(
     # Emit assignment metadata for downstream validation
     try:
         if isinstance(role_to_platform, dict):
-            role_map: dict[str, str] = {
-                str(role): str(comp)
-                for role, comp in role_to_platform.items()
-                if isinstance(comp, str) and comp
-            }
-            if role_map:
-                result["hw_component"] = role_map
+            # Preserve explicit exemptions: non-string/null/empty entries signal roles that
+            # should not have node-level hardware enforced (e.g., dc: {}). String values
+            # map to platform component names and will be enforced by validation.
+            role_map_emitted: dict[str, Any] = {}
+            for role, comp in role_to_platform.items():
+                r = str(role)
+                if isinstance(comp, str) and comp:
+                    role_map_emitted[r] = comp
+                else:
+                    # Keep as-is (e.g., {}, None) to indicate explicit exemption
+                    role_map_emitted[r] = comp
+            if role_map_emitted:
+                result["hw_component"] = role_map_emitted
         if isinstance(optics_map, dict):
             optics_out: dict[str, str] = {
                 str(k): str(v)

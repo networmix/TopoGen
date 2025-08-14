@@ -17,13 +17,45 @@ def check_node_hw_presence(
     issues: list[str] = []
 
     if not isinstance(comps_section, dict) or not comps_section:
+        # If mapping is absent entirely, flag roles found in the network
+        roles_present: set[str] = set()
+        try:
+            for node in net.nodes.values():
+                r = str(getattr(node, "attrs", {}).get("role", "")).strip()
+                if r:
+                    roles_present.add(r)
+        except Exception:
+            pass
+        for role in sorted(roles_present):
+            issues.append(
+                f"node hardware: components.hw_component missing mapping for role '{role}'"
+            )
         return issues
+
+    # Record roles present in network and compare with declared mapping keys
+    roles_present: set[str] = set()
+    try:
+        for node in net.nodes.values():
+            r = str(getattr(node, "attrs", {}).get("role", "")).strip()
+            if r:
+                roles_present.add(r)
+    except Exception:
+        pass
+    declared_roles: set[str] = set(map(str, comps_section.keys()))
+    for role in sorted(roles_present - declared_roles):
+        issues.append(
+            f"node hardware: components.hw_component missing mapping for role '{role}'"
+        )
 
     for node in net.nodes.values():
         nname = str(getattr(node, "name", ""))
         attrs = getattr(node, "attrs", {}) or {}
         role = str(attrs.get("role", "")).strip()
-        if not role or role not in comps_section:
+        if not role:
+            continue
+        # Explicit exemption: non-string/empty mapping value means 'do not enforce'
+        mapping_val = comps_section.get(role)
+        if not isinstance(mapping_val, str) or not mapping_val.strip():
             continue
         hw = attrs.get("hardware")
         if not isinstance(hw, dict) or not str(hw.get("component", "")).strip():

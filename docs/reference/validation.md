@@ -29,3 +29,8 @@ The audit pipeline runs:
 6. Platform port budget vs optics modules required.
 
 All functions return human-readable issue strings. An empty list indicates no detected issues.
+
+### Where validation runs
+
+- The scenario pipeline (`topogen.scenario.assembly.build_scenario`) focuses on construction and does not validate.
+- The CLI `build` command validates after writing the scenario YAML using `validate_scenario_yaml` with the integrated graph path and `run_ngraph=True`.

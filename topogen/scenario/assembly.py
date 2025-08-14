@@ -55,10 +55,30 @@ def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
 
 
 def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
-    """Build a NetGraph scenario YAML from an integrated metro-highway graph.
+    """Build a NetGraph scenario YAML from the integrated graph.
 
-    Transforms each metro node into a hierarchical site structure using blueprint
-    templates, preserving corridor connectivity between metros.
+    Transforms each metro node into a site-level MultiGraph (PoPs and DC regions),
+    assigns base and per-link capacities, serializes `blueprints`, `components`,
+    and `network` sections, and optionally augments class-level adjacency with
+    per-end hardware derived from optics mapping.
+
+    Args:
+        graph: Integrated metro-highway graph loaded from JSON.
+        config: Topology configuration object.
+
+    Returns:
+        YAML string representing the NetGraph scenario.
+
+    Notes:
+        - Validation is performed by the caller (CLI) after YAML emission using
+          `topogen.validation.validate_scenario_yaml`.
+        - Side artifacts may be written if enabled in `config` (network graph JSON,
+          optional visualization exports).
+
+    Raises:
+        ValueError: If unknown blueprints are referenced; if ring-based adjacency
+            requires a positive metro radius; or if capacity assignment detects an
+            invalid or zero-size expansion.
     """
     logger.info("Building NetGraph scenario from integrated graph")
 
@@ -284,6 +304,8 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             pass
     # Augment class-level link_params when a single role pair is present post-expansion
     if optics_lookup:
+        augmented_total = 0
+        augmented_by_pair: dict[tuple[str, str], int] = {}
         for adj in scenario["network"].get("adjacency", []):
             lp = adj.get("link_params", {})
             attrs = lp.get("attrs", {})
@@ -300,7 +322,7 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             if len(pairs) != 1:
                 # Mixed role-pairs in one class: leave HW unset
                 try:
-                    logger.info(
+                    logger.debug(
                         "HW: skip adj='%s' due to multiple role pairs: %s",
                         aid,
                         sorted(list(pairs)),
@@ -312,7 +334,7 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             optic = optics_lookup.get((sr, tr))
             if not optic:
                 try:
-                    logger.info(
+                    logger.debug(
                         "HW: no optic configured for adj='%s' pair=(%s,%s); skipping",
                         aid,
                         sr,
@@ -328,8 +350,10 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             attrs["hardware"]["target"] = {"component": optic, "count": float(count)}
             lp["attrs"] = attrs
             adj["link_params"] = lp
+            augmented_total += 1
+            augmented_by_pair[(sr, tr)] = augmented_by_pair.get((sr, tr), 0) + 1
             try:
-                logger.info(
+                logger.debug(
                     "HW: adj='%s' pair=(%s,%s) optic=%s capacity=%s count=%.3f",
                     aid,
                     sr,
@@ -340,6 +364,26 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
                 )
             except Exception:
                 pass
+
+        # Aggregate summary at INFO level
+        try:
+            if augmented_total > 0:
+                top_pairs = sorted(
+                    augmented_by_pair.items(), key=lambda kv: kv[1], reverse=True
+                )[:3]
+                if top_pairs:
+                    examples = ", ".join(
+                        f"({a},{b})={cnt}" for ((a, b), cnt) in top_pairs
+                    )
+                    logger.info(
+                        "HW: applied optics to %d adjacencies (top role-pairs: %s)",
+                        augmented_total,
+                        examples,
+                    )
+                else:
+                    logger.info("HW: applied optics to %d adjacencies", augmented_total)
+        except Exception:
+            pass
 
     _fmt = getattr(getattr(config, "output", None), "formatting", None)
     _anchors = bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True

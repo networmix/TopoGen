@@ -41,7 +41,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "shortest_path": False,
             "flow_placement": "PROPORTIONAL",
             "seed": 42,
-            "iterations": 10,
+            "iterations": 5,
             "baseline": True,
             "failure_policy": "mc_baseline",
             "store_failure_patterns": False,
@@ -52,7 +52,7 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "name": "tm_placement",
             "matrix_name": "baseline_traffic_matrix",
             "failure_policy": "mc_baseline",
-            "iterations": 10,
+            "iterations": 5,
             "parallelism": "auto",
             "placement_rounds": "auto",
             "baseline": True,
@@ -67,8 +67,8 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
             "name": "cost_power_efficiency",
             "delivered_bandwidth_key": "delivered_gbps_p99_99",
             "include_disabled": True,
-            "collect_node_hw_entries": True,
-            "collect_link_hw_entries": True,
+            "collect_node_hw_entries": False,
+            "collect_link_hw_entries": False,
         },
     ]
 }

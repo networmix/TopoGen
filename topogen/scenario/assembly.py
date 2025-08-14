@@ -215,15 +215,13 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         spec = comps.get(name)
         if spec is None:
             raise ValueError(f"Unknown component '{name}' in optics mapping")
-        ports = int(spec.get("ports", 0))
         total = float(spec.get("capacity", 0.0))
-        if ports <= 0 or total <= 0.0:
-            raise ValueError(f"Optic '{name}' must have positive capacity and ports")
-        per_lane = total / float(ports)
+        if total <= 0.0:
+            raise ValueError(f"Optic '{name}' must have positive capacity")
         import math as _m
 
-        lanes = float(_m.ceil(capacity / per_lane))
-        return lanes / float(ports)
+        modules = float(_m.ceil(capacity / total))
+        return modules
 
     # Build probe network from current scenario to inspect concrete roles per adjacency
     try:

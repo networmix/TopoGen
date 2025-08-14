@@ -454,3 +454,72 @@ def test_link_optics_presence_audited_unordered_and_directional():
     # Still missing since blueprint didn't assign; we only assert presence of messages (not exact counts)
     assert any("source end" in s for s in issues2)
     assert any("target end" in s for s in issues2)
+
+
+def test_port_budget_detects_platform_port_overuse():
+    # Blueprint with explicit node hardware and an adjacency that requires more optics than ports
+    data = {
+        "blueprints": {
+            "Tiny_1_1": {
+                "groups": {
+                    "spine": {
+                        "node_count": 1,
+                        "name_template": "spine{node_num}",
+                        "attrs": {
+                            "role": "spine",
+                            "hardware": {"component": "SpineRouter", "count": 1},
+                        },
+                    },
+                    "leaf": {
+                        "node_count": 1,
+                        "name_template": "leaf{node_num}",
+                        "attrs": {
+                            "role": "leaf",
+                            "hardware": {"component": "LeafRouter", "count": 1},
+                        },
+                    },
+                },
+                "adjacency": [
+                    {
+                        "source": "/leaf",
+                        "target": "/spine",
+                        "pattern": "mesh",
+                        "link_params": {
+                            # 54.4 Tb/s per link requires ceil(54400/800)=68 modules at each end
+                            "capacity": 54_400.0,
+                            "cost": 1,
+                            "attrs": {"link_type": "leaf_spine"},
+                        },
+                    }
+                ],
+            }
+        },
+        "components": {
+            # Use optics mapping to infer per-end optics when link hardware isn't specified
+            "optics": {"leaf|spine": "800G-DR4"},
+        },
+        "network": {
+            "groups": {
+                "metro1/pop[1]": {
+                    "use_blueprint": "Tiny_1_1",
+                    "attrs": {
+                        "metro_name": "Z",
+                        "metro_id": 1,
+                        "location_x": 0.0,
+                        "location_y": 0.0,
+                    },
+                }
+            },
+            "adjacency": [],
+        },
+    }
+    issues = validate_scenario_yaml(
+        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+    )
+    # Expect a port budget violation referencing LeafRouter (64 ports) needing 68
+    assert any("hardware ports:" in s and "LeafRouter" in s for s in issues)
+    # And the exact required ports count should appear
+    assert any("requires 68 ports" in s for s in issues)
+    # Spine has 64 ports and the same need; it should also be flagged
+    assert any("SpineRouter" in s for s in issues)
+    assert any("requires 68 ports" in s for s in issues)

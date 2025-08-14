@@ -22,5 +22,6 @@ nav:
   - Home: index.md
   - Installation: getting-started/installation.md
   - CLI Reference: reference/cli.md
+  - Validation: reference/validation.md
 plugins:
   - search

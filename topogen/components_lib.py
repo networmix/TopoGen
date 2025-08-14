@@ -64,7 +64,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "power_watts": 24.0,
         "power_watts_max": 26.0,
         "capacity": 1600.0,  # Gbps
-        "ports": 8,  # 8x200G ports
+        "ports": 1,
         "attrs": {},
     },
     "800G-DR4": {
@@ -74,7 +74,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "power_watts": 29.0,
         "power_watts_max": 30.0,
         "capacity": 800.0,  # Gbps
-        "ports": 4,  # 4x200G ports
+        "ports": 1,
         "attrs": {},
     },
 }

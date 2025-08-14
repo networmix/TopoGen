@@ -80,8 +80,8 @@ visualization:
 traffic:
   enabled: true
   model: gravity
-  gbps_per_mw: 400.0
-  mw_per_dc_region: 400.0
+  gbps_per_mw: 200.0
+  mw_per_dc_region: 150.0
   priority_ratios:
     0: 1
   flow_policy_config:

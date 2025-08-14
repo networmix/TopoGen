@@ -195,13 +195,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 1_600,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 2.0},
-                            "target": {"component": "800G-DR4", "count": 2.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -213,13 +213,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 1_600,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 2.0},
-                            "target": {"component": "800G-DR4", "count": 2.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -232,13 +232,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 1_600,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 2.0},
-                            "target": {"component": "800G-DR4", "count": 2.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -250,13 +250,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 1_600,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 2.0},
-                            "target": {"component": "800G-DR4", "count": 2.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -367,13 +367,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -385,13 +385,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -404,13 +404,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -422,13 +422,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -441,13 +441,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -459,13 +459,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -478,13 +478,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },
@@ -496,13 +496,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "expand_vars": {"idx": [1, 2, 3, 4], "jdx": [2, 3, 4, 1]},
                 "expansion_mode": "zip",
                 "link_params": {
-                    "capacity": 2_400,
+                    "capacity": 800,
                     "cost": 1,
                     "attrs": {
                         "link_type": "inter_group",
                         "hardware": {
-                            "source": {"component": "800G-DR4", "count": 3.0},
-                            "target": {"component": "800G-DR4", "count": 3.0},
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },

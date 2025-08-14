@@ -527,7 +527,7 @@ def generate_traffic_matrix(
                     "mode": "pairwise",
                     "priority": int(priority),
                     "demand": demand_each,
-                    "attrs": {"euclidean_km": float(dist_km)},
+                    "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
                 }
             )
             # Optional per-priority flow policy config passthrough
@@ -542,7 +542,7 @@ def generate_traffic_matrix(
                     "mode": "pairwise",
                     "priority": int(priority),
                     "demand": demand_each,
-                    "attrs": {"euclidean_km": float(dist_km)},
+                    "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
                 }
             )
             if isinstance(getattr(traffic_cfg, "flow_policy_config", {}), dict):

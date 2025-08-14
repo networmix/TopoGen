@@ -57,6 +57,7 @@ components:
     leaf|leaf: 800G-ZR+
     core|leaf: 800G-ZR+
     leaf|dc: 800G-ZR+
+    core|dc: 800G-ZR+
     leaf|spine: 800G-DR4
     spine|leaf: 1600G-2xDR4
 

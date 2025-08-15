@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Clos_16_8"
+    title: "Small Test: East Coast, Clos_L16_S4"
 
   formatting:
     json_indent: 2
@@ -31,7 +31,7 @@ build:
       role_pairs: ["dc|core", "dc|leaf"]
   build_overrides:
     - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
-      site_blueprint: Clos_16_8
+      site_blueprint: Clos_L16_S4
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 

@@ -15,6 +15,16 @@ import yaml
 
 # Built-in blueprints used by the scenario pipeline
 _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
+    "DCRegion": {
+        "groups": {
+            "dc": {
+                "node_count": 1,
+                "name_template": "dc",
+                "attrs": {"role": "dc"},
+            }
+        },
+        "adjacency": [],
+    },
     "SingleRouter": {
         "groups": {
             "core": {
@@ -52,10 +62,10 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             }
         ],
     },
-    "Clos_16_8": {
+    "Clos_L16_S4": {
         "groups": {
             "spine": {
-                "node_count": 8,
+                "node_count": 4,
                 "name_template": "spine{node_num}",
                 "attrs": {
                     "role": "spine",
@@ -87,17 +97,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             }
         ],
     },
-    "DCRegion": {
-        "groups": {
-            "dc": {
-                "node_count": 1,
-                "name_template": "dc",
-                "attrs": {"role": "dc"},
-            }
-        },
-        "adjacency": [],
-    },
-    "SlimFly_16x4": {
+    "DragonFly_Custom1": {
         "groups": {
             "leafA": {
                 "node_count": 4,
@@ -186,7 +186,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                     },
                 },
             },
-            # Inter-group (reduced): ring-of-cliques, one_to_one, 2×800G per pair ≈ 1.6 Tb/s
+            # Inter-group (reduced): ring-of-cliques, one_to_one, 1×800G per pair ≈ 0.8 Tb/s
             # A<->B and A<->D
             {
                 "source": "leafA/leafA{idx}",
@@ -263,7 +263,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             },
         ],
     },
-    "SlimFly_16x4_2S": {
+    "DragonFly_Custom2": {
         "groups": {
             "spine": {
                 "node_count": 2,
@@ -358,7 +358,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             # Reduced inter-group: ring-of-cliques, two indexed pairs per neighbor,
-            # 3×800G per pair (2.4 Tb/s).
+            # 1×800G per pair (0.8 Tb/s).
             # A<->B (idx) and (idx+1)
             {
                 "source": "leafA/leafA{idx}",
@@ -585,6 +585,179 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                         "hardware": {
                             "source": {"component": "1600G-2xDR4", "count": 8.0},
                             "target": {"component": "1600G-2xDR4", "count": 8.0},
+                        },
+                    },
+                },
+            },
+        ],
+    },
+    "Dragonfly_A3H2G7": {
+        "groups": {
+            "G1": {
+                "node_count": 3,
+                "name_template": "G1_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G1"},
+            },
+            "G2": {
+                "node_count": 3,
+                "name_template": "G2_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G2"},
+            },
+            "G3": {
+                "node_count": 3,
+                "name_template": "G3_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G3"},
+            },
+            "G4": {
+                "node_count": 3,
+                "name_template": "G4_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G4"},
+            },
+            "G5": {
+                "node_count": 3,
+                "name_template": "G5_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G5"},
+            },
+            "G6": {
+                "node_count": 3,
+                "name_template": "G6_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G6"},
+            },
+            "G7": {
+                "node_count": 3,
+                "name_template": "G7_r{node_num}",
+                "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G7"},
+            },
+        },
+        "adjacency": [
+            # Intra-group: fully meshed clique, 1×800G per pair
+            {
+                "source": "/G{g}",
+                "target": "/G{g}",
+                "pattern": "mesh",
+                "expand_vars": {"g": [1, 2, 3, 4, 5, 6, 7]},
+                "link_params": {
+                    "capacity": 800,
+                    "cost": 1,
+                    "attrs": {
+                        "link_type": "intra_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
+                        },
+                    },
+                },
+            },
+            # Inter-group: canonical Dragonfly (a=3, h=2, g=7)
+            # Exactly one 800G link per unordered group pair.
+            # Mapping ensures each router has h=2 global links.
+            {
+                "source": "G{gu}/G{gu}_r{ru}",
+                "target": "G{gv}/G{gv}_r{rv}",
+                "pattern": "one_to_one",
+                "expand_vars": {
+                    "gu": [
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        1,
+                        2,
+                        2,
+                        2,
+                        2,
+                        2,
+                        3,
+                        3,
+                        3,
+                        3,
+                        4,
+                        4,
+                        4,
+                        5,
+                        5,
+                        6,
+                    ],
+                    "ru": [
+                        1,
+                        2,
+                        3,
+                        1,
+                        2,
+                        3,
+                        1,
+                        2,
+                        3,
+                        1,
+                        2,
+                        1,
+                        2,
+                        3,
+                        1,
+                        1,
+                        2,
+                        3,
+                        1,
+                        2,
+                        1,
+                    ],
+                    "gv": [
+                        2,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        3,
+                        4,
+                        5,
+                        6,
+                        7,
+                        4,
+                        5,
+                        6,
+                        7,
+                        5,
+                        6,
+                        7,
+                        6,
+                        7,
+                        7,
+                    ],
+                    "rv": [
+                        3,
+                        2,
+                        1,
+                        3,
+                        2,
+                        1,
+                        3,
+                        2,
+                        1,
+                        3,
+                        2,
+                        3,
+                        2,
+                        1,
+                        3,
+                        3,
+                        2,
+                        1,
+                        3,
+                        2,
+                        3,
+                    ],
+                },
+                "expansion_mode": "zip",
+                "link_params": {
+                    "capacity": 800,
+                    "cost": 1,
+                    "attrs": {
+                        "link_type": "inter_group",
+                        "hardware": {
+                            "source": {"component": "800G-DR4", "count": 1.0},
+                            "target": {"component": "800G-DR4", "count": 1.0},
                         },
                     },
                 },

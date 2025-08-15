@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "US Backbone, Clos_16_8"
+    title: "US Backbone, Clos_L16_S4"
 
   formatting:
     json_indent: 2
@@ -43,7 +43,7 @@ build:
           atlanta,
           pittsburgh,
         ]
-      site_blueprint: Clos_16_8
+      site_blueprint: Clos_L16_S4
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 

@@ -874,9 +874,9 @@ def export_site_graph_map(
 
         # Style and bounds
         try:
-            ax.set_aspect("equal", adjustable="datalim")
+            # Use 'box' so explicit limits below are respected without warnings
+            ax.set_aspect("equal", adjustable="box")
             pad = 0.05
-            # Include scaled metro circles and external labels in extent
             circ_xs: list[float] = []
             circ_ys: list[float] = []
             for cx, cy, r in metros.values():
@@ -977,121 +977,18 @@ def export_blueprint_diagram(
         ):
             raise ValueError("blueprint_def must include an 'adjacency' list")
 
-        # Build abstract graph from group-level definition
-        import networkx as _nx
+        # Build abstract and concrete views using helper module.
+        from .blueprint_viz import build_abstract_view, collect_concrete_site
 
-        abstract = _nx.MultiDiGraph()
-        groups = blueprint_def.get("groups", {})
-        for gname, gdef in groups.items():
-            count = int((gdef or {}).get("node_count", 0))
-            role = str(((gdef or {}).get("attrs", {}) or {}).get("role", ""))
-            lbl = f"{gname}\nN={count}" + (f"\nrole={role}" if role else "")
-            abstract.add_node(gname, label=lbl)
+        abs_view = build_abstract_view(blueprint_def, include_self_loops=True)
 
-        def _norm_group(sel: str) -> str:
-            s = str(sel).strip()
-            if s.startswith("/"):
-                s = s[1:]
-            # Take first path element, strip format vars like {idx}
-            s = s.split("/", 1)[0]
-            if "{" in s:
-                s = s.split("{", 1)[0]
-            return s
-
-        for adj in blueprint_def.get("adjacency", []) or []:
-            src = _norm_group(adj.get("source", ""))
-            dst = _norm_group(adj.get("target", ""))
-            pattern = str(adj.get("pattern", ""))
-            lp = adj.get("link_params", {}) or {}
-            attrs = lp.get("attrs", {}) or {}
-            # Prefer target_capacity when present in attrs; fallback to per-link capacity
-            cap_val = attrs.get("target_capacity", lp.get("capacity"))
-            cap_str = f"{float(cap_val):,.0f}" if cap_val is not None else ""
-            label = (pattern if pattern else "") + (f"\n{cap_str}" if cap_str else "")
-            if not (src and dst):
-                raise ValueError("Blueprint adjacency missing source or target group")
-            if src not in abstract:
-                abstract.add_node(src, label=src)
-            if dst not in abstract:
-                abstract.add_node(dst, label=dst)
-            abstract.add_edge(src, dst, label=label)
-
-        # Prepare concrete view from expanded net for the selected site
-        # Collect internal nodes strictly under the selected site (normalize to site head)
-        site_tag = str(selected_site_path)
-
-        def _site_head(name: str) -> str:
-            parts = str(name).split("/", 2)
-            return "/".join(parts[:2]) if len(parts) >= 2 else str(name)
-
-        internal_nodes: list[str] = []
-        for node in getattr(net, "nodes", {}).values():  # type: ignore[union-attr]
-            try:
-                nname = str(node.name)
-            except Exception:
-                nname = str(node)
-            if _site_head(nname) == site_tag:
-                internal_nodes.append(nname)
+        internal_nodes, node_pos, internal_links = collect_concrete_site(
+            net, str(selected_site_path)
+        )
         if not internal_nodes:
             raise ValueError(
                 f"No expanded nodes found under site '{selected_site_path}'"
             )
-
-        # Heuristic group name for layout from suffix before first digit
-        import re as _re
-
-        def _group_of(node_name: str) -> str:
-            tail = node_name.split("/", 2)[-1]
-            m = _re.match(r"([A-Za-z_]+)", tail)
-            return m.group(1) if m else tail
-
-        groups_concrete: dict[str, list[str]] = {}
-        for n in internal_nodes:
-            g = _group_of(n)
-            groups_concrete.setdefault(g, []).append(n)
-
-        # Layout: place groups on a circle; nodes of a group on a smaller sub-circle
-        import math as _m
-
-        rng = np.random.default_rng(seed)
-        K = max(1, len(groups_concrete))
-        R_group = 1.0
-        r_node = 0.25
-        group_angles = {
-            g: (2.0 * _m.pi * i) / float(K)
-            for i, g in enumerate(sorted(groups_concrete))
-        }
-        node_pos: dict[str, tuple[float, float]] = {}
-        for g, angle in group_angles.items():
-            gx = R_group * _m.cos(angle)
-            gy = R_group * _m.sin(angle)
-            members = groups_concrete[g]
-            n = len(members)
-            if n == 1:
-                node_pos[members[0]] = (gx, gy)
-            else:
-                # Small jittered ring
-                for j, nn in enumerate(sorted(members)):
-                    theta = (2.0 * _m.pi * j) / float(n)
-                    rr = r_node * (0.85 + 0.3 * rng.random())
-                    node_pos[nn] = (
-                        gx + rr * _m.cos(theta),
-                        gy + rr * _m.sin(theta),
-                    )
-
-        # Collect internal links only (strictly intra-site visualization)
-        internal_links: list[tuple[str, str, float]] = []
-        for link in getattr(net, "links", {}).values():  # type: ignore[union-attr]
-            try:
-                s_obj = link.source
-                t_obj = link.target
-                s = str(getattr(s_obj, "name", s_obj))
-                t = str(getattr(t_obj, "name", t_obj))
-                cap = float(getattr(link, "capacity", 0.0) or 0.0)
-            except Exception:
-                continue
-            if _site_head(s) == site_tag and _site_head(t) == site_tag:
-                internal_links.append((s, t, cap))
 
         # Start figure
         fig, axes = plt.subplots(1, 2, figsize=figure_size)
@@ -1099,30 +996,51 @@ def export_blueprint_diagram(
 
         # Abstract panel drawing
         try:
-            pos = _nx.spring_layout(abstract, seed=seed)
+            import networkx as _nx
+
+            pos = _nx.spring_layout(abs_view.graph, seed=seed)
             _nx.draw_networkx_nodes(
-                abstract, pos, node_size=900, node_color="#f0f0ff", ax=ax_abs
+                abs_view.graph, pos, node_size=900, node_color="#f0f0ff", ax=ax_abs
             )
             _nx.draw_networkx_labels(
-                abstract,
-                pos,
-                labels={n: d.get("label", n) for n, d in abstract.nodes(data=True)},
-                font_size=8,
-                ax=ax_abs,
+                abs_view.graph, pos, labels=abs_view.node_labels, font_size=8, ax=ax_abs
             )
             _nx.draw_networkx_edges(
-                abstract, pos, width=1.2, edge_color="#666", ax=ax_abs
+                abs_view.graph, pos, width=1.2, edge_color="#666", ax=ax_abs
             )
             _nx.draw_networkx_edge_labels(
-                abstract,
+                abs_view.graph,
                 pos,
-                edge_labels={
-                    (u, v, k): d.get("label", "")
-                    for u, v, k, d in abstract.edges(keys=True, data=True)
-                },
+                edge_labels=abs_view.edge_labels,
                 font_size=7,
                 ax=ax_abs,
             )
+            # Draw self-loops around nodes if present
+            try:
+                import math as _m
+
+                for node, label in abs_view.self_loops:
+                    if node not in pos:
+                        continue
+                    x, y = pos[node]
+                    r = 0.15  # small loop radius in layout units
+                    theta = np.linspace(0.0, 2.0 * _m.pi, 64)
+                    xs = x + r * np.cos(theta)
+                    ys = y + r * np.sin(theta)
+                    ax_abs.plot(xs, ys, color="#888", linewidth=1.0)
+                    ax_abs.text(
+                        x + r * 1.1,
+                        y + r * 1.1,
+                        label,
+                        fontsize=7,
+                        ha="left",
+                        va="bottom",
+                        bbox=dict(
+                            boxstyle="round,pad=0.2", fc="white", ec="none", alpha=0.6
+                        ),
+                    )
+            except Exception:
+                pass
             ax_abs.set_title(f"Abstract: {blueprint_name}")
             ax_abs.set_axis_off()
         except Exception as e:  # pragma: no cover - visualization fallback

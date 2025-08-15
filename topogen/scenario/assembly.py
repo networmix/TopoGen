@@ -32,6 +32,15 @@ logger = get_logger(__name__)
 
 
 def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
+    """Serialize scenario dict to YAML, optionally disabling anchors.
+
+    Args:
+        scenario: Scenario dictionary to serialize.
+        yaml_anchors: If True, allow YAML anchors; otherwise, suppress aliases.
+
+    Returns:
+        YAML string with adjacency comments injected.
+    """
     emit_anchors = bool(yaml_anchors)
     if emit_anchors:
         yaml_output = yaml.safe_dump(
@@ -191,6 +200,13 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     logger.info("Serializing network sections from MultiGraph")
     groups, adjacency = to_network_sections(G, metros, metro_settings, config)
     scenario["network"] = {"groups": groups, "adjacency": adjacency}
+    # Attach node_overrides emitted by graph_pipeline (e.g., for striping)
+    try:
+        overrides = G.graph.get("__emitted_node_overrides__", [])
+        if isinstance(overrides, list) and overrides:
+            scenario["network"]["node_overrides"] = overrides
+    except Exception:
+        pass
 
     # Build risk groups and other sections prior to late HW so early exits still include them
     risk_groups = _build_risk_groups_section(graph, config)
@@ -214,7 +230,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         from ngraph.dsl.blueprints.expand import (  # type: ignore[import-not-found]
             expand_network_dsl as _ng_expand,
         )
-
         from topogen.components_lib import (
             get_builtin_components as _get_components_lib,
         )
@@ -249,6 +264,13 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             "blueprints": scenario["blueprints"],
             "network": scenario["network"],
         }
+        # Ensure node_overrides (e.g., striping attributes) are available for expansion
+        try:
+            overrides = G.graph.get("__emitted_node_overrides__", [])
+            if isinstance(overrides, list) and overrides:
+                probe["network"]["node_overrides"] = overrides
+        except Exception:
+            pass
         net = _ng_expand(probe)
     except Exception as exc:
         if optics_enabled:

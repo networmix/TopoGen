@@ -135,6 +135,9 @@ class LinkParams:
     # The pipeline will auto-render a symmetric match from the union of roles.
     role_pairs: list[Any] = field(default_factory=list)
     # endpoint_roles removed: explicit direction should not be configured.
+    # Optional striping configuration for controlled device-group partitioning
+    # during adjacency creation. Example: {"width": 4}
+    striping: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -156,6 +159,7 @@ class BuildDefaults:
             cost=1,
             attrs={"link_type": "intra_metro"},
             match={},
+            striping={},
         )
     )
     inter_metro_link: LinkParams = field(
@@ -164,6 +168,7 @@ class BuildDefaults:
             cost=1,
             attrs={"link_type": "inter_metro_corridor"},
             match={},
+            striping={},
         )
     )
     dc_to_pop_link: LinkParams = field(
@@ -172,6 +177,7 @@ class BuildDefaults:
             cost=1,
             attrs={"link_type": "dc_to_pop"},
             match={},
+            striping={},
         )
     )
 
@@ -645,6 +651,7 @@ class TopologyConfig:
             },
             match=intra_metro_link_dict.get("match", {}),
             role_pairs=intra_metro_link_dict.get("role_pairs", []) or [],
+            striping=intra_metro_link_dict.get("striping", {}) or {},
         )
         inter_metro_link = LinkParams(
             capacity=inter_metro_link_dict.get("capacity", 100),
@@ -655,6 +662,7 @@ class TopologyConfig:
             },
             match=inter_metro_link_dict.get("match", {}),
             role_pairs=inter_metro_link_dict.get("role_pairs", []) or [],
+            striping=inter_metro_link_dict.get("striping", {}) or {},
         )
         dc_to_pop_link = LinkParams(
             capacity=dc_to_pop_link_dict.get("capacity", 400),
@@ -665,6 +673,7 @@ class TopologyConfig:
             },
             match=dc_to_pop_link_dict.get("match", {}),
             role_pairs=dc_to_pop_link_dict.get("role_pairs", []) or [],
+            striping=dc_to_pop_link_dict.get("striping", {}) or {},
         )
 
         # Create BuildDefaults with explicit parameters

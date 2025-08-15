@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
+
 from ngraph.algorithms.base import EdgeSelect as _NgEdgeSelect
 from ngraph.algorithms.base import FlowPlacement as _NgFlowPlacement
 from ngraph.algorithms.flow_init import init_flow_graph as _ng_init_flow_graph
@@ -24,12 +25,27 @@ from ngraph.algorithms.placement import (
 from ngraph.algorithms.spf import spf as _ng_spf
 from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
 from ngraph.graph.strict_multidigraph import StrictMultiDiGraph as _NgSMDG
-
 from topogen.blueprints_lib import get_builtin_blueprints as _get_builtins
 from topogen.corridors import (
     extract_corridor_edges_for_metros_graph as _extract_corridor_edges,
 )
 from topogen.log_config import get_logger
+
+from .striping import (
+    build_node_overrides_for_site as _stripe_build_overrides,
+)
+from .striping import (
+    eligible_device_names_from_blueprint as _stripe_names,
+)
+from .striping import (
+    group_by_attr as _stripe_group_by_attr,
+)
+from .striping import (
+    group_by_width as _stripe_group_by_width,
+)
+from .striping import (
+    make_stripe_attr_name as _stripe_attr_name,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
     from topogen.config import TopologyConfig
@@ -267,7 +283,7 @@ def _add_dc_to_pop_edges(
     config: TopologyConfig,
     metro_idx_map: dict[str, int],
 ) -> None:
-    """Add DC-to-PoP edges within each metro."""
+    """Add DC-to-PoP edges within each metro with optional striping."""
     logger.info("Forming DC-to-PoP edges where DC regions exist")
     for metro in metros:
         metro_name = metro["name"]
@@ -306,7 +322,7 @@ def _add_dc_to_pop_edges(
             arc = steps * ((2.0 * math.pi * _radius_km) / float(n))
             return int(math.ceil(arc))
 
-        # Build symmetric match if role_pairs provided
+        # Build symmetric match if role_pairs provided (fallback when no striping)
         rp = (
             link_cfg.get("role_pairs", [])
             if isinstance(link_cfg, dict)
@@ -348,6 +364,88 @@ def _add_dc_to_pop_edges(
                 else getattr(link_cfg, "match", {})
             ) or {}
 
+        # Optional striping resolution
+        striping = (
+            link_cfg.get("striping", {})
+            if isinstance(link_cfg, dict)
+            else getattr(link_cfg, "striping", {})
+        ) or {}
+
+        # Precompute stripe groups and attach node_overrides when configured
+        stripe_attr: str | None = None
+        stripe_labels: list[str] = []
+        if striping:
+            # Resolve eligible roles
+            role_set: set[str] | None = set()
+            for item in rp:
+                if isinstance(item, str):
+                    parts = [p.strip() for p in item.split("|") if p.strip()]
+                elif isinstance(item, (list, tuple)) and len(item) == 2:
+                    parts = [str(item[0]).strip(), str(item[1]).strip()]
+                else:
+                    parts = []
+                for r in parts:
+                    if r:
+                        role_set.add(r)
+            if not role_set:
+                role_set = None
+
+            bps = _get_builtins()
+            pop_bp = bps.get(metro_settings[metro_name]["site_blueprint"])
+            dc_bp = bps.get(metro_settings[metro_name]["dc_region_blueprint"])
+            if not pop_bp or not dc_bp:
+                raise ValueError(f"Unknown blueprint for metro {metro_name}")
+            mode = str(striping.get("mode", "width")).strip()
+            if mode == "width":
+                width_val = int(striping.get("width", 0))
+                pop_names = _stripe_names(pop_bp, role_set)
+                dc_names = _stripe_names(dc_bp, role_set)
+                pop_groups = _stripe_group_by_width(pop_names, width_val)
+                dc_groups = _stripe_group_by_width(dc_names, width_val)
+                # For width==1 allow asymmetric group counts (one-vs-many is valid).
+                # For width>1 require equal number of groups to maintain pairing semantics.
+                if width_val > 1 and (len(pop_groups) != len(dc_groups)):
+                    raise ValueError(
+                        f"DC-to-PoP striping mismatch in {metro_name}: groups pop={len(pop_groups)} dc={len(dc_groups)}"
+                    )
+                stripe_attr = _stripe_attr_name(f"dc_{idx}")
+                label_to_names_pop = {
+                    f"g{i + 1}": grp for i, grp in enumerate(pop_groups)
+                }
+                label_to_names_dc = {
+                    f"g{i + 1}": grp for i, grp in enumerate(dc_groups)
+                }
+            elif mode == "by_attr":
+                attr = str(striping.get("attribute", "")).strip()
+                if not attr:
+                    raise ValueError("striping.by_attr requires 'attribute'")
+                pop_map = _stripe_group_by_attr(pop_bp, attr=attr, roles=role_set)
+                dc_map = _stripe_group_by_attr(dc_bp, attr=attr, roles=role_set)
+                if set(pop_map.keys()) != set(dc_map.keys()):
+                    raise ValueError(
+                        f"DC-to-PoP striping by_attr mismatch in {metro_name}: labels pop={sorted(pop_map)} dc={sorted(dc_map)}"
+                    )
+                stripe_attr = _stripe_attr_name(f"dc_{idx}")
+                # Stable order
+                label_to_names_pop = {lab: pop_map[lab] for lab in sorted(pop_map)}
+                label_to_names_dc = {lab: dc_map[lab] for lab in sorted(dc_map)}
+            else:
+                raise ValueError(f"Unknown striping.mode: {mode}")
+
+            # Build node_overrides for this metro's DC regions and POPs
+            G.graph.setdefault("node_overrides", [])
+            for p_ord in range(1, s + 1):
+                site = _site_node_id(idx, "pop", p_ord)
+                G.graph["node_overrides"].extend(
+                    _stripe_build_overrides(site, stripe_attr, label_to_names_pop)
+                )
+            for d_ord in range(1, d + 1):
+                site = _site_node_id(idx, "dc", d_ord)
+                G.graph["node_overrides"].extend(
+                    _stripe_build_overrides(site, stripe_attr, label_to_names_dc)
+                )
+            stripe_labels = list(label_to_names_pop.keys())
+
         for dc in range(1, d + 1):
             for p in range(1, s + 1):
                 u = _site_node_id(idx, "dc", dc)
@@ -367,6 +465,18 @@ def _add_dc_to_pop_edges(
                 # Enforce strictly positive cost to avoid zero-length links
                 cost_arc = max(1, int(raw_arc))
 
+                # Build match: either role-based (no striping) or stripe-only
+                if not striping:
+                    match_payload = match_obj
+                else:
+                    # pick first stripe by default
+                    label = stripe_labels[0] if stripe_labels else "g1"
+                    match_payload = {
+                        "conditions": [
+                            {"attr": stripe_attr, "operator": "==", "value": label}
+                        ]
+                    }
+
                 G.add_edge(
                     u,
                     v,
@@ -379,7 +489,7 @@ def _add_dc_to_pop_edges(
                     distance_km=cost_arc,
                     source_metro=metro_name,
                     target_metro=metro_name,
-                    match=match_obj,
+                    match=match_payload,
                     role_pairs=rp,
                 )
 
@@ -393,7 +503,7 @@ def _add_inter_metro_edges(
     metro_idx_map: dict[str, int],
     metro_by_node: dict[Any, dict[str, Any]],
 ) -> None:
-    """Add PoP-to-PoP edges across metro corridors."""
+    """Add PoP-to-PoP edges across metro corridors with optional striping."""
     logger.info("Forming inter-metro corridor edges from integrated graph")
     corridor_edges = _extract_corridor_edges(graph)
     for edge in corridor_edges:
@@ -434,8 +544,159 @@ def _add_inter_metro_edges(
         euclid_km = edge.get("euclidean_km")
         detour_ratio = edge.get("detour_ratio")
         adj_id = f"inter_metro:{min(s_idx, t_idx)}-{max(s_idx, t_idx)}"
+        # Optional striping
+        striping = (
+            src_cfg.get("striping", {})
+            if isinstance(src_cfg, dict)
+            else getattr(src_cfg, "striping", {})
+        ) or {}
+
+        match_base = (
+            {
+                "conditions": [
+                    {
+                        "attr": "role",
+                        "operator": "==",
+                        "value": r,
+                    }
+                    for r in sorted(
+                        {
+                            part.strip()
+                            for item in (
+                                src_cfg.get("role_pairs", [])
+                                if isinstance(src_cfg, dict)
+                                else getattr(src_cfg, "role_pairs", [])
+                            )
+                            for part in (
+                                item.split("|")
+                                if isinstance(item, str)
+                                else [
+                                    str(item[0]) if len(item) > 0 else "",
+                                    str(item[1]) if len(item) > 1 else "",
+                                ]
+                                if isinstance(item, (list, tuple))
+                                else []
+                            )
+                            if part.strip()
+                        }
+                    )
+                ],
+                "logic": "or",
+            }
+            if (
+                src_cfg.get("role_pairs", [])
+                if isinstance(src_cfg, dict)
+                else getattr(src_cfg, "role_pairs", [])
+            )
+            else (
+                src_cfg.get("match", {})
+                if isinstance(src_cfg, dict)
+                else getattr(src_cfg, "match", {})
+            )
+        )
+
+        if not striping:
+            for p in range(1, s_sites + 1):
+                for q in range(1, t_sites + 1):
+                    u = _site_node_id(s_idx, "pop", p)
+                    v = _site_node_id(t_idx, "pop", q)
+                    G.add_edge(
+                        u,
+                        v,
+                        key=f"{adj_id}:{p}-{q}",
+                        link_type="inter_metro_corridor",
+                        base_capacity=base_capacity,
+                        target_capacity=base_capacity,
+                        cost=cost,
+                        adjacency_id=adj_id,
+                        distance_km=cost,
+                        source_metro=s_name,
+                        target_metro=t_name,
+                        risk_groups=risk_groups,
+                        euclidean_km=euclid_km,
+                        detour_ratio=detour_ratio,
+                        match=match_base,
+                        role_pairs=(
+                            src_cfg.get("role_pairs", [])
+                            if isinstance(src_cfg, dict)
+                            else getattr(src_cfg, "role_pairs", [])
+                        ),
+                    )
+            continue
+
+        # With striping configured, compute stripe labels and node_overrides per site
+        bps = _get_builtins()
+        roles: set[str] | None = set()
+        for item in (
+            src_cfg.get("role_pairs", [])
+            if isinstance(src_cfg, dict)
+            else getattr(src_cfg, "role_pairs", [])
+        ):
+            if isinstance(item, str):
+                parts = [p.strip() for p in item.split("|") if p.strip()]
+            elif isinstance(item, (list, tuple)) and len(item) == 2:
+                parts = [str(item[0]).strip(), str(item[1]).strip()]
+            else:
+                parts = []
+            for r in parts:
+                if r:
+                    roles.add(r)
+        if not roles:
+            roles = None
+
+        bp_A = bps.get(metro_settings[s_name]["site_blueprint"])  # type: ignore[index]
+        bp_B = bps.get(metro_settings[t_name]["site_blueprint"])  # type: ignore[index]
+        if not bp_A or not bp_B:
+            raise ValueError(f"Unknown blueprint for metros {s_name} or {t_name}")
+        mode = str(striping.get("mode", "width")).strip()
+
+        if mode == "width":
+            width_val = int(striping.get("width", 0))
+            names_A = _stripe_names(bp_A, roles)
+            names_B = _stripe_names(bp_B, roles)
+            groups_A = _stripe_group_by_width(names_A, width_val)
+            groups_B = _stripe_group_by_width(names_B, width_val)
+            if len(groups_A) != len(groups_B):
+                raise ValueError(
+                    f"Inter-metro striping mismatch: groups {s_name}={len(groups_A)} {t_name}={len(groups_B)}"
+                )
+            label_to_names_A = {f"g{i + 1}": grp for i, grp in enumerate(groups_A)}
+            label_to_names_B = {f"g{i + 1}": grp for i, grp in enumerate(groups_B)}
+        elif mode == "by_attr":
+            attr = str(striping.get("attribute", "")).strip()
+            if not attr:
+                raise ValueError("striping.by_attr requires 'attribute'")
+            map_A = _stripe_group_by_attr(bp_A, attr=attr, roles=roles)
+            map_B = _stripe_group_by_attr(bp_B, attr=attr, roles=roles)
+            if set(map_A.keys()) != set(map_B.keys()):
+                raise ValueError(
+                    f"Inter-metro striping by_attr mismatch: {s_name} labels={sorted(map_A)} {t_name} labels={sorted(map_B)}"
+                )
+            label_to_names_A = {lab: map_A[lab] for lab in sorted(map_A)}
+            label_to_names_B = {lab: map_B[lab] for lab in sorted(map_B)}
+        else:
+            raise ValueError(f"Unknown striping.mode: {mode}")
+
+        stripe_attr = _stripe_attr_name(f"im_{min(s_idx, t_idx)}_{max(s_idx, t_idx)}")
+        G.graph.setdefault("node_overrides", [])
+        # Emit overrides for each site in both metros
+        for p_ord in range(1, s_sites + 1):
+            site = _site_node_id(s_idx, "pop", p_ord)
+            G.graph["node_overrides"].extend(
+                _stripe_build_overrides(site, stripe_attr, label_to_names_A)
+            )
+        for q_ord in range(1, t_sites + 1):
+            site = _site_node_id(t_idx, "pop", q_ord)
+            G.graph["node_overrides"].extend(
+                _stripe_build_overrides(site, stripe_attr, label_to_names_B)
+            )
+
+        labels = list(label_to_names_A.keys())
+        # Deterministic assignment: cycle sites then groups across corridor edges
+        link_index = 0
         for p in range(1, s_sites + 1):
             for q in range(1, t_sites + 1):
+                label = labels[(link_index) % len(labels)]
                 u = _site_node_id(s_idx, "pop", p)
                 v = _site_node_id(t_idx, "pop", q)
                 G.add_edge(
@@ -446,63 +707,29 @@ def _add_inter_metro_edges(
                     base_capacity=base_capacity,
                     target_capacity=base_capacity,
                     cost=cost,
-                    adjacency_id=adj_id,
+                    adjacency_id=f"{adj_id}:{label}",
                     distance_km=cost,
                     source_metro=s_name,
                     target_metro=t_name,
                     risk_groups=risk_groups,
                     euclidean_km=euclid_km,
                     detour_ratio=detour_ratio,
-                    # Symmetric match applied to both endpoints; build from role_pairs if present
-                    match=(
-                        {
-                            "conditions": [
-                                {
-                                    "attr": "role",
-                                    "operator": "==",
-                                    "value": r,
-                                }
-                                for r in sorted(
-                                    {
-                                        part.strip()
-                                        for item in (
-                                            src_cfg.get("role_pairs", [])
-                                            if isinstance(src_cfg, dict)
-                                            else getattr(src_cfg, "role_pairs", [])
-                                        )
-                                        for part in (
-                                            item.split("|")
-                                            if isinstance(item, str)
-                                            else [
-                                                str(item[0]) if len(item) > 0 else "",
-                                                str(item[1]) if len(item) > 1 else "",
-                                            ]
-                                            if isinstance(item, (list, tuple))
-                                            else []
-                                        )
-                                        if part.strip()
-                                    }
-                                )
-                            ],
-                            "logic": "or",
-                        }
-                        if (
-                            src_cfg.get("role_pairs", [])
-                            if isinstance(src_cfg, dict)
-                            else getattr(src_cfg, "role_pairs", [])
-                        )
-                        else (
-                            src_cfg.get("match", {})
-                            if isinstance(src_cfg, dict)
-                            else getattr(src_cfg, "match", {})
-                        )
-                    ),
+                    match={
+                        "conditions": [
+                            {
+                                "attr": stripe_attr,
+                                "operator": "==",
+                                "value": label,
+                            }
+                        ]
+                    },
                     role_pairs=(
                         src_cfg.get("role_pairs", [])
                         if isinstance(src_cfg, dict)
                         else getattr(src_cfg, "role_pairs", [])
                     ),
                 )
+                link_index += 1
 
 
 def build_site_graph(
@@ -513,8 +740,18 @@ def build_site_graph(
 ) -> nx.MultiGraph:
     """Construct a site-level MultiGraph with nodes and edges per adjacency.
 
-    Nodes: 'metro{n}/pop{i}' and 'metro{n}/dc{j}'.
-    Edges carry 'link_type', 'cost', 'base_capacity', and metadata.
+    Nodes are created for sites: ``metro{n}/pop{i}`` and ``metro{n}/dc{j}`` with
+    their blueprints attached as node attributes. Edges are added for three
+    adjacency families with clear semantics:
+
+    - intra_metro: PoP↔PoP within a metro on a ring with arc-length-based cost.
+    - dc_to_pop: DC region↔PoP within a metro, optionally striped.
+    - inter_metro_corridor: PoP↔PoP across metros along discovered corridors,
+      optionally striped.
+
+    Each edge carries ``link_type``, ``cost``, ``base_capacity`` (total intended
+    budget prior to per-link split), ``target_capacity`` (kept equal to base),
+    and metadata for downstream sizing and visualization.
     """
     logger.info("Building site-level MultiGraph")
     G = nx.MultiGraph()
@@ -648,6 +885,13 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
                 ],
             },
         }
+        # Inject node_overrides (e.g., striping attributes) if present on graph
+        try:
+            overrides = G.graph.get("node_overrides", [])
+            if isinstance(overrides, list) and overrides:
+                dsl["network"]["node_overrides"] = overrides
+        except Exception:
+            pass
         net = _ng_expand(dsl)
         # Count only links created by our adjacency (tagged with _tg_tmp)
         count = sum(
@@ -1201,6 +1445,27 @@ def to_network_sections(
                 "link_params": link_params,
             }
         )
+
+    # Deduplicate and store node_overrides on graph for assembly to embed
+    try:
+        node_overrides = G.graph.get("node_overrides", [])
+        if isinstance(node_overrides, list) and node_overrides:
+            seen: set[tuple[str, str, str]] = set()
+            dedup: list[dict[str, Any]] = []
+            for ov in node_overrides:
+                path = str(ov.get("path", ""))
+                attrs = (
+                    ov.get("attrs", {}) if isinstance(ov.get("attrs", {}), dict) else {}
+                )
+                for k, v in attrs.items():
+                    key = (path, str(k), str(v))
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    dedup.append({"path": path, "attrs": {k: v}})
+            G.graph["__emitted_node_overrides__"] = dedup
+    except Exception:
+        pass
 
     logger.info(
         "Serialized network: %d groups, %d adjacency entries",

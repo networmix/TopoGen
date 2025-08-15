@@ -1,7 +1,8 @@
 """NetGraph scenario builder facade.
 
-This module re-exports the scenario-building functions from the
-``topogen.scenario`` subpackage to preserve the public API.
+Public entry points for building scenarios live in ``topogen.scenario``. This
+module re-exports the functions to keep the stable import path
+``topogen.scenario_builder``.
 """
 
 from __future__ import annotations

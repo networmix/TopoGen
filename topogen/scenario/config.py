@@ -70,6 +70,9 @@ def _determine_metro_settings(
                 "attrs": defaults.intra_metro_link.attrs.copy(),
                 "match": defaults.intra_metro_link.match.copy(),
                 "role_pairs": _rp_list(defaults.intra_metro_link),
+                "striping": getattr(defaults.intra_metro_link, "striping", {})
+                if isinstance(getattr(defaults.intra_metro_link, "striping", {}), dict)
+                else {},
             },
             "inter_metro_link": {
                 "capacity": defaults.inter_metro_link.capacity,
@@ -77,6 +80,9 @@ def _determine_metro_settings(
                 "attrs": defaults.inter_metro_link.attrs.copy(),
                 "match": defaults.inter_metro_link.match.copy(),
                 "role_pairs": _rp_list(defaults.inter_metro_link),
+                "striping": getattr(defaults.inter_metro_link, "striping", {})
+                if isinstance(getattr(defaults.inter_metro_link, "striping", {}), dict)
+                else {},
             },
             "dc_to_pop_link": {
                 "capacity": defaults.dc_to_pop_link.capacity,
@@ -84,6 +90,9 @@ def _determine_metro_settings(
                 "attrs": defaults.dc_to_pop_link.attrs.copy(),
                 "match": defaults.dc_to_pop_link.match.copy(),
                 "role_pairs": _rp_list(defaults.dc_to_pop_link),
+                "striping": getattr(defaults.dc_to_pop_link, "striping", {})
+                if isinstance(getattr(defaults.dc_to_pop_link, "striping", {}), dict)
+                else {},
             },
         }
 

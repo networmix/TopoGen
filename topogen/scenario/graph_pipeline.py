@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
-
 from ngraph.algorithms.base import EdgeSelect as _NgEdgeSelect
 from ngraph.algorithms.base import FlowPlacement as _NgFlowPlacement
 from ngraph.algorithms.flow_init import init_flow_graph as _ng_init_flow_graph
@@ -25,6 +24,7 @@ from ngraph.algorithms.placement import (
 from ngraph.algorithms.spf import spf as _ng_spf
 from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
 from ngraph.graph.strict_multidigraph import StrictMultiDiGraph as _NgSMDG
+
 from topogen.blueprints_lib import get_builtin_blueprints as _get_builtins
 from topogen.corridors import (
     extract_corridor_edges_for_metros_graph as _extract_corridor_edges,
@@ -596,14 +596,22 @@ def _add_inter_metro_edges(
         )
 
         if not striping:
-            for p in range(1, s_sites + 1):
-                for q in range(1, t_sites + 1):
+            # Determine adjacency mode: mesh (default) or one_to_one
+            mode_val = (
+                src_cfg.get("mode", "mesh")
+                if isinstance(src_cfg, dict)
+                else getattr(src_cfg, "mode", "mesh")
+            )
+            mode = str(mode_val).strip().lower()
+            if mode == "one_to_one":
+                limit = min(int(s_sites), int(t_sites))
+                for p in range(1, limit + 1):
                     u = _site_node_id(s_idx, "pop", p)
-                    v = _site_node_id(t_idx, "pop", q)
+                    v = _site_node_id(t_idx, "pop", p)
                     G.add_edge(
                         u,
                         v,
-                        key=f"{adj_id}:{p}-{q}",
+                        key=f"{adj_id}:{p}-{p}",
                         link_type="inter_metro_corridor",
                         base_capacity=base_capacity,
                         target_capacity=base_capacity,
@@ -622,6 +630,33 @@ def _add_inter_metro_edges(
                             else getattr(src_cfg, "role_pairs", [])
                         ),
                     )
+            else:
+                for p in range(1, s_sites + 1):
+                    for q in range(1, t_sites + 1):
+                        u = _site_node_id(s_idx, "pop", p)
+                        v = _site_node_id(t_idx, "pop", q)
+                        G.add_edge(
+                            u,
+                            v,
+                            key=f"{adj_id}:{p}-{q}",
+                            link_type="inter_metro_corridor",
+                            base_capacity=base_capacity,
+                            target_capacity=base_capacity,
+                            cost=cost,
+                            adjacency_id=adj_id,
+                            distance_km=cost,
+                            source_metro=s_name,
+                            target_metro=t_name,
+                            risk_groups=risk_groups,
+                            euclidean_km=euclid_km,
+                            detour_ratio=detour_ratio,
+                            match=match_base,
+                            role_pairs=(
+                                src_cfg.get("role_pairs", [])
+                                if isinstance(src_cfg, dict)
+                                else getattr(src_cfg, "role_pairs", [])
+                            ),
+                        )
             continue
 
         # With striping configured, compute stripe labels and node_overrides per site

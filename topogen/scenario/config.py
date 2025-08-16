@@ -73,6 +73,7 @@ def _determine_metro_settings(
                 "striping": getattr(defaults.intra_metro_link, "striping", {})
                 if isinstance(getattr(defaults.intra_metro_link, "striping", {}), dict)
                 else {},
+                "mode": getattr(defaults.intra_metro_link, "mode", "mesh"),
             },
             "inter_metro_link": {
                 "capacity": defaults.inter_metro_link.capacity,
@@ -83,6 +84,7 @@ def _determine_metro_settings(
                 "striping": getattr(defaults.inter_metro_link, "striping", {})
                 if isinstance(getattr(defaults.inter_metro_link, "striping", {}), dict)
                 else {},
+                "mode": getattr(defaults.inter_metro_link, "mode", "mesh"),
             },
             "dc_to_pop_link": {
                 "capacity": defaults.dc_to_pop_link.capacity,
@@ -93,6 +95,7 @@ def _determine_metro_settings(
                 "striping": getattr(defaults.dc_to_pop_link, "striping", {})
                 if isinstance(getattr(defaults.dc_to_pop_link, "striping", {}), dict)
                 else {},
+                "mode": getattr(defaults.dc_to_pop_link, "mode", "mesh"),
             },
         }
 

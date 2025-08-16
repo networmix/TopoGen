@@ -138,6 +138,10 @@ class LinkParams:
     # Optional striping configuration for controlled device-group partitioning
     # during adjacency creation. Example: {"width": 4}
     striping: dict[str, Any] = field(default_factory=dict)
+    # Optional adjacency formation mode (used by inter-metro links).
+    # "mesh" connects all PoP pairs between metros; "one_to_one" connects
+    # only corresponding indices: pop1-pop1, pop2-pop2, ... up to min counts.
+    mode: str = "mesh"
 
 
 @dataclass
@@ -672,6 +676,7 @@ class TopologyConfig:
             match=intra_metro_link_dict.get("match", {}),
             role_pairs=intra_metro_link_dict.get("role_pairs", []) or [],
             striping=intra_metro_link_dict.get("striping", {}) or {},
+            mode=str(intra_metro_link_dict.get("mode", "mesh")),
         )
         inter_metro_link = LinkParams(
             capacity=inter_metro_link_dict.get("capacity", 100),
@@ -683,6 +688,7 @@ class TopologyConfig:
             match=inter_metro_link_dict.get("match", {}),
             role_pairs=inter_metro_link_dict.get("role_pairs", []) or [],
             striping=inter_metro_link_dict.get("striping", {}) or {},
+            mode=str(inter_metro_link_dict.get("mode", "mesh")),
         )
         dc_to_pop_link = LinkParams(
             capacity=dc_to_pop_link_dict.get("capacity", 400),
@@ -694,6 +700,7 @@ class TopologyConfig:
             match=dc_to_pop_link_dict.get("match", {}),
             role_pairs=dc_to_pop_link_dict.get("role_pairs", []) or [],
             striping=dc_to_pop_link_dict.get("striping", {}) or {},
+            mode=str(dc_to_pop_link_dict.get("mode", "mesh")),
         )
 
         # Create BuildDefaults with explicit parameters

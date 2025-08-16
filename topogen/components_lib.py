@@ -50,7 +50,7 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     "800G-ZR+": {
         "component_type": "optic",
         "description": "800G ZR+ pluggable optic",
-        "capex": 10_000.0,
+        "capex": 15_000.0,
         "power_watts": 29.0,
         "power_watts_max": 30.0,
         "capacity": 800.0,  # Gbps
@@ -60,9 +60,9 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     "1600G-2xDR4": {
         "component_type": "optic",
         "description": "1600G 2xDR4 pluggable optic",
-        "capex": 10_000.0,
-        "power_watts": 24.0,
-        "power_watts_max": 26.0,
+        "capex": 5_500.0,
+        "power_watts": 25.0,
+        "power_watts_max": 28.0,
         "capacity": 1600.0,  # Gbps
         "ports": 1,
         "attrs": {},
@@ -70,9 +70,9 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     "800G-DR4": {
         "component_type": "optic",
         "description": "800G DR4 pluggable optic",
-        "capex": 10_000.0,
-        "power_watts": 29.0,
-        "power_watts_max": 30.0,
+        "capex": 3_000.0,
+        "power_watts": 16.0,
+        "power_watts_max": 18.0,
         "capacity": 800.0,  # Gbps
         "ports": 1,
         "attrs": {},

@@ -55,6 +55,137 @@ def test_uniform_totals() -> None:
     assert per_class[1]["flow_policy_config"] == "MIN_HOPS_NO_ECMP"
 
 
+def test_hose_two_dcs_totals_and_symmetry() -> None:
+    """Hose model with two DCs yields two symmetric entries totaling offered."""
+
+    cfg = TopologyConfig()
+    cfg.traffic.enabled = True
+    cfg.traffic.model = "hose"
+    cfg.traffic.gbps_per_mw = 100.0
+    cfg.traffic.mw_per_dc_region = 10.0
+    cfg.traffic.priority_ratios = {0: 1.0}
+    cfg.traffic.matrix_name = "tm"
+    cfg.output.scenario_seed = 123
+
+    metros = _metros_ab()
+    msettings = _metro_settings_two_one_dc()
+
+    tmset = generate_traffic_matrix(metros, msettings, cfg)
+    demands = tmset[cfg.traffic.matrix_name]
+
+    assert len(demands) == 2
+    total = sum(float(d["demand"]) for d in demands)
+    # Offered = 100 * (10+10) = 2000
+    assert abs(total - 2000.0) < 1e-6
+    # Symmetric: both entries equal
+    assert abs(float(demands[0]["demand"]) - float(demands[1]["demand"])) < 1e-6
+
+
+def test_hose_multiple_samples_named_matrices() -> None:
+    """Hose model emits multiple matrices when samples > 1 with numbered suffixes."""
+
+    cfg = TopologyConfig()
+    cfg.traffic.enabled = True
+    cfg.traffic.model = "hose"
+    cfg.traffic.samples = 3
+    cfg.traffic.gbps_per_mw = 50.0
+    cfg.traffic.mw_per_dc_region = 10.0
+    cfg.traffic.priority_ratios = {0: 1.0}
+    cfg.traffic.matrix_name = "tm"
+    cfg.output.scenario_seed = 7
+
+    metros = _metros_ab()
+    msettings = _metro_settings_two_one_dc()
+
+    tmset = generate_traffic_matrix(metros, msettings, cfg)
+    assert set(tmset.keys()) == {"tm_1", "tm_2", "tm_3"}
+    for _name, demands in tmset.items():
+        assert demands and all(d["mode"] == "pairwise" for d in demands)
+
+
+def test_hose_per_dc_totals_match() -> None:
+    """Per-DC directed totals match T_i when summing over all classes and peers."""
+
+    cfg = TopologyConfig()
+    cfg.traffic.enabled = True
+    cfg.traffic.model = "hose"
+    cfg.traffic.gbps_per_mw = 100.0
+    cfg.traffic.mw_per_dc_region = 10.0
+    cfg.traffic.priority_ratios = {0: 0.25, 1: 0.75}
+    cfg.traffic.matrix_name = "tm"
+    cfg.output.scenario_seed = 99
+
+    metros = [
+        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
+        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
+        {"name": "C", "x": 2000.0, "y": 0.0, "radius_km": 25.0},
+    ]
+    msettings = {m["name"]: {"dc_regions_per_metro": 1} for m in metros}
+
+    tmset = generate_traffic_matrix(metros, msettings, cfg)
+    demands = tmset[cfg.traffic.matrix_name]
+
+    # Compute expected T_i (directed) per DC
+    offered = cfg.traffic.gbps_per_mw * (3 * cfg.traffic.mw_per_dc_region)
+    T = offered / 3.0  # equal MW per DC
+
+    # Sum outgoing per source regex
+    out_by_src: dict[str, float] = {}
+    for d in demands:
+        src = str(d["source_path"]).strip("^")
+        out_by_src[src] = out_by_src.get(src, 0.0) + float(d["demand"])
+
+    # All three DCs should have outgoing ~= T
+    assert len(out_by_src) == 3
+    for total in out_by_src.values():
+        assert abs(total - T) < 1e-6
+
+
+def test_hose_deterministic_given_seed() -> None:
+    """Hose sampling is deterministic for the same scenario_seed and params."""
+
+    cfg1 = TopologyConfig()
+    cfg1.traffic.enabled = True
+    cfg1.traffic.model = "hose"
+    cfg1.traffic.samples = 2
+    cfg1.traffic.gbps_per_mw = 80.0
+    cfg1.traffic.mw_per_dc_region = 5.0
+    cfg1.traffic.priority_ratios = {0: 1.0}
+    cfg1.traffic.matrix_name = "tm"
+    cfg1.output.scenario_seed = 2024
+
+    cfg2 = TopologyConfig()
+    cfg2.traffic.enabled = True
+    cfg2.traffic.model = "hose"
+    cfg2.traffic.samples = 2
+    cfg2.traffic.gbps_per_mw = 80.0
+    cfg2.traffic.mw_per_dc_region = 5.0
+    cfg2.traffic.priority_ratios = {0: 1.0}
+    cfg2.traffic.matrix_name = "tm"
+    cfg2.output.scenario_seed = 2024
+
+    metros = [
+        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
+        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
+        {"name": "C", "x": 2000.0, "y": 0.0, "radius_km": 25.0},
+    ]
+    msettings = {m["name"]: {"dc_regions_per_metro": 1} for m in metros}
+
+    tmset1 = generate_traffic_matrix(metros, msettings, cfg1)
+    tmset2 = generate_traffic_matrix(metros, msettings, cfg2)
+
+    assert tmset1.keys() == tmset2.keys()
+    for k in sorted(tmset1.keys()):
+        d1 = tmset1[k]
+        d2 = tmset2[k]
+        assert len(d1) == len(d2)
+        for a, b in zip(d1, d2, strict=False):
+            assert a["source_path"] == b["source_path"]
+            assert a["sink_path"] == b["sink_path"]
+            assert int(a["priority"]) == int(b["priority"])
+            assert abs(float(a["demand"]) - float(b["demand"])) < 1e-9
+
+
 def test_gravity_two_dcs_symmetric_split_and_total() -> None:
     """Gravity model: two DCs yield two symmetric entries summing to D_c."""
 

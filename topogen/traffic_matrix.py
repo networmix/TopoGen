@@ -2,7 +2,7 @@
 
 Provides functions to generate DC-to-DC traffic matrices for scenarios.
 
-The primary entrypoint is ``generate_traffic_matrix`` which implements two
+The primary entrypoint is ``generate_traffic_matrix`` which implements three
 models:
 
 - "uniform": emit a class-level pairwise demand across all DC nodes using
@@ -10,6 +10,9 @@ models:
 - "gravity": compute per-pair allocations proportional to a gravity-like
   kernel over Euclidean metro distances in kilometers with optional jitter,
   top-K pruning, and rounding with conservation via largest remainders.
+- "hose": sample one or more randomized matrices that satisfy per-DC ingress
+  and egress totals via iterative proportional fitting (IPF), then emit
+  symmetric directed demands split equally per pair.
 
 Time complexity is dominated by pair enumeration between DC nodes which is
 O(N_dc^2). Memory usage is O(N_dc^2) for intermediate weights in the gravity
@@ -20,6 +23,7 @@ from __future__ import annotations
 
 import json
 import math
+import random as _random
 from pathlib import Path
 from typing import Any
 
@@ -100,7 +104,7 @@ def generate_traffic_matrix(
         return {}
 
     # Offered traffic in Gbps
-    gravity_enabled = getattr(traffic_cfg, "model", "uniform") == "gravity"
+    model = str(getattr(traffic_cfg, "model", "uniform")).strip()
 
     def _power_for_dc(metro_name: str, dc_path: str) -> float:
         # Override by full path or by metro name; else default
@@ -144,13 +148,16 @@ def generate_traffic_matrix(
         # Guard against accidental formatting failures in debug path
         pass
 
-    if not gravity_enabled:
+    if model == "uniform":
         # Uniform model emission using regex selection across all DCs
         source_regex = "(metro[0-9]+/dc[0-9]+)"
         sink_regex = "(metro[0-9]+/dc[0-9]+)"
         demands: list[dict[str, Any]] = []
         for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
             class_demand = offered_gbps * float(ratio)
+            if class_demand <= 0.0:
+                # Skip zero or negative class demand entries
+                continue
             entry = {
                 "source_path": source_regex,
                 "sink_path": sink_regex,
@@ -197,6 +204,326 @@ def generate_traffic_matrix(
             pass
         return {traffic_cfg.matrix_name: demands}
 
+    if model == "hose":
+        # Hose model: sample one or more randomized matrices satisfying per-DC totals
+        if total_power_mw <= 0.0:
+            logger.debug("hose: total_power_mw is zero; skipping traffic generation")
+            return {}
+
+        # Directed per-DC totals (egress == ingress for symmetric hose)
+        T: dict[tuple[str, int], float] = {
+            k: offered_gbps * (float(mw) / float(total_power_mw))
+            for k, mw in dc_mass.items()
+        }
+
+        # Map metro name to 1-based index for regex paths
+        metro_idx_map_hose = {m["name"]: idx for idx, m in enumerate(metros, 1)}
+
+        # Hose tilt configuration (gravity-tilted initialization)
+        hcfg = getattr(traffic_cfg, "hose", object())
+        try:
+            tilt_exp = float(getattr(hcfg, "tilt_exponent", 0.0))
+            hose_beta = float(getattr(hcfg, "beta", 1.0))
+            hose_min_km = float(getattr(hcfg, "min_distance_km", 1.0))
+            hose_excl_same = bool(getattr(hcfg, "exclude_same_metro", False))
+            carve_top_k = getattr(hcfg, "carve_top_k", None)
+        except Exception:
+            tilt_exp = 0.0
+            hose_beta = 1.0
+            hose_min_km = 1.0
+            hose_excl_same = False
+            carve_top_k = None
+
+        # Coordinates for Euclidean distance (meters)
+        coords_hose: dict[str, tuple[float, float]] = {
+            m["name"]: (float(m.get("x", 0.0)), float(m.get("y", 0.0))) for m in metros
+        }
+
+        def _hose_distance_km(name_a: str, name_b: str) -> float:
+            if name_a == name_b:
+                return max(hose_min_km, 0.0)
+            (x1, y1) = coords_hose.get(name_a, (0.0, 0.0))
+            (x2, y2) = coords_hose.get(name_b, (0.0, 0.0))
+            return max(math.hypot(x1 - x2, y1 - y2) / 1000.0, hose_min_km)
+
+        # Seeded RNG for reproducibility; vary with sample index
+        try:
+            base_seed = int(
+                getattr(getattr(config, "output", object()), "scenario_seed", 42)
+            )
+        except Exception:
+            base_seed = 42
+
+        def _ipf_directed_matrix(rng: _random.Random) -> list[list[float]]:
+            """Return directed matrix D with zero diagonal and row/col sums == T_i.
+
+            Uses iterative proportional fitting on a positive random initialization.
+            """
+
+            n = len(dc_nodes)
+            t_vec = [T[dc_nodes[i]] for i in range(n)]
+            D = [[0.0 for _ in range(n)] for _ in range(n)]
+            for i in range(n):
+                (mi, di) = dc_nodes[i]
+                for j in range(n):
+                    if i == j:
+                        continue
+                    (mj, dj) = dc_nodes[j]
+                    # Random base > 0
+                    base = 1e-9 + rng.random()
+                    # Optional gravity tilt on unordered pair
+                    if tilt_exp > 0.0:
+                        if hose_excl_same and mi == mj:
+                            weight = 0.0
+                        else:
+                            dist_km = _hose_distance_km(mi, mj)
+                            weight = 1.0 / (dist_km**hose_beta) if dist_km > 0 else 0.0
+                        if weight <= 0.0:
+                            # Keep strictly positive but very small to retain feasibility
+                            tilt = 1e-12
+                        else:
+                            tilt = weight**tilt_exp
+                        D[i][j] = base * tilt
+                    else:
+                        D[i][j] = base
+
+            max_iter = 2000
+            tol = 1e-6
+            for _ in range(max_iter):
+                # Scale rows
+                for i in range(n):
+                    row_sum = sum(D[i][j] for j in range(n) if j != i)
+                    if row_sum > 0.0:
+                        factor = t_vec[i] / row_sum
+                        if factor != 1.0:
+                            for j in range(n):
+                                if i != j:
+                                    D[i][j] *= factor
+                # Scale columns and track max deviation
+                max_dev = 0.0
+                for j in range(n):
+                    col_sum = sum(D[i][j] for i in range(n) if i != j)
+                    if col_sum > 0.0:
+                        factor = t_vec[j] / col_sum
+                        if factor != 1.0:
+                            for i in range(n):
+                                if i != j:
+                                    D[i][j] *= factor
+                    col_sum2 = sum(D[i][j] for i in range(n) if i != j)
+                    max_dev = max(max_dev, abs(col_sum2 - t_vec[j]))
+                for i in range(n):
+                    row_sum2 = sum(D[i][j] for j in range(n) if j != i)
+                    max_dev = max(max_dev, abs(row_sum2 - t_vec[i]))
+                if max_dev <= tol:
+                    break
+            return D
+
+        num_samples = int(getattr(traffic_cfg, "samples", 1))
+        base_name = str(getattr(traffic_cfg, "matrix_name", "default"))
+        # Reuse gravity rounding settings for undirected totals, then split equally
+        rounding = float(
+            getattr(getattr(traffic_cfg, "gravity", object()), "rounding_gbps", 0.0)
+        )
+        rounding_policy = str(
+            getattr(
+                getattr(traffic_cfg, "gravity", object()), "rounding_policy", "nearest"
+            )
+        )
+
+        result_hose: dict[str, list[dict[str, Any]]] = {}
+        for s_idx in range(1, num_samples + 1):
+            rng = _random.Random(base_seed * 1000003 + s_idx)
+            D = _ipf_directed_matrix(rng)
+            # Optional gravity carve step: keep top-K partners per DC by undirected total
+            if carve_top_k is not None:
+                k = int(carve_top_k)
+                n = len(dc_nodes)
+                # Build undirected totals
+                und: dict[tuple[int, int], float] = {}
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        u = float(D[i][j] + D[j][i])
+                        if u > 0.0:
+                            und[(i, j)] = u
+                # Partners per node
+                partner_map: dict[int, list[tuple[int, float]]] = {}
+                for (i, j), u in und.items():
+                    partner_map.setdefault(i, []).append((j, u))
+                    partner_map.setdefault(j, []).append((i, u))
+                # Build keep set
+                keep_pairs: set[tuple[int, int]] = set()
+                for i, lst in partner_map.items():
+                    lst_sorted = sorted(lst, key=lambda t: t[1], reverse=True)[:k]
+                    for j, _ in lst_sorted:
+                        a, b = (i, j) if i < j else (j, i)
+                        keep_pairs.add((a, b))
+                # Zero out non-kept pairs in the initialization and rerun IPF to restore T_i
+                # Start from a fresh initialization using the same tilt to avoid drift
+                D = [[0.0 for _ in range(n)] for _ in range(n)]
+                for i in range(n):
+                    (mi, di) = dc_nodes[i]
+                    for j in range(n):
+                        if i == j:
+                            continue
+                        (mj, dj) = dc_nodes[j]
+                        a, b = (i, j) if i < j else (j, i)
+                        if (a, b) not in keep_pairs:
+                            continue
+                        base = 1e-9 + rng.random()
+                        if tilt_exp > 0.0:
+                            if hose_excl_same and mi == mj:
+                                weight = 0.0
+                            else:
+                                dist_km = _hose_distance_km(mi, mj)
+                                weight = (
+                                    1.0 / (dist_km**hose_beta) if dist_km > 0 else 0.0
+                                )
+                            tilt = (weight**tilt_exp) if weight > 0.0 else 1e-12
+                            D[i][j] = base * tilt
+                        else:
+                            D[i][j] = base
+                # Run IPF again to satisfy row/col sums
+                # Reuse inner scaling loop
+                max_iter = 2000
+                tol = 1e-6
+                for _ in range(max_iter):
+                    for i in range(n):
+                        row_sum = sum(D[i][j] for j in range(n) if j != i)
+                        if row_sum > 0.0:
+                            factor = T[dc_nodes[i]] / row_sum
+                            if factor != 1.0:
+                                for j in range(n):
+                                    if i != j:
+                                        D[i][j] *= factor
+                    max_dev = 0.0
+                    for j in range(n):
+                        col_sum = sum(D[i][j] for i in range(n) if i != j)
+                        if col_sum > 0.0:
+                            factor = T[dc_nodes[j]] / col_sum
+                            if factor != 1.0:
+                                for i in range(n):
+                                    if i != j:
+                                        D[i][j] *= factor
+                        col_sum2 = sum(D[i][j] for i in range(n) if i != j)
+                        max_dev = max(max_dev, abs(col_sum2 - T[dc_nodes[j]]))
+                    for i in range(n):
+                        row_sum2 = sum(D[i][j] for j in range(n) if j != i)
+                        max_dev = max(max_dev, abs(row_sum2 - T[dc_nodes[i]]))
+                    if max_dev <= tol:
+                        break
+            # Build undirected totals for i<j
+            n = len(dc_nodes)
+            undirected: list[tuple[tuple[int, int], float]] = []
+            for i in range(n):
+                for j in range(i + 1, n):
+                    total_ij = float(D[i][j] + D[j][i])
+                    if total_ij > 0.0:
+                        undirected.append(((i, j), total_ij))
+
+            demands: list[dict[str, Any]] = []
+            # Emit per class
+            for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
+                D_c = offered_gbps * float(ratio)
+                allocs_hose = [((i, j), u * float(ratio)) for ((i, j), u) in undirected]
+
+                # Optional rounding with conservation via largest remainders (undirected)
+                if rounding > 0.0:
+                    floored_hose: list[tuple[tuple[int, int], float, float]] = []
+                    total_floor = 0.0
+                    for (i, j), v in allocs_hose:
+                        if rounding_policy == "ceil":
+                            q = math.ceil(v / rounding) * rounding
+                        elif rounding_policy == "floor":
+                            q = math.floor(v / rounding) * rounding
+                        else:
+                            q = round(v / rounding) * rounding
+                        rem = v - q
+                        floored_hose.append(((i, j), q, rem))
+                        total_floor += q
+                    remainder = D_c - total_floor
+                    steps = int(round(remainder / rounding)) if rounding > 0 else 0
+                    floored_hose.sort(key=lambda t: t[2], reverse=True)
+                    final_map_hose: dict[tuple[int, int], float] = {
+                        key: q for key, q, _ in floored_hose
+                    }
+                    idx = 0
+                    while steps > 0 and idx < len(floored_hose):
+                        key, q, _ = floored_hose[idx]
+                        final_map_hose[key] = q + rounding
+                        steps -= 1
+                        idx += 1
+                    allocs_hose = list(final_map_hose.items())
+
+                dir_step = max(rounding / 2.0, 0.0)
+                for (i, j), v in allocs_hose:
+                    (m1, d1) = dc_nodes[i]
+                    (m2, d2) = dc_nodes[j]
+                    i1 = metro_idx_map_hose[m1]
+                    i2 = metro_idx_map_hose[m2]
+                    src = f"^metro{i1}/dc{d1}/.*"
+                    dst = f"^metro{i2}/dc{d2}/.*"
+                    # Euclidean km for attrs parity with gravity model
+                    dist_km = _hose_distance_km(m1, m2)
+                    demand_each_raw = float(v) / 2.0
+                    if dir_step > 0.0:
+                        demand_each = round(demand_each_raw / dir_step) * dir_step
+                    else:
+                        demand_each = round(demand_each_raw, 2)
+                    if demand_each <= 0.0:
+                        continue
+                    entry_fwd = {
+                        "source_path": src,
+                        "sink_path": dst,
+                        "mode": "pairwise",
+                        "priority": int(priority),
+                        "demand": float(demand_each),
+                        "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
+                    }
+                    entry_rev = {
+                        "source_path": dst,
+                        "sink_path": src,
+                        "mode": "pairwise",
+                        "priority": int(priority),
+                        "demand": float(demand_each),
+                        "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
+                    }
+                    fpc = getattr(traffic_cfg, "flow_policy_config", {})
+                    if isinstance(fpc, dict) and int(priority) in fpc:
+                        entry_fwd["flow_policy_config"] = str(fpc[int(priority)])
+                        entry_rev["flow_policy_config"] = str(fpc[int(priority)])
+                    demands.append(entry_fwd)
+                    demands.append(entry_rev)
+
+            matrix_name = base_name if num_samples == 1 else f"{base_name}_{s_idx}"
+            result_hose[matrix_name] = demands
+
+        # Pretty-print the first sample for visibility
+        try:
+            first = next(iter(result_hose.keys())) if result_hose else base_name
+            pretty = {
+                str(first): [
+                    {
+                        "source_path": d["source_path"],
+                        "sink_path": d["sink_path"],
+                        "mode": d["mode"],
+                        "priority": int(d["priority"]),
+                        "demand_gbps": _fmt(float(d["demand"]))
+                        if isinstance(d.get("demand"), (int, float))
+                        else str(d.get("demand")),
+                    }
+                    for d in result_hose.get(first, [])
+                ]
+            }
+            logger.debug(
+                "traffic_matrix pretty (hose sample):\n%s",
+                json.dumps(pretty, indent=2, ensure_ascii=True),
+            )
+        except Exception:  # pragma: no cover - logging only
+            pass
+
+        return result_hose
+
+    # Early return for hose handled above; remaining branch is gravity
     # Gravity model configuration
     gcfg = traffic_cfg.gravity
 

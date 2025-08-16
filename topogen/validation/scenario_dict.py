@@ -125,6 +125,19 @@ def validate_scenario_dict(
                     f"workflow step '{step_name}' references missing traffic matrix '{matrix_ref}'"
                 )
 
+    # Flag empty traffic matrices when traffic generation is enabled
+    try:
+        tcfg = (data or {}).get("traffic", {}) or {}
+        t_enabled = bool(tcfg.get("enabled", False))
+        if t_enabled and isinstance(traffic_set, dict):
+            for mname, entries in traffic_set.items():
+                if isinstance(entries, list) and len(entries) == 0:
+                    issues.append(
+                        f"traffic matrix '{mname}' is empty despite enabled traffic"
+                    )
+    except Exception:
+        pass
+
     # Simple isolation hint if adjacency is absent
     adjacency = network.get("adjacency", []) or []
     if not adjacency:
@@ -192,7 +205,11 @@ def validate_scenario_dict(
                         demand_val = float(d.get("demand", 0.0))
                     except Exception:
                         demand_val = 0.0
+                    # Reject zero/negative demand entries at validation time
                     if demand_val <= 0.0:
+                        issues.append(
+                            "traffic_matrix_set contains zero or negative 'demand' entry"
+                        )
                         continue
                     s_path = str(d.get("source_path", ""))
                     t_path = str(d.get("sink_path", ""))

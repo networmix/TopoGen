@@ -6,6 +6,7 @@ TopoGen builds realistic backbone graphs for the continental US and prepares ana
 
 - Generator: Constructs an integrated metro + highway graph from public datasets.
 - Builder: Converts the integrated graph into a `NetGraph` scenario YAML for analysis.
+  - Traffic: Supports `uniform`, `gravity`, and `hose` models. Hose can emit multiple sampled matrices (deterministic given `output.scenario_seed`).
 
 ## How it creates realistic graphs
 

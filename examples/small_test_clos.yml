@@ -92,8 +92,6 @@ traffic:
     beta: 0.8
     min_distance_km: 200.0
     exclude_same_metro: false
-    distance_metric: euclidean_km
-    emission: explicit_pairs
     jitter_stddev: 0.0
     rounding_gbps: 100.0
 

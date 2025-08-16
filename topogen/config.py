@@ -339,8 +339,6 @@ class TrafficGravityConfig:
         beta: Exponent applied to distance term in km.
         min_distance_km: Minimum effective distance to avoid singularities.
         exclude_same_metro: If True, skip intra-metro DC pairs. Default includes them.
-        distance_metric: One of {"euclidean_km", "corridor_length", "auto"}.
-        emission: One of {"explicit_pairs", "macro_pairwise"} for output format.
         max_partners_per_dc: If set, keeps top-K partners per DC by weight.
         jitter_stddev: Lognormal sigma for multiplicative noise (0 disables jitter).
         rounding_gbps: If > 0, quantize undirected per-pair totals to this step size.
@@ -356,13 +354,32 @@ class TrafficGravityConfig:
     beta: float = 1.0
     min_distance_km: float = 1.0
     exclude_same_metro: bool = False
-    distance_metric: str = "euclidean_km"
-    emission: str = "explicit_pairs"
     max_partners_per_dc: int | None = None
     jitter_stddev: float = 0.0
     rounding_gbps: float = 0.0
     rounding_policy: str = "nearest"
     mw_per_dc_region_overrides: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class TrafficHoseConfig:
+    """Hose model parameters for DC-to-DC traffic generation.
+
+    Attributes:
+        tilt_exponent: Non-negative exponent controlling gravity tilt strength.
+            0.0 yields unbiased hose; higher values bias initialization toward
+            shorter-distance pairs via a distance kernel before IPF.
+        beta: Distance exponent in the tilt kernel (km-based).
+        min_distance_km: Minimum effective distance to avoid singularities.
+        exclude_same_metro: If True, skip intra-metro DC pairs in the tilt kernel.
+    """
+
+    tilt_exponent: float = 0.0
+    beta: float = 1.0
+    min_distance_km: float = 1.0
+    exclude_same_metro: bool = False
+    # Optional gravity-carved support: keep only strongest partners per DC
+    carve_top_k: int | None = None
 
 
 @dataclass
@@ -393,7 +410,10 @@ class TrafficConfig:
     flow_policy_config: dict[int, str] = field(default_factory=dict)
     matrix_name: str = "default"
     model: str = "uniform"
+    # Number of samples for models that support stochastic emission (e.g., hose)
+    samples: int = 1
     gravity: TrafficGravityConfig = field(default_factory=TrafficGravityConfig)
+    hose: TrafficHoseConfig = field(default_factory=TrafficHoseConfig)
 
 
 @dataclass
@@ -894,6 +914,15 @@ class TopologyConfig:
                 raise ValueError("'traffic.gravity' must be a dictionary")
             gravity_cfg = TrafficGravityConfig(**gravity_dict)
 
+        # Normalize optional hose config
+        hose_dict = traffic_dict.get("hose", None)
+        if hose_dict is None:
+            hose_cfg = TrafficHoseConfig()
+        else:
+            if not isinstance(hose_dict, dict):
+                raise ValueError("'traffic.hose' must be a dictionary")
+            hose_cfg = TrafficHoseConfig(**hose_dict)
+
         # Normalize optional flow_policy_config mapping to int keys
         fpc_input = traffic_dict.get("flow_policy_config")
         if fpc_input is None:
@@ -925,13 +954,10 @@ class TopologyConfig:
             flow_policy_config=flow_policy_cfg_map,
             matrix_name=str(traffic_dict.get("matrix_name", "default")),
             # Accept both "uniform" and the historical name "uniform_pairwise"
-            model=(
-                "uniform"
-                if str(traffic_dict.get("model", "uniform")).strip()
-                in {"uniform", "uniform_pairwise"}
-                else str(traffic_dict.get("model", "uniform"))
-            ),
+            model=str(traffic_dict.get("model", "uniform")).strip(),
+            samples=int(traffic_dict.get("samples", 1)),
             gravity=gravity_cfg,
+            hose=hose_cfg,
         )
 
         # Validate traffic configuration
@@ -972,8 +998,27 @@ class TopologyConfig:
                         )
 
             # Validate traffic model
-            if traffic.model not in {"uniform", "gravity"}:
-                raise ValueError("traffic.model must be 'uniform' or 'gravity'")
+            if traffic.model not in {"uniform", "gravity", "hose"}:
+                raise ValueError(
+                    "traffic.model must be 'uniform', 'gravity', or 'hose'"
+                )
+            if traffic.model == "hose":
+                if not isinstance(traffic.samples, int) or traffic.samples <= 0:
+                    raise ValueError(
+                        "traffic.samples must be a positive integer for hose model"
+                    )
+                # Validate hose sub-config
+                h = getattr(traffic, "hose", TrafficHoseConfig())
+                if h.tilt_exponent < 0.0:
+                    raise ValueError("traffic.hose.tilt_exponent must be non-negative")
+                if h.beta <= 0.0:
+                    raise ValueError("traffic.hose.beta must be positive")
+                if h.min_distance_km <= 0.0:
+                    raise ValueError("traffic.hose.min_distance_km must be positive")
+                if h.carve_top_k is not None and int(h.carve_top_k) <= 0:
+                    raise ValueError(
+                        "traffic.hose.carve_top_k must be positive when set"
+                    )
 
             # Validate gravity sub-config
             g = traffic.gravity
@@ -983,14 +1028,7 @@ class TopologyConfig:
                 raise ValueError("traffic.gravity.beta must be positive")
             if g.min_distance_km <= 0.0:
                 raise ValueError("traffic.gravity.min_distance_km must be positive")
-            if g.distance_metric not in {"euclidean_km", "corridor_length", "auto"}:
-                raise ValueError(
-                    "traffic.gravity.distance_metric must be one of 'euclidean_km', 'corridor_length', 'auto'"
-                )
-            if g.emission not in {"explicit_pairs", "macro_pairwise"}:
-                raise ValueError(
-                    "traffic.gravity.emission must be 'explicit_pairs' or 'macro_pairwise'"
-                )
+            # distance_metric and emission removed; only explicit per-pair emission with Euclidean distance is supported
             if g.max_partners_per_dc is not None and g.max_partners_per_dc <= 0:
                 raise ValueError(
                     "traffic.gravity.max_partners_per_dc must be positive when set"

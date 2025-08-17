@@ -28,10 +28,13 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
         ],
     },
     "mc_baseline": {
-        "attrs": {"description": "MC baseline: SRLG, router, intra-metro, node+SRLG"},
+        "attrs": {
+            "description": "Balanced MC: SRLG + DC->PoP + node(maint) + intra-site fabric"
+        },
         "modes": [
+            # Corridor SRLG
             {
-                "weight": 0.6,
+                "weight": 0.30,
                 "rules": [
                     {
                         "entity_scope": "risk_group",
@@ -41,6 +44,27 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                     }
                 ],
             },
+            # DC->PoP outages
+            {
+                "weight": 0.35,
+                "rules": [
+                    {
+                        "entity_scope": "link",
+                        "rule_type": "choice",
+                        "count": 3,
+                        "conditions": [
+                            {
+                                "attr": "link_type",
+                                "operator": "==",
+                                "value": "dc_to_pop",
+                            }
+                        ],
+                        "logic": "and",
+                        "weight_by": "target_capacity",
+                    }
+                ],
+            },
+            # Node failure / maintenance (weighted by attached capacity)
             {
                 "weight": 0.25,
                 "rules": [
@@ -55,55 +79,43 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                                 "value": "dc_region",
                             }
                         ],
+                        "logic": "and",
                         "weight_by": "attached_capacity_gbps",
                     }
                 ],
             },
+            # Intra-site fabric events across blueprints (Clos, Dragonfly, FullMesh)
             {
-                "weight": 0.1,
+                "weight": 0.10,
                 "rules": [
                     {
                         "entity_scope": "link",
                         "rule_type": "choice",
-                        "count": 1,
+                        "count": 4,
                         "conditions": [
                             {
                                 "attr": "link_type",
                                 "operator": "==",
-                                "value": "intra_metro",
+                                "value": "leaf_spine",
                             },
                             {
                                 "attr": "link_type",
                                 "operator": "==",
-                                "value": "dc_to_pop",
+                                "value": "intra_group",
+                            },
+                            {
+                                "attr": "link_type",
+                                "operator": "==",
+                                "value": "inter_group",
+                            },
+                            {
+                                "attr": "link_type",
+                                "operator": "==",
+                                "value": "internal_mesh",
                             },
                         ],
                         "logic": "or",
-                        "weight_by": "cost",
                     }
-                ],
-            },
-            {
-                "weight": 0.05,
-                "rules": [
-                    {
-                        "entity_scope": "node",
-                        "rule_type": "choice",
-                        "count": 1,
-                        "conditions": [
-                            {
-                                "attr": "node_type",
-                                "operator": "!=",
-                                "value": "dc_region",
-                            }
-                        ],
-                    },
-                    {
-                        "entity_scope": "risk_group",
-                        "rule_type": "choice",
-                        "count": 1,
-                        "weight_by": "distance_km",
-                    },
                 ],
             },
         ],

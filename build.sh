@@ -3,12 +3,13 @@
 # Batch runner for TopoGen: run generate+build for each config in a folder.
 #
 # Usage:
-#   ./build.sh [--include PATTERN ...] [--exclude PATTERN ...] [--force] <configs_dir> <output_dir>
+#   ./build.sh [--include PATTERN ...] [--exclude PATTERN ...] [--force] [--build-only] <configs_dir> <output_dir>
 #
 # Example:
 #   ./build.sh examples scenarios
 #   ./build.sh --include "small_*" --exclude "*clos*" examples scenarios
 #   ./build.sh --force examples scenarios
+#   ./build.sh --build-only examples scenarios
 #
 # Behavior:
 # - Finds .yml/.yaml files directly under <configs_dir> (no recursion).
@@ -39,10 +40,11 @@ abs_path() {
 INCLUDE_PATTERNS=()
 EXCLUDE_PATTERNS=()
 FORCE=false
+BUILD_ONLY=false
 
 print_usage() {
   cat >&2 <<EOF
-Usage: $0 [--include PATTERN ...] [--exclude PATTERN ...] [--force] <configs_dir> <output_dir>
+Usage: $0 [--include PATTERN ...] [--exclude PATTERN ...] [--force] [--build-only] <configs_dir> <output_dir>
 
 Examples:
   $0 examples scenarios
@@ -50,11 +52,13 @@ Examples:
   $0 --exclude "*clos*" examples scenarios
   $0 --include "small_*" --exclude "*clos*" examples scenarios
   $0 --force examples scenarios
+  $0 --build-only examples scenarios
 
 Notes:
   - PATTERNs are shell globs matched against the config file basename (e.g., small_test.yml).
   - Multiple --include patterns act as OR; --exclude patterns remove matches.
   - --force ignores cached integrated graphs and runs generation unconditionally.
+  - --build-only skips the generate stage and runs only the build stage.
 EOF
 }
 
@@ -71,6 +75,8 @@ while [[ $# -gt 0 ]]; do
       EXCLUDE_PATTERNS+=("$1"); shift || true ;;
     --force)
       FORCE=true; shift || true ;;
+    --build-only)
+      BUILD_ONLY=true; shift || true ;;
     -h|--help)
       print_usage; exit 0 ;;
     --)
@@ -130,6 +136,7 @@ else
   echo "🔎 Exclude: (none)"
 fi
 echo "⚙️  Force:   $FORCE"
+echo "🏗️  Build-only: $BUILD_ONLY"
 echo
 
 # Collect summary statistics
@@ -191,25 +198,31 @@ while IFS= read -r -d '' cfg; do
   graph_work="$workdir/${stem}_integrated_graph.json"
 
   gen_ec=0
-  if [[ "$FORCE" == "true" ]]; then
-    run_generate=true
+  if [[ "$BUILD_ONLY" == "true" ]]; then
+    # Explicitly skip generate stage, proceed straight to build
+    echo "⏭️  Skipping generate due to --build-only" | tee "$workdir/generate.log" >/dev/null
+    gen_ec=100  # treat as cached/ready so build runs
   else
-    if [[ -f "$graph_work" ]]; then
-      run_generate=false
-    else
+    if [[ "$FORCE" == "true" ]]; then
       run_generate=true
+    else
+      if [[ -f "$graph_work" ]]; then
+        run_generate=false
+      else
+        run_generate=true
+      fi
     fi
-  fi
 
-  if [[ "$run_generate" == "true" ]]; then
-    # Run generate writing artefacts directly to workdir via -o
-    ("${TOPGEN_INVOKE[@]}" generate "$cfg_abs" -o "$workdir") 2>&1 | tee "$workdir/generate.log"
-    gen_ec=${PIPESTATUS[0]}
-  else
-    # Use cached artefacts
-    : # artefacts already in workdir from previous run
-    echo "⏭️  Skipping generate: found existing ${stem}_integrated_graph.json" | tee "$workdir/generate.log" >/dev/null
-    gen_ec=100  # special code for 'cached'
+    if [[ "$run_generate" == "true" ]]; then
+      # Run generate writing artefacts directly to workdir via -o
+      ("${TOPGEN_INVOKE[@]}" generate "$cfg_abs" -o "$workdir") 2>&1 | tee "$workdir/generate.log"
+      gen_ec=${PIPESTATUS[0]}
+    else
+      # Use cached artefacts
+      : # artefacts already in workdir from previous run
+      echo "⏭️  Skipping generate: found existing ${stem}_integrated_graph.json" | tee "$workdir/generate.log" >/dev/null
+      gen_ec=100  # special code for 'cached'
+    fi
   fi
 
   if [[ $gen_ec -eq 0 ]]; then

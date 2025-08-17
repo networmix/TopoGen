@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Clos_L16_S4 (Hose, one_to_one)"
+    title: "US Backbone, Baseline"
 
   formatting:
     json_indent: 2
@@ -31,8 +31,20 @@ build:
       attrs: { link_type: dc_to_pop }
       role_pairs: ["dc|core", "dc|leaf"]
   build_overrides:
-    - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
-      site_blueprint: Clos_L16_S4
+    - metros:
+        [
+          chicago,
+          kansas-city,
+          denver-aurora,
+          dallas-fort-worth-arlington,
+          salt-lake-city,
+          boston,
+          philadelphia,
+          new-york-jersey-city-newark,
+          atlanta,
+          pittsburgh,
+        ]
+      site_blueprint: SingleRouter
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 
@@ -41,7 +53,7 @@ build:
     matrix_name: baseline_traffic_matrix
     quantum_gbps: 3200.0
     headroom: 1.3
-    alpha_dc_to_pop: 1.2
+    alpha_dc_to_pop: 1.1
     beta_intra_pop: 0.8
     flow_placement: EQUAL_BALANCED
     edge_select: ALL_MIN_COST
@@ -89,6 +101,12 @@ traffic:
   flow_policy_config:
     0: TE_UCMP_UNLIM
   matrix_name: baseline_traffic_matrix
+  hose:
+    tilt_exponent: 0.5
+    beta: 1.0
+    min_distance_km: 200.0
+    exclude_same_metro: false
+    carve_top_k: 3
   gravity:
     rounding_gbps: 100.0
 
@@ -101,17 +119,32 @@ projection:
   target_crs: "EPSG:5070"
 
 clustering:
-  metro_clusters: 5
+  metro_clusters: 25
   max_uac_radius_km: 100.0
   export_clusters: false
   export_integrated_graph: true
 
   override_metro_clusters:
-    - "New York"
-    - "Washington"
-    - "Chicago"
-    - "Atlanta"
-    - "Columbus"
+    - "Denver" # Bridge Plains to Rockies via I-70/I-25 hub
+    - "Minneapolis" # Bridge Upper Midwest to Plains via I-94/I-35 hub
+    - "Salt Lake City" # Bridge CA to Rockies via I-80/I-15 hub
+    - "Las Vegas" # Bridge CA to Rockies via I-15 corridor
+    - "Phoenix" # Bridge CA to Southwest via I-10 corridor
+    - "Atlanta" # Bridge FL to Southeast via I-75/I-85 hub
+    - "Portland" # Bridge WA to CA via I-5 corridor
+    - "Omaha" # Bridge Upper Plains to Rockies via I-80/I-29 hub
+    - "Boise" # Bridge PNW to Rockies via I-84/I-15 hub
+    - "Albuquerque" # Bridge CA to TX via I-40/I-25 hub
+    - "New Orleans" # Bridge TX to Southeast via I-10/I-55 hub
+    - "Buffalo" # Bridge Northeast to Midwest via I-90/I-79 corridor
+    - "Chicago" # Bridge Great Lakes to Plains via I-90/I-55 hub
+    - "Dallas" # Bridge Plains to Gulf via I-35/I-20 hub
+    - "Kansas City" # Bridge Plains to Midwest via I-70/I-35 hub
+    - "St. Louis" # Bridge Midwest to South via I-70/I-55 hub
+    - "Charlotte" # Bridge Southeast to Northeast via I-85/I-77 hub
+    - "Nashville" # Bridge South to Midwest via I-40/I-65 hub
+    - "Pittsburgh" # Bridge Northeast to Midwest via I-76/I-79 hub
+    - "Sacramento" # Bridge Northern CA to Rockies via I-80 corridor
 
   coordinate_precision: 1
   area_precision: 2
@@ -128,7 +161,7 @@ corridors:
   k_paths: 1
   k_nearest: 6
   max_edge_km: 1000.0
-  max_corridor_distance_km: 1500.0
+  max_corridor_distance_km: 2000.0
 
   risk_groups:
     enabled: true

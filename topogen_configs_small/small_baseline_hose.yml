@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Baseline (Hose)"
+    title: "Small Test: East Coast, Baseline"
 
   formatting:
     json_indent: 2
@@ -88,8 +88,13 @@ traffic:
   flow_policy_config:
     0: TE_UCMP_UNLIM
   matrix_name: baseline_traffic_matrix
+  hose:
+    tilt_exponent: 0.5
+    beta: 1.0
+    min_distance_km: 200.0
+    exclude_same_metro: false
+    carve_top_k: 3
   gravity:
-    # Hose reuses rounding_gbps for directional quantization step size
     rounding_gbps: 100.0
 
 data_sources:

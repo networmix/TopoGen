@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "US Backbone, Clos_L16_S4 (Hose)"
+    title: "US Backbone, Dragonfly_A3H2G7"
 
   formatting:
     json_indent: 2
@@ -24,6 +24,7 @@ build:
       cost: 1
       attrs: { link_type: inter_metro_corridor }
       role_pairs: ["core|leaf"]
+      mode: one_to_one
     dc_to_pop_link:
       capacity: 25_600
       cost: 1
@@ -43,7 +44,7 @@ build:
           atlanta,
           pittsburgh,
         ]
-      site_blueprint: Clos_L16_S4
+      site_blueprint: Dragonfly_A3H2G7
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 
@@ -79,7 +80,7 @@ failure_policies:
 
 workflows:
   assignments:
-    default: design_analysis_brief
+    default: "design_analysis_brief"
 
 visualization:
   corridors:
@@ -124,26 +125,26 @@ clustering:
   export_integrated_graph: true
 
   override_metro_clusters:
-    - "Denver"
-    - "Minneapolis"
-    - "Salt Lake City"
-    - "Las Vegas"
-    - "Phoenix"
-    - "Atlanta"
-    - "Portland"
-    - "Omaha"
-    - "Boise"
-    - "Albuquerque"
-    - "New Orleans"
-    - "Buffalo"
-    - "Chicago"
-    - "Dallas"
-    - "Kansas City"
-    - "St. Louis"
-    - "Charlotte"
-    - "Nashville"
-    - "Pittsburgh"
-    - "Sacramento"
+    - "Denver" # Bridge Plains to Rockies via I-70/I-25 hub
+    - "Minneapolis" # Bridge Upper Midwest to Plains via I-94/I-35 hub
+    - "Salt Lake City" # Bridge CA to Rockies via I-80/I-15 hub
+    - "Las Vegas" # Bridge CA to Rockies via I-15 corridor
+    - "Phoenix" # Bridge CA to Southwest via I-10 corridor
+    - "Atlanta" # Bridge FL to Southeast via I-75/I-85 hub
+    - "Portland" # Bridge WA to CA via I-5 corridor
+    - "Omaha" # Bridge Upper Plains to Rockies via I-80/I-29 hub
+    - "Boise" # Bridge PNW to Rockies via I-84/I-15 hub
+    - "Albuquerque" # Bridge CA to TX via I-40/I-25 hub
+    - "New Orleans" # Bridge TX to Southeast via I-10/I-55 hub
+    - "Buffalo" # Bridge Northeast to Midwest via I-90/I-79 corridor
+    - "Chicago" # Bridge Great Lakes to Plains via I-90/I-55 hub
+    - "Dallas" # Bridge Plains to Gulf via I-35/I-20 hub
+    - "Kansas City" # Bridge Plains to Midwest via I-70/I-35 hub
+    - "St. Louis" # Bridge Midwest to South via I-70/I-55 hub
+    - "Charlotte" # Bridge Southeast to Northeast via I-85/I-77 hub
+    - "Nashville" # Bridge South to Midwest via I-40/I-65 hub
+    - "Pittsburgh" # Bridge Northeast to Midwest via I-76/I-79 hub
+    - "Sacramento" # Bridge Northern CA to Rockies via I-80 corridor
 
   coordinate_precision: 1
   area_precision: 2

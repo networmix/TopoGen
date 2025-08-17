@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Dragonfly_A3H2G7"
+    title: "Small Test: East Coast, DragonFly_CustomG4"
 
   formatting:
     json_indent: 2
@@ -31,7 +31,7 @@ build:
       role_pairs: ["dc|core", "dc|leaf"]
   build_overrides:
     - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
-      site_blueprint: Dragonfly_A3H2G7
+      site_blueprint: DragonFly_CustomG4
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 
@@ -79,7 +79,8 @@ visualization:
 
 traffic:
   enabled: true
-  model: gravity
+  model: hose
+  samples: 1
   gbps_per_mw: 200.0
   mw_per_dc_region: 150.0
   priority_ratios:
@@ -87,12 +88,13 @@ traffic:
   flow_policy_config:
     0: TE_UCMP_UNLIM
   matrix_name: baseline_traffic_matrix
-  gravity:
-    alpha: 1.0
-    beta: 0.8
+  hose:
+    tilt_exponent: 0.5
+    beta: 1.0
     min_distance_km: 200.0
     exclude_same_metro: false
-    jitter_stddev: 0.0
+    carve_top_k: 3
+  gravity:
     rounding_gbps: 100.0
 
 data_sources:

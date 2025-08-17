@@ -155,3 +155,13 @@ dev/perf_plots/
 # Allow required config files
 !/mkdocs.yml
 !/.pre-commit-config.yaml
+
+# -----------------------------------------------------------------------------
+# Project directories to ignore at the repository root
+# -----------------------------------------------------------------------------
+/papers/
+/ngraph/
+/scenarios/
+/scenarios_*/
+/scenarios_metrics/
+/scenarios_metrics_*/

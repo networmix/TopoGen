@@ -924,6 +924,9 @@ def main():
     if args.summary:
         try:
             # Prefer cross-seed pooled BAC overlay for the summary figure
+            from metrics.plot_bac_delta_vs_baseline import (
+                plot_bac_delta_vs_baseline as _plot_bac_delta_vs_baseline,
+            )
             from metrics.plot_cross_seed_bac import (
                 plot_cross_seed_bac as _plot_cross_seed_bac,
             )
@@ -952,6 +955,21 @@ def main():
                 print(f"Saved latency summary figure: {lat_path}")
             else:
                 print("[WARN] No latency data found to plot.")
+
+            # BAC Δ-availability vs baseline (80–100%) with top-left legend
+            out_delta_png = fig_dir / "BAC_delta_vs_baseline.png"
+            delta_path = _plot_bac_delta_vs_baseline(
+                out_root,
+                baseline="baseline_SingleRouter",
+                grid_min=80.0,
+                grid_max=100.0,
+                legend_loc="upper left",
+                save_to=out_delta_png,
+            )
+            if delta_path is not None:
+                print(f"Saved BAC Δ-availability figure: {delta_path}")
+            else:
+                print("[WARN] No data to plot for BAC Δ-availability.")
 
             # Project-level bar charts for key scalar metrics
             # Reuse df (absolute) and baseline-normalized table

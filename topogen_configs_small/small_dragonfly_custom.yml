@@ -24,6 +24,7 @@ build:
       cost: 1
       attrs: { link_type: inter_metro_corridor }
       role_pairs: ["core|leaf"]
+      mode: one_to_one
     dc_to_pop_link:
       capacity: 25_600
       cost: 1

@@ -23,8 +23,11 @@ classifiers = [
 
 dependencies = [
     "pyyaml",
+    "numpy",
     "pandas",
     "matplotlib",
+    "seaborn",
+    "rich",
     "nbformat",
     "nbconvert",
     "ipykernel",
@@ -38,8 +41,8 @@ dependencies = [
     "scikit-learn",
     "networkx",
     "contextily",
-    # NetGraph
-    "ngraph",
+    # NetGraph (required; provided via VCS until a PyPI release is available)
+    "ngraph @ git+https://github.com/networmix/NetGraph@main",
 ] # Runtime deps
 
 # Dev / CI extras

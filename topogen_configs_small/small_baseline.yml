@@ -1,6 +1,6 @@
 output:
   scenario_metadata:
-    title: "Small Test: East Coast, Clos_L16_S4"
+    title: "Small Test: East Coast, Baseline"
 
   formatting:
     json_indent: 2
@@ -24,6 +24,7 @@ build:
       cost: 1
       attrs: { link_type: inter_metro_corridor }
       role_pairs: ["core|leaf"]
+      mode: one_to_one
     dc_to_pop_link:
       capacity: 25_600
       cost: 1
@@ -31,7 +32,7 @@ build:
       role_pairs: ["dc|core", "dc|leaf"]
   build_overrides:
     - metros: [new-york-jersey-city-newark, columbus, washington-arlington]
-      site_blueprint: Clos_L16_S4
+      site_blueprint: SingleRouter
       dc_regions_per_metro: 1
       dc_region_blueprint: DCRegion
 

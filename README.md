@@ -1,6 +1,6 @@
 # TopoGen
 
-[![Python-test](https://github.com/networmix/NetGraph/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/NetGraph/actions/workflows/python-test.yml)
+[![Python-test](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
 
 TopoGen builds realistic backbone graphs for the continental US and prepares analysis-ready scenarios for `NetGraph`.
 
@@ -24,13 +24,13 @@ TopoGen builds realistic backbone graphs for the continental US and prepares ana
 python -m pip install -e .
 
 # Inspect configuration and data availability
-python -m topogen info -c config.yml
+python -m topogen info config.yml
 
 # Generate the integrated metro + highway graph
-python -m topogen generate -c config.yml
+python -m topogen generate config.yml
 
 # Build a NetGraph scenario YAML from the integrated graph
-python -m topogen build -c config.yml -o config_scenario.yml
+python -m topogen build config.yml -o config_scenario.yml
 ```
 
 ## CLI
@@ -45,4 +45,4 @@ Key commands:
 - `build`: Emit a `NetGraph` scenario YAML from the integrated graph.
 - `info`: Print configuration and input data status.
 
-Configuration lives in `config.yml`. See `docs/` for details.
+Configuration lives in `config.yml`. See sample configs in `topogen_configs_small/` and `topogen_configs/`. Requires Python 3.11+.

@@ -52,7 +52,7 @@ components:
     core: CoreRouter
     leaf: LeafRouter
     spine: SpineRouter
-    dc: {}
+    dc: ""
   optics:
     core|core: 800G-ZR+
     leaf|leaf: 800G-ZR+
@@ -87,7 +87,7 @@ traffic:
   priority_ratios:
     0: 1
   flow_policy_config:
-    0: TE_UCMP_UNLIM
+    0: TE_WCMP_UNLIM
   matrix_name: baseline_traffic_matrix
   hose:
     tilt_exponent: 0.5

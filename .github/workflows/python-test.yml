@@ -29,4 +29,4 @@ jobs:
 
       - name: Run checks and tests
         run: |
-          make check
+          make check-ci

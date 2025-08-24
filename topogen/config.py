@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +14,33 @@ from topogen.log_config import get_logger
 from topogen.naming import metro_slug
 
 logger = get_logger(__name__)
+
+
+def _normalize_int(value: Any, field: str) -> int:
+    """Return an int from possibly underscored or float-like input.
+
+    Accepts ints, floats, or strings like "12_800" or "3200.0". Raises a
+    ValueError with field context on failure.
+    """
+    try:
+        if isinstance(value, bool):  # bool is int subclass; disallow here
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            s = value.strip().replace("_", "")
+            if not s:
+                raise ValueError("empty string")
+            # Support simple decimal strings by truncation to int
+            if "." in s:
+                return int(float(s))
+            return int(s)
+        # Fallback attempt
+        return int(value)  # type: ignore[arg-type]
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Invalid integer for {field}: {value!r}") from exc
 
 
 @dataclass
@@ -556,6 +585,34 @@ class TopologyConfig:
             logger.error(f"Invalid YAML in configuration: {e}")
             raise
 
+        # Unconditional JSON Schema validation for TopoGen config
+        try:
+            import jsonschema  # type: ignore
+        except Exception as exc:  # pragma: no cover
+            raise RuntimeError(
+                "jsonschema is required for TopoGen configuration validation. Install dev extras or add 'jsonschema' to dependencies."
+            ) from exc
+
+        # Load packaged schema
+        try:
+            with (
+                resources.files("topogen.schemas")
+                .joinpath("topogen_config.json")
+                .open("r", encoding="utf-8")
+            ) as f:
+                schema_data = json.load(f)
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to locate packaged TopoGen config schema 'topogen/schemas/topogen_config.json'."
+            ) from exc
+
+        try:
+            jsonschema.validate(raw_config, schema_data)  # type: ignore[arg-type]
+        except Exception as exc:
+            raise ValueError(
+                f"TopoGen config JSON Schema validation failed: {exc}"
+            ) from exc
+
         cfg = cls._from_dict(raw_config)
         # Attach the config file source path for downstream naming of artefacts
         cfg._source_path = Path(config_path)
@@ -667,8 +724,14 @@ class TopologyConfig:
 
         # Create link parameter objects with defaults
         intra_metro_link = LinkParams(
-            capacity=intra_metro_link_dict.get("capacity", 400),
-            cost=intra_metro_link_dict.get("cost", 1),
+            capacity=_normalize_int(
+                intra_metro_link_dict.get("capacity", 400),
+                "build_defaults.intra_metro_link.capacity",
+            ),
+            cost=_normalize_int(
+                intra_metro_link_dict.get("cost", 1),
+                "build_defaults.intra_metro_link.cost",
+            ),
             attrs={
                 **{"link_type": "intra_metro"},
                 **intra_metro_link_dict.get("attrs", {}),
@@ -679,8 +742,14 @@ class TopologyConfig:
             mode=str(intra_metro_link_dict.get("mode", "mesh")),
         )
         inter_metro_link = LinkParams(
-            capacity=inter_metro_link_dict.get("capacity", 100),
-            cost=inter_metro_link_dict.get("cost", 1),
+            capacity=_normalize_int(
+                inter_metro_link_dict.get("capacity", 100),
+                "build_defaults.inter_metro_link.capacity",
+            ),
+            cost=_normalize_int(
+                inter_metro_link_dict.get("cost", 1),
+                "build_defaults.inter_metro_link.cost",
+            ),
             attrs={
                 **{"link_type": "inter_metro_corridor"},
                 **inter_metro_link_dict.get("attrs", {}),
@@ -691,8 +760,13 @@ class TopologyConfig:
             mode=str(inter_metro_link_dict.get("mode", "mesh")),
         )
         dc_to_pop_link = LinkParams(
-            capacity=dc_to_pop_link_dict.get("capacity", 400),
-            cost=dc_to_pop_link_dict.get("cost", 1),
+            capacity=_normalize_int(
+                dc_to_pop_link_dict.get("capacity", 400),
+                "build_defaults.dc_to_pop_link.capacity",
+            ),
+            cost=_normalize_int(
+                dc_to_pop_link_dict.get("cost", 1), "build_defaults.dc_to_pop_link.cost"
+            ),
             attrs={
                 **{"link_type": "dc_to_pop"},
                 **dc_to_pop_link_dict.get("attrs", {}),

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from topogen.config import _normalize_int  # reuse integer normalization
 from topogen.naming import metro_slug
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
@@ -65,8 +66,13 @@ def _determine_metro_settings(
             "dc_regions_per_metro": defaults.dc_regions_per_metro,
             "dc_region_blueprint": defaults.dc_region_blueprint,
             "intra_metro_link": {
-                "capacity": defaults.intra_metro_link.capacity,
-                "cost": defaults.intra_metro_link.cost,
+                "capacity": _normalize_int(
+                    defaults.intra_metro_link.capacity,
+                    "defaults.intra_metro_link.capacity",
+                ),
+                "cost": _normalize_int(
+                    defaults.intra_metro_link.cost, "defaults.intra_metro_link.cost"
+                ),
                 "attrs": defaults.intra_metro_link.attrs.copy(),
                 "match": defaults.intra_metro_link.match.copy(),
                 "role_pairs": _rp_list(defaults.intra_metro_link),
@@ -76,8 +82,13 @@ def _determine_metro_settings(
                 "mode": getattr(defaults.intra_metro_link, "mode", "mesh"),
             },
             "inter_metro_link": {
-                "capacity": defaults.inter_metro_link.capacity,
-                "cost": defaults.inter_metro_link.cost,
+                "capacity": _normalize_int(
+                    defaults.inter_metro_link.capacity,
+                    "defaults.inter_metro_link.capacity",
+                ),
+                "cost": _normalize_int(
+                    defaults.inter_metro_link.cost, "defaults.inter_metro_link.cost"
+                ),
                 "attrs": defaults.inter_metro_link.attrs.copy(),
                 "match": defaults.inter_metro_link.match.copy(),
                 "role_pairs": _rp_list(defaults.inter_metro_link),
@@ -87,8 +98,12 @@ def _determine_metro_settings(
                 "mode": getattr(defaults.inter_metro_link, "mode", "mesh"),
             },
             "dc_to_pop_link": {
-                "capacity": defaults.dc_to_pop_link.capacity,
-                "cost": defaults.dc_to_pop_link.cost,
+                "capacity": _normalize_int(
+                    defaults.dc_to_pop_link.capacity, "defaults.dc_to_pop_link.capacity"
+                ),
+                "cost": _normalize_int(
+                    defaults.dc_to_pop_link.cost, "defaults.dc_to_pop_link.cost"
+                ),
                 "attrs": defaults.dc_to_pop_link.attrs.copy(),
                 "match": defaults.dc_to_pop_link.match.copy(),
                 "role_pairs": _rp_list(defaults.dc_to_pop_link),
@@ -134,7 +149,12 @@ def _determine_metro_settings(
                     ]
                 for key, value in override_intra.items():
                     if key != "attrs":
-                        metro_settings["intra_metro_link"][key] = value
+                        if key in {"capacity", "cost"}:
+                            metro_settings["intra_metro_link"][key] = _normalize_int(
+                                value, f"override.intra_metro_link.{key}"
+                            )
+                        else:
+                            metro_settings["intra_metro_link"][key] = value
             if "inter_metro_link" in override:
                 override_inter = override["inter_metro_link"]
                 if "attrs" in override_inter:
@@ -149,7 +169,12 @@ def _determine_metro_settings(
                     ]
                 for key, value in override_inter.items():
                     if key != "attrs":
-                        metro_settings["inter_metro_link"][key] = value
+                        if key in {"capacity", "cost"}:
+                            metro_settings["inter_metro_link"][key] = _normalize_int(
+                                value, f"override.inter_metro_link.{key}"
+                            )
+                        else:
+                            metro_settings["inter_metro_link"][key] = value
             if "dc_to_pop_link" in override:
                 override_dc_pop = override["dc_to_pop_link"]
                 if "attrs" in override_dc_pop:
@@ -162,7 +187,12 @@ def _determine_metro_settings(
                     metro_settings["dc_to_pop_link"]["match"] = override_dc_pop["match"]
                 for key, value in override_dc_pop.items():
                     if key != "attrs":
-                        metro_settings["dc_to_pop_link"][key] = value
+                        if key in {"capacity", "cost"}:
+                            metro_settings["dc_to_pop_link"][key] = _normalize_int(
+                                value, f"override.dc_to_pop_link.{key}"
+                            )
+                        else:
+                            metro_settings["dc_to_pop_link"][key] = value
 
         # Validate values
         if metro_settings["pop_per_metro"] < 1:

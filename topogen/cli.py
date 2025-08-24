@@ -213,8 +213,25 @@ def _run_pipeline(
         from topogen.validation import validate_scenario_yaml
 
         print("🔄 Validating generated scenario...")
+        # Pass streamlined component mappings from configuration into validation
+        comp_obj = getattr(config, "components", None)
+        hw_map = (
+            getattr(comp_obj, "hw_component", None) if comp_obj is not None else None
+        )
+        optics_map = getattr(comp_obj, "optics", None) if comp_obj is not None else None
+        # Be strict about unexpected types to avoid silently disabling audits
+        if hw_map is not None and not isinstance(hw_map, dict):
+            raise ValueError(
+                "'components.hw_component' must be a mapping when provided"
+            )
+        if optics_map is not None and not isinstance(optics_map, dict):
+            raise ValueError("'components.optics' must be a mapping when provided")
         issues = validate_scenario_yaml(
-            scenario_yaml, integrated_graph_path=graph_path, run_ngraph=True
+            scenario_yaml,
+            integrated_graph_path=graph_path,
+            run_ngraph=True,
+            hw_component_map=hw_map,
+            optics_map=optics_map,
         )
         if issues:
             print("❌ Scenario validation found issues:")

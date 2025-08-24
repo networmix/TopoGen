@@ -377,6 +377,37 @@ def test_node_hardware_presence_audited():
     assert any("node hardware:" in s for s in issues)
 
 
+def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
+    # jsonschema is a required dependency; test assumes availability
+
+    # Build a scenario missing required top-level sections to trigger schema errors
+    invalid = {
+        # e.g., missing required 'network' or malformed types
+        "network": {
+            # wrong type: groups should be a mapping, make it a list to fail
+            "groups": [
+                {
+                    "use_blueprint": "SingleRouter",
+                    "attrs": {
+                        "metro_name": "A",
+                        "metro_id": 1,
+                        "location_x": 0.0,
+                        "location_y": 0.0,
+                    },
+                }
+            ],
+            # adjacency should be a list of mappings; keep as valid list to isolate the groups error
+            "adjacency": [],
+        },
+        # required sets/workflow may be missing; schema should still complain primarily about groups type
+    }
+
+    issues = validate_scenario_yaml(
+        yaml_dump(invalid), integrated_graph_path=None, run_ngraph=True
+    )
+    assert any("ngraph schema:" in s for s in issues)
+
+
 def test_link_optics_presence_audited_unordered_and_directional():
     # Build a tiny scenario with two roles A and B via a Clos-like blueprint adjacency
     data = {

@@ -230,6 +230,7 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         from ngraph.dsl.blueprints.expand import (  # type: ignore[import-not-found]
             expand_network_dsl as _ng_expand,
         )
+
         from topogen.components_lib import (
             get_builtin_components as _get_components_lib,
         )

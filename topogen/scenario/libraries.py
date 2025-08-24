@@ -19,10 +19,11 @@ def _build_components_section(
 ) -> dict[str, Any]:
     """Build the components section of the NetGraph scenario.
 
-    Uses merged component library (built-ins + lib/components.yml) and includes:
-    - component definitions actually referenced by assignments
-    - the role->platform mapping under ``hw_component`` (for validation)
-    - the role-pair->optic mapping under ``optics`` (for validation)
+    Uses merged component library (built-ins + lib/components.yml) and includes
+    only component definitions that are actually referenced by the configuration
+    (platforms from ``hw_component`` and optics from ``optics``). Assignment
+    mappings themselves are not emitted into the scenario to keep it
+    NetGraph-compatible.
     """
     components = get_builtin_components()
     referenced_components: set[str] = set()
@@ -45,33 +46,6 @@ def _build_components_section(
             logger.warning(
                 f"Referenced component '{comp_name}' not found in component library"
             )
-    # Emit assignment metadata for downstream validation
-    try:
-        if isinstance(role_to_platform, dict):
-            # Preserve explicit exemptions: non-string/null/empty entries signal roles that
-            # should not have node-level hardware enforced (e.g., dc: {}). String values
-            # map to platform component names and will be enforced by validation.
-            role_map_emitted: dict[str, Any] = {}
-            for role, comp in role_to_platform.items():
-                r = str(role)
-                if isinstance(comp, str) and comp:
-                    role_map_emitted[r] = comp
-                else:
-                    # Keep as-is (e.g., {}, None) to indicate explicit exemption
-                    role_map_emitted[r] = comp
-            if role_map_emitted:
-                result["hw_component"] = role_map_emitted
-        if isinstance(optics_map, dict):
-            optics_out: dict[str, str] = {
-                str(k): str(v)
-                for k, v in optics_map.items()
-                if isinstance(v, str) and v
-            }
-            if optics_out:
-                result["optics"] = optics_out
-    except Exception:
-        # Components section must remain serializable; skip metadata on error
-        pass
 
     return result
 

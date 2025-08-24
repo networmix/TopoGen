@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 # ---------------------------------------------------------------------
 [project]
 name = "topogen"
-version = "0.1.0"
+version = "0.2.0"
 description = "A network topology generator."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
@@ -19,6 +19,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
+    "Typing :: Typed",
 ]
 
 dependencies = [
@@ -41,8 +42,9 @@ dependencies = [
     "scikit-learn",
     "networkx",
     "contextily",
-    # NetGraph (required; provided via VCS until a PyPI release is available)
-    "ngraph @ git+https://github.com/networmix/NetGraph@main",
+    # Strict schema validation at runtime
+    "jsonschema",
+    "ngraph >=0.9.1",
 ] # Runtime deps
 
 # Dev / CI extras
@@ -54,9 +56,8 @@ dev = [
     "pytest-benchmark",
     "pytest-mock",
     "pytest-timeout",
-    # docs
-    "mkdocs-material",
-    "pdoc",
+    # json schema validation for scenarios
+    "jsonschema",
     # style + type checking
     "ruff==0.11.13",
     "pyright",
@@ -103,6 +104,10 @@ exclude_lines = [
 include = ["topogen*"]
 exclude = ["tests*", "notebooks*", "examples*", "dev*"]
 
+[tool.setuptools.package-data]
+"topogen.schemas" = ["topogen_config.json"]
+"topogen" = ["py.typed"]
+
 # ---------------------------------------------------------------------
 # Ruff
 [tool.ruff]
@@ -134,6 +139,7 @@ exclude = [
     "dist/**",           # distribution files
     "**/__pycache__/**", # Python cache files
     "**/*.egg-info/**",  # egg info directories
+    "dev/**",            # developer scripts (not part of package)
 ]
 reportMissingTypeStubs = "warning"
 reportUnknownMemberType = "none"

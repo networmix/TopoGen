@@ -17,19 +17,7 @@ def check_node_hw_presence(
     issues: list[str] = []
 
     if not isinstance(comps_section, dict) or not comps_section:
-        # If mapping is absent entirely, flag roles found in the network
-        roles_present: set[str] = set()
-        try:
-            for node in net.nodes.values():
-                r = str(getattr(node, "attrs", {}).get("role", "")).strip()
-                if r:
-                    roles_present.add(r)
-        except Exception:
-            pass
-        for role in sorted(roles_present):
-            issues.append(
-                f"node hardware: components.hw_component missing mapping for role '{role}'"
-            )
+        # Mapping not provided in scenario → skip this audit entirely.
         return issues
 
     # Record roles present in network and compare with declared mapping keys

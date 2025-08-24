@@ -1,0 +1,580 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://topogen.dev/schemas/topogen_config.json",
+    "title": "TopoGen Configuration Schema",
+    "description": "JSON Schema for TopoGen configuration files consumed by topogen.config.TopologyConfig.from_yaml().",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "data_sources",
+        "projection",
+        "clustering",
+        "highway_processing",
+        "corridors",
+        "validation",
+        "output"
+    ],
+    "properties": {
+        "data_sources": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "uac_polygons",
+                "tiger_roads",
+                "conus_boundary"
+            ],
+            "properties": {
+                "uac_polygons": {
+                    "type": "string"
+                },
+                "tiger_roads": {
+                    "type": "string"
+                },
+                "conus_boundary": {
+                    "type": "string"
+                }
+            }
+        },
+        "projection": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "target_crs"
+            ],
+            "properties": {
+                "target_crs": {
+                    "type": "string"
+                }
+            }
+        },
+        "clustering": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "metro_clusters"
+            ],
+            "properties": {
+                "metro_clusters": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "max_uac_radius_km": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "export_clusters": {
+                    "type": "boolean"
+                },
+                "export_integrated_graph": {
+                    "type": "boolean"
+                },
+                "override_metro_clusters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "coordinate_precision": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "area_precision": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "highway_processing": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "min_edge_length_km": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "snap_precision_m": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "highway_classes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "min_cycle_nodes": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "filter_largest_component": {
+                    "type": "boolean"
+                },
+                "validation_sample_size": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "corridors": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "k_paths": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "k_nearest": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "max_edge_km": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "max_corridor_distance_km": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "risk_groups": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "group_prefix": {
+                            "type": "string"
+                        },
+                        "exclude_metro_radius_shared": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        },
+        "validation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "max_metro_highway_distance_km": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "require_connected": {
+                    "type": "boolean"
+                },
+                "max_degree_threshold": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "high_degree_warning": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "min_largest_component_fraction": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        },
+        "output": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "scenario_metadata",
+                "formatting"
+            ],
+            "properties": {
+                "scenario_metadata": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "title": {
+                            "type": "string"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "formatting": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "json_indent": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "yaml_anchors": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "scenario_seed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "build": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "build_defaults": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "pop_per_metro": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "site_blueprint": {
+                            "type": "string"
+                        },
+                        "dc_regions_per_metro": {
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "dc_region_blueprint": {
+                            "type": "string"
+                        },
+                        "intra_metro_link": {
+                            "$ref": "#/definitions/LinkParams"
+                        },
+                        "inter_metro_link": {
+                            "$ref": "#/definitions/LinkParams"
+                        },
+                        "dc_to_pop_link": {
+                            "$ref": "#/definitions/LinkParams"
+                        }
+                    }
+                },
+                "build_overrides": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "metros": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                ]
+                            },
+                            "pop_per_metro": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "site_blueprint": {
+                                "type": "string"
+                            },
+                            "dc_regions_per_metro": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "dc_region_blueprint": {
+                                "type": "string"
+                            },
+                            "intra_metro_link": {
+                                "$ref": "#/definitions/LinkParams"
+                            },
+                            "inter_metro_link": {
+                                "$ref": "#/definitions/LinkParams"
+                            },
+                            "dc_to_pop_link": {
+                                "$ref": "#/definitions/LinkParams"
+                            }
+                        },
+                        "required": [
+                            "metros"
+                        ]
+                    }
+                },
+                "tm_sizing": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "matrix_name": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "quantum_gbps": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "headroom": {
+                            "type": "number",
+                            "minimum": 1
+                        },
+                        "alpha_dc_to_pop": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "beta_intra_pop": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "flow_placement": {
+                            "type": "string"
+                        },
+                        "edge_select": {
+                            "type": "string"
+                        },
+                        "respect_min_base_capacity": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        },
+        "components": {},
+        "failure_policies": {},
+        "workflows": {},
+        "traffic": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "gbps_per_mw": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "mw_per_dc_region": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "priority_ratios": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0
+                    }
+                },
+                "flow_policy_config": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "matrix_name": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string",
+                    "enum": [
+                        "uniform",
+                        "gravity",
+                        "hose"
+                    ]
+                },
+                "samples": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "gravity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "alpha": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "beta": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "min_distance_km": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "max_partners_per_dc": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1
+                        },
+                        "jitter_stddev": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "rounding_gbps": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "rounding_policy": {
+                            "type": "string",
+                            "enum": [
+                                "nearest",
+                                "ceil",
+                                "floor"
+                            ]
+                        },
+                        "mw_per_dc_region_overrides": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "number"
+                            }
+                        }
+                    }
+                },
+                "hose": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "tilt_exponent": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "beta": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "min_distance_km": {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "exclude_same_metro": {
+                            "type": "boolean"
+                        },
+                        "carve_top_k": {
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1
+                        }
+                    }
+                }
+            }
+        },
+        "visualization": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "dpi": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "corridors": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "use_real_geometry": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "site_graph": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "export": {
+                            "type": "boolean"
+                        }
+                    }
+                },
+                "blueprints": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "export": {
+                            "type": "boolean"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "LinkParams": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "capacity": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        {
+                            "type": "string",
+                            "pattern": "^[0-9][0-9_]*([.][0-9]+)?$"
+                        }
+                    ]
+                },
+                "cost": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "attrs": {
+                    "type": "object"
+                },
+                "match": {
+                    "type": "object"
+                },
+                "role_pairs": {
+                    "type": "array",
+                    "items": {
+                        "oneOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                            }
+                        ]
+                    }
+                },
+                "striping": {
+                    "type": "object"
+                },
+                "mode": {
+                    "type": "string",
+                    "enum": [
+                        "mesh",
+                        "one_to_one"
+                    ]
+                }
+            },
+            "required": [
+                "capacity",
+                "cost"
+            ]
+        },
+        "ComponentAssignment": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "hw_component": {
+                    "type": "string"
+                },
+                "optics": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

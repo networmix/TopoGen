@@ -17,7 +17,12 @@ from .port_budget import audit_port_budget
 logger = get_logger(__name__)
 
 
-def run_ngraph_audits(scenario_yaml: str) -> list[str]:
+def run_ngraph_audits(
+    scenario_yaml: str,
+    *,
+    hw_component_map: dict[str, object] | None = None,
+    optics_map: dict[str, object] | None = None,
+) -> list[str]:
     """Run ngraph-related schema/build checks and capacity/optics/ports audits.
 
     Stages:
@@ -72,14 +77,26 @@ def run_ngraph_audits(scenario_yaml: str) -> list[str]:
 
         # Stage 5: Node hardware presence & basic validity
         try:
-            comps_section = (d.get("components") or {}).get("hw_component", {})
+            # Prefer explicit mapping provided by caller (from config)
+            if isinstance(hw_component_map, dict) and hw_component_map:
+                comps_section = hw_component_map
+            else:
+                comps_section = (d.get("components") or {}).get("hw_component", {})
             issues.extend(check_node_hw_presence(net, comps_section, comp_lib))
         except Exception as e:
             issues.append(f"node hardware audit failed: {e}")
 
         # Stage 6: Link optics mapping / blueprint hardware checks
         try:
-            issues.extend(check_link_optics(net, d, comp_lib))
+            # When override provided, inject into a shallow copy for optics checks
+            if isinstance(optics_map, dict) and optics_map:
+                d2 = dict(d)
+                comps = dict(d2.get("components") or {})
+                comps["optics"] = optics_map
+                d2["components"] = comps
+                issues.extend(check_link_optics(net, d2, comp_lib))
+            else:
+                issues.extend(check_link_optics(net, d, comp_lib))
         except Exception as e:
             issues.append(f"link optics audit failed: {e}")
 

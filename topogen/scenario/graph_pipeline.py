@@ -992,11 +992,15 @@ def tm_based_size_capacities(
 
     Pipeline:
     - Generate TM using traffic_matrix.generate_traffic_matrix (in-memory).
-    - Build a metro-level NetworkX graph with inter-metro corridor edges from G.
-    - Convert to netgraph_core StrictMultiDiGraph via from_networkx() with
-      bidirectional edges for symmetric flow routing.
+    - Build a metro-level NetworkX MultiDiGraph with explicit forward and reverse
+      edges for each inter-metro corridor in G. This allows traffic to flow in
+      both directions while keeping per-direction loads separate.
+    - Convert to netgraph_core StrictMultiDiGraph via from_networkx().
     - For each directed TM demand in the matrix, compute shortest-path ECMP
-      fractions and accumulate load on inter-metro corridor edges only.
+      fractions and accumulate load on inter-metro corridor edges.
+    - Track forward and reverse flows separately using different edge refs.
+      Since G is undirected, both refs point to the same G edge, but respect_min
+      ensures final capacity = max(sized_forward, sized_reverse).
     - Quantize inter-metro base capacities with headroom.
     - Derive DC->PoP and intra-metro PoP<->PoP base capacities from metro/PoP
       egress with configurable multipliers and quantization.
@@ -1043,13 +1047,18 @@ def tm_based_size_capacities(
     for idx, _ in enumerate(metros, 1):
         metro_idx_map.setdefault(f"metro{idx}", idx)
 
-    # Build temporary NetworkX DiGraph with metro nodes and inter-metro corridors
-    H = nx.DiGraph()
+    # Build temporary NetworkX MultiDiGraph with metro nodes and inter-metro corridors.
+    # MultiDiGraph is required to preserve parallel edges between the same metro pair
+    # (e.g., striped corridors with multiple links per corridor).
+    H: nx.MultiDiGraph = nx.MultiDiGraph()
     for idx in set(metro_idx_map.values()):
         H.add_node(idx)
 
-    # Map to track correspondence between H edges and G edges
-    g_edge_refs: dict[tuple[int, int], tuple[str, str, str]] = {}
+    # Map to track correspondence between H edges and G edges.
+    # Key is (src_metro_idx, dst_metro_idx, h_edge_key) to handle parallel edges.
+    # For each undirected G edge, we create two directed H edges (forward and reverse)
+    # with DIFFERENT refs so that flows in each direction are tracked separately.
+    g_edge_refs: dict[tuple[int, int, Any], tuple[str, str, str]] = {}
 
     for u_g, v_g, k_g, data in G.edges(keys=True, data=True):
         if str(data.get("link_type")) != "inter_metro_corridor":
@@ -1069,18 +1078,25 @@ def tm_based_size_capacities(
             )
 
         cost = int(data.get("cost", 1))
-        # Add edge to H with large capacity for sizing
-        H.add_edge(s_idx, t_idx, capacity=1e15, cost=cost)
-        # Track forward direction G edge reference
-        g_edge_refs[(s_idx, t_idx)] = (str(u_g), str(v_g), str(k_g))
+        # Add forward edge: source_metro -> target_metro
+        h_key_fwd = H.add_edge(s_idx, t_idx, key=f"{k_g}:fwd", capacity=1e15, cost=cost)
+        g_edge_refs[(s_idx, t_idx, h_key_fwd)] = (str(u_g), str(v_g), str(k_g))
+
+        # Add reverse edge: target_metro -> source_metro
+        # Use DIFFERENT ref (v_g, u_g, k_g) so reverse flows are tracked separately.
+        # When applied to undirected G, both refs point to the same edge but are
+        # processed separately, resulting in max(sized_forward, sized_reverse).
+        h_key_rev = H.add_edge(t_idx, s_idx, key=f"{k_g}:rev", capacity=1e15, cost=cost)
+        g_edge_refs[(t_idx, s_idx, h_key_rev)] = (str(v_g), str(u_g), str(k_g))
 
     if H.number_of_edges() == 0:
         raise ValueError(
             "TM sizing: no inter-metro corridor edges present in site graph"
         )
 
-    # Convert NetworkX graph to netgraph_core format with bidirectional edges
-    multidigraph, node_map, edge_map = _from_networkx(H, bidirectional=True)
+    # Convert NetworkX graph to netgraph_core format.
+    # bidirectional=False because we already added explicit reverse edges above.
+    multidigraph, node_map, edge_map = _from_networkx(H, bidirectional=False)
     num_nodes = multidigraph.num_nodes()
 
     # Build Core graph handle
@@ -1114,13 +1130,16 @@ def tm_based_size_capacities(
         demand_val = float(d.get("demand", 0.0))
         if demand_val <= 0.0:
             continue
-        s_idx = _parse_tm_endpoint_to_metro_idx(src)
-        t_idx = _parse_tm_endpoint_to_metro_idx(dst)
-        if s_idx is None or t_idx is None or s_idx == t_idx:
+        s_metro = _parse_tm_endpoint_to_metro_idx(src)
+        t_metro = _parse_tm_endpoint_to_metro_idx(dst)
+        if s_metro is None or t_metro is None or s_metro == t_metro:
             continue
-        if s_idx < 0 or s_idx >= num_nodes or t_idx < 0 or t_idx >= num_nodes:
+        # Convert 1-based metro indices to 0-based netgraph node indices
+        s_idx = node_map.to_index.get(s_metro)
+        t_idx = node_map.to_index.get(t_metro)
+        if s_idx is None or t_idx is None:
             raise ValueError(
-                f"TM sizing: metro index out of range (src={s_idx}, dst={t_idx}, num_nodes={num_nodes})"
+                f"TM sizing: metro index out of range (src={s_metro}, dst={t_metro}, num_nodes={num_nodes})"
             )
 
         # Compute SPF
@@ -1134,7 +1153,7 @@ def tm_based_size_capacities(
             )
         except Exception as exc:
             raise ValueError(
-                f"TM sizing: SPF failed for metro {s_idx}->{t_idx}: {exc}"
+                f"TM sizing: SPF failed for metro {s_metro}->{t_metro}: {exc}"
             ) from exc
 
         # Place flow on DAG
@@ -1151,8 +1170,8 @@ def tm_based_size_capacities(
             logger.debug(
                 "TM sizing: placed %s Gbps from metro%d->metro%d (cost=%s)",
                 f"{placed:,.1f}",
-                s_idx,
-                t_idx,
+                s_metro,
+                t_metro,
                 f"{cost:,}",
             )
         except Exception:
@@ -1170,10 +1189,17 @@ def tm_based_size_capacities(
         # Map ext_id -> H edge reference (src_idx, dst_idx, key)
         h_edge_ref = edge_map.to_ref.get(ext_id)
         if h_edge_ref:
-            src_idx, dst_idx, _ = h_edge_ref
+            src_idx, dst_idx, h_key = h_edge_ref
             # H nodes are int (metro indices), so cast is safe
             if isinstance(src_idx, int) and isinstance(dst_idx, int):
-                g_edge_ref = g_edge_refs.get((src_idx, dst_idx))
+                # Look up G edge using full (src, dst, key) tuple.
+                # Forward and reverse H edges have different refs:
+                # - Forward: (u_g, v_g, k_g)
+                # - Reverse: (v_g, u_g, k_g)
+                # This keeps flows in each direction separate. Since G is undirected,
+                # both refs point to the same physical edge, but respect_min logic
+                # below ensures capacity = max(sized_forward, sized_reverse).
+                g_edge_ref = g_edge_refs.get((src_idx, dst_idx, h_key))
                 if g_edge_ref:
                     edge_loads[g_edge_ref] = edge_loads.get(g_edge_ref, 0.0) + flow_val
 

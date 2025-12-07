@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import networkx as nx
 
@@ -12,6 +13,27 @@ def _cfg() -> SimpleNamespace:
     return SimpleNamespace(
         traffic=SimpleNamespace(enabled=True, mw_per_dc_region=10.0, gbps_per_mw=100.0),
         build=SimpleNamespace(tm_sizing=SimpleNamespace(enabled=False)),
+    )
+
+
+def _tm_sizing_cfg() -> SimpleNamespace:
+    # Config with TM sizing enabled for testing
+    return SimpleNamespace(
+        traffic=SimpleNamespace(
+            enabled=True,
+            mw_per_dc_region=10.0,
+            gbps_per_mw=100.0,
+            matrix_name="default",
+        ),
+        build=SimpleNamespace(
+            tm_sizing=SimpleNamespace(
+                enabled=True,
+                quantum_gbps=3200.0,
+                headroom=1.3,
+                respect_min_base_capacity=True,
+                flow_placement="EQUAL_BALANCED",
+            )
+        ),
     )
 
 
@@ -202,4 +224,190 @@ def test_to_network_sections_serializes_groups_and_adjacency() -> None:
             a.get("link_params", {}).get("attrs", {}).get("target_capacity"), float
         )
         for a in adjacency
+    )
+
+
+def test_tm_sizing_preserves_parallel_edges() -> None:
+    """TM sizing must update all parallel corridor edges, not just one.
+
+    When multiple corridor edges exist between the same metro pair (striping),
+    each edge must get its capacity sized independently based on its share of
+    the traffic load.
+    """
+    # Build a site graph with 3 parallel corridor edges between metros A and B
+    G = nx.MultiGraph()
+    metros = [
+        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 10.0, "node_key": (0.0, 0.0)},
+        {
+            "name": "B",
+            "x": 100.0,
+            "y": 0.0,
+            "radius_km": 10.0,
+            "node_key": (100.0, 0.0),
+        },
+    ]
+    metro_settings = {
+        "A": {"pop_per_metro": 1, "dc_regions_per_metro": 1},
+        "B": {"pop_per_metro": 1, "dc_regions_per_metro": 1},
+    }
+
+    # Add nodes
+    G.add_node("metro1/pop1", site_kind="pop")
+    G.add_node("metro1/dc1", site_kind="dc")
+    G.add_node("metro2/pop1", site_kind="pop")
+    G.add_node("metro2/dc1", site_kind="dc")
+
+    # Add 3 parallel inter-metro corridor edges between the same PoPs
+    original_capacity = 1000.0
+    for i in range(3):
+        G.add_edge(
+            "metro1/pop1",
+            "metro2/pop1",
+            key=f"corridor:{i}",
+            link_type="inter_metro_corridor",
+            base_capacity=original_capacity,
+            target_capacity=original_capacity,
+            cost=500,
+            source_metro="A",
+            target_metro="B",
+        )
+
+    # Add DC-to-PoP edges (required for TM generation)
+    G.add_edge(
+        "metro1/dc1",
+        "metro1/pop1",
+        key="dc_to_pop:1",
+        link_type="dc_to_pop",
+        base_capacity=original_capacity,
+        cost=1,
+        source_metro="A",
+        target_metro="A",
+    )
+    G.add_edge(
+        "metro2/dc1",
+        "metro2/pop1",
+        key="dc_to_pop:2",
+        link_type="dc_to_pop",
+        base_capacity=original_capacity,
+        cost=1,
+        source_metro="B",
+        target_metro="B",
+    )
+
+    # Mock traffic matrix to generate demands between metros
+    mock_tm = {
+        "default": [
+            {
+                "source_path": "^metro1/dc1/.*",
+                "sink_path": "^metro2/dc1/.*",
+                "demand": 10000.0,
+            },
+            {
+                "source_path": "^metro2/dc1/.*",
+                "sink_path": "^metro1/dc1/.*",
+                "demand": 10000.0,
+            },
+        ]
+    }
+
+    cfg = _tm_sizing_cfg()
+    with patch("topogen.traffic_matrix.generate_traffic_matrix", return_value=mock_tm):
+        gp.tm_based_size_capacities(G, metros, metro_settings, cfg)
+
+    # Verify ALL 3 parallel corridor edges got updated (not just one)
+    corridor_edges = [
+        (u, v, k, d)
+        for u, v, k, d in G.edges(keys=True, data=True)
+        if d.get("link_type") == "inter_metro_corridor"
+    ]
+    assert len(corridor_edges) == 3, "Should still have 3 parallel corridor edges"
+
+    # Each edge should have been sized (base_capacity increased from original)
+    updated_count = 0
+    for _u, _v, _k, data in corridor_edges:
+        if data["base_capacity"] > original_capacity:
+            updated_count += 1
+
+    # All parallel edges should be sized independently
+    assert updated_count == 3, (
+        f"Expected all 3 parallel edges to be sized, but only {updated_count} were. "
+        "Parallel edges between the same metro pair must be tracked individually."
+    )
+
+
+def test_tm_sizing_single_edge_baseline() -> None:
+    """TM sizing works correctly with a single corridor edge (no parallelism)."""
+    G = nx.MultiGraph()
+    metros = [
+        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 10.0, "node_key": (0.0, 0.0)},
+        {
+            "name": "B",
+            "x": 100.0,
+            "y": 0.0,
+            "radius_km": 10.0,
+            "node_key": (100.0, 0.0),
+        },
+    ]
+    metro_settings = {
+        "A": {"pop_per_metro": 1, "dc_regions_per_metro": 1},
+        "B": {"pop_per_metro": 1, "dc_regions_per_metro": 1},
+    }
+
+    G.add_node("metro1/pop1", site_kind="pop")
+    G.add_node("metro1/dc1", site_kind="dc")
+    G.add_node("metro2/pop1", site_kind="pop")
+    G.add_node("metro2/dc1", site_kind="dc")
+
+    original_capacity = 1000.0
+    G.add_edge(
+        "metro1/pop1",
+        "metro2/pop1",
+        key="corridor:0",
+        link_type="inter_metro_corridor",
+        base_capacity=original_capacity,
+        target_capacity=original_capacity,
+        cost=500,
+        source_metro="A",
+        target_metro="B",
+    )
+    G.add_edge(
+        "metro1/dc1",
+        "metro1/pop1",
+        key="dc_to_pop:1",
+        link_type="dc_to_pop",
+        base_capacity=original_capacity,
+        cost=1,
+        source_metro="A",
+        target_metro="A",
+    )
+    G.add_edge(
+        "metro2/dc1",
+        "metro2/pop1",
+        key="dc_to_pop:2",
+        link_type="dc_to_pop",
+        base_capacity=original_capacity,
+        cost=1,
+        source_metro="B",
+        target_metro="B",
+    )
+
+    mock_tm = {
+        "default": [
+            {
+                "source_path": "^metro1/dc1/.*",
+                "sink_path": "^metro2/dc1/.*",
+                "demand": 5000.0,
+            },
+        ]
+    }
+
+    cfg = _tm_sizing_cfg()
+    with patch("topogen.traffic_matrix.generate_traffic_matrix", return_value=mock_tm):
+        gp.tm_based_size_capacities(G, metros, metro_settings, cfg)
+
+    # The single corridor edge should be sized
+    corridor_data = G.get_edge_data("metro1/pop1", "metro2/pop1", "corridor:0")
+    assert corridor_data is not None
+    assert corridor_data["base_capacity"] > original_capacity, (
+        "Single corridor edge should have increased capacity after TM sizing"
     )

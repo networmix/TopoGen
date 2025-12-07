@@ -133,35 +133,43 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     assign_per_link_capacity(G, config)
 
     # Persist the site-level network graph JSON artefact in configured output dir
+    # Skip if no output directory is configured (e.g., during tests)
     try:
-        from .graph_pipeline import save_site_graph_json
-
-        # Prefer configured output directory; fallback to CWD
         cfg_out = getattr(config, "_output_dir", None)
-        output_dir = Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
-        src_path = getattr(config, "_source_path", None)
-        stem = Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
-        network_graph_path = output_dir / f"{stem}_network_graph.json"
-        logger.info(
-            "Saving site-level network graph to JSON: %s",
-            str(network_graph_path),
-        )
-        fmt = getattr(getattr(config, "output", None), "formatting", None)
-        json_indent = int(getattr(fmt, "json_indent", 2)) if fmt is not None else 2
-        save_site_graph_json(G, network_graph_path, json_indent=json_indent)
+        if cfg_out is not None and isinstance(cfg_out, (str, Path)):
+            from .graph_pipeline import save_site_graph_json
+
+            output_dir = Path(cfg_out)
+            src_path = getattr(config, "_source_path", None)
+            stem = (
+                Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
+            )
+            network_graph_path = output_dir / f"{stem}_network_graph.json"
+            logger.info(
+                "Saving site-level network graph to JSON: %s",
+                str(network_graph_path),
+            )
+            fmt = getattr(getattr(config, "output", None), "formatting", None)
+            json_indent = int(getattr(fmt, "json_indent", 2)) if fmt is not None else 2
+            save_site_graph_json(G, network_graph_path, json_indent=json_indent)
+        else:
+            logger.debug(
+                "Skipping site-level network graph save (no output directory configured)"
+            )
     except Exception as e:  # pragma: no cover - best-effort artefact save
         logger.warning("Failed to save site-level network graph: %s", e)
 
     # Optional: export a JPEG visualization of the site-level graph (match integrated graph DPI)
     try:
-        if bool(getattr(config, "_export_site_graph", False)):
+        cfg_out = getattr(config, "_output_dir", None)
+        if (
+            bool(getattr(config, "_export_site_graph", False))
+            and cfg_out is not None
+            and isinstance(cfg_out, (str, Path))
+        ):
             from topogen.visualization import export_site_graph_map
 
-            # Prefer configured output directory; fallback to CWD
-            cfg_out = getattr(config, "_output_dir", None)
-            output_dir = (
-                Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
-            )
+            output_dir = Path(cfg_out)
             try:
                 output_dir.mkdir(parents=True, exist_ok=True)
             except Exception:

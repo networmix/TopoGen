@@ -2,47 +2,140 @@
 
 [![Python-test](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
 
-TopoGen builds realistic backbone graphs for the continental US and prepares analysis-ready scenarios for `NetGraph`.
+Topology generator for US backbone networks with [NetGraph](https://github.com/networmix/NetGraph) scenario output.
 
-## What it does
+## Overview
 
-- **Generator**: Produces an integrated metro + highway graph from public datasets.
-- **Builder**: Converts the integrated graph into a `NetGraph` scenario YAML for downstream analysis.
+Generates backbone network topologies from US Census Urban Areas (UAC) and TIGER/Line highway data. Outputs NetGraph scenario YAML with blueprints, components, risk groups, failure policies, and traffic matrices.
 
-## How it creates realistic graphs
+## Features
 
-- **Data-grounded**: Uses Census Urban Areas (UAC20) for metro delineation and TIGER/Line primary roads for the backbone substrate.
-- **Metro clustering**: Selects major urban areas, applies size filters, and supports explicit overrides for strategic hubs.
-- **Highway graph shaping**: Projects to an equal-area CRS, snaps close nodes, prunes invalid geometry, and keeps the largest connected component for a coherent substrate.
-- **Corridor discovery**: Connects nearby metros via k-nearest adjacency and computes paths along the highway network to approximate long-haul corridors.
-- **Validation**: Enforces distance and connectivity checks and flags atypical degree distributions.
-- **Scenario preparation**: Adds risk groups and component blueprints, then emits a `NetGraph` scenario YAML with metadata for repeatable analysis.
+### Graph Generation
 
-## Quick start
+- Metro selection from UAC data with size filtering and hub overrides
+- Equal-area projection, coordinate snapping, geometry pruning
+- Corridor discovery via k-nearest metro adjacency and k-shortest paths
+- Corridor risk groups with distance validation
+
+### Scenario Output
+
+- NetGraph scenario YAML with blueprints, components, failure policies, workflows
+- Traffic matrix generation with seed metadata
+- Schema validation and `ngraph` workflow execution checks
+
+## Installation
+
+### From PyPI
 
 ```bash
-python -m pip install -e .
+pip install topogen
+```
+
+### From Source
+
+```bash
+git clone https://github.com/networmix/TopoGen
+cd TopoGen
+make dev    # Install in editable mode with dev dependencies
+make check  # Run full test suite
+```
+
+## Usage
+
+### CLI
+
+```bash
+# Show help
+topogen --help
 
 # Inspect configuration and data availability
-python -m topogen info config.yml
+topogen info config.yml
 
-# Generate the integrated metro + highway graph
-python -m topogen generate config.yml
+# Generate integrated metro + highway graph
+topogen generate config.yml -o out_dir
 
-# Build a NetGraph scenario YAML from the integrated graph
-python -m topogen build config.yml -o config_scenario.yml
+# Build NetGraph scenario from integrated graph (requires previous generate)
+topogen build config.yml -o out_dir
+
+# Print scenario YAML to stdout without validation
+topogen build config.yml --print
 ```
 
-## CLI
+### Python API
+
+```python
+from topogen import TopologyConfig, build_integrated_graph, save_to_json
+
+# Load configuration
+config = TopologyConfig.from_yaml("config.yml")
+
+# Build integrated graph
+graph = build_integrated_graph(config)
+
+# Save to JSON
+save_to_json(
+    graph,
+    "output/integrated_graph.json",
+    config.projection.target_crs,
+    config.output.formatting,
+)
+```
+
+## Configuration
+
+YAML config validated by JSON schema (`topogen/schemas/topogen_config.json`). Example configs in `examples/`. Run `make validate` to check.
+
+### Override Libraries
+
+Place files in `./lib/` to override built-in libraries:
+
+| File | Purpose |
+|------|---------|
+| `blueprints.yml` | Topology templates (e.g., Clos fabrics) |
+| `components.yml` | Hardware definitions (routers, optics) |
+| `failure_policies.yml` | Failure mode definitions |
+| `workflows.yml` | Analysis workflow steps |
+
+User entries override built-ins by name.
+
+## Repository Structure
+
+```
+topogen/                # Python package
+  cli.py                # Command-line interface
+  config.py             # Configuration loading/validation
+  integrated_graph.py   # Graph construction
+  scenario_builder.py   # NetGraph scenario generation
+  scenario/             # Scenario assembly modules
+  schemas/              # JSON schemas
+  validation/           # Validation audits
+  *_lib.py              # Built-in libraries
+examples/               # Example configurations
+lib/                    # Optional user library overrides
+tests/                  # Pytest suite
+```
+
+## Development
 
 ```bash
-python -m topogen --help
+make dev        # Setup environment
+make check      # Run pre-commit + validation + tests + lint
+make check-ci   # Run lint + validation + tests (CI mode)
+make test       # Run tests with coverage
+make lint       # Run linting only (ruff + pyright)
+make validate   # Validate config YAMLs against schema
 ```
 
-Key commands:
+## Requirements
 
-- `generate`: Build the integrated metro + highway graph.
-- `build`: Emit a `NetGraph` scenario YAML from the integrated graph.
-- `info`: Print configuration and input data status.
+- **Python**: 3.11+
+- **ngraph**: >= 0.12.0 (runtime dependency)
+- **Geo stack**: geopandas, rasterio, pyproj, shapely (via dependencies)
+- **Data inputs** (paths configured in YAML):
+  - UAC polygons (Census Urban Areas)
+  - TIGER/Line primary roads
+  - CONUS boundary (optional, for visualization)
 
-Configuration lives in `config.yml`. See sample configs in `topogen_configs_small/` and `topogen_configs/`. Requires Python 3.11+.
+## License
+
+[AGPL-3.0-or-later](LICENSE)

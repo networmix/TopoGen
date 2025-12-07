@@ -11,19 +11,11 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import netgraph_core
 import networkx as nx
-from ngraph.algorithms.base import EdgeSelect as _NgEdgeSelect
-from ngraph.algorithms.base import FlowPlacement as _NgFlowPlacement
-from ngraph.algorithms.flow_init import init_flow_graph as _ng_init_flow_graph
-from ngraph.algorithms.placement import (
-    place_flow_on_graph as _ng_place_flow,
-)
-from ngraph.algorithms.placement import (
-    remove_flow_from_graph as _ng_remove_flow,
-)
-from ngraph.algorithms.spf import spf as _ng_spf
 from ngraph.dsl.blueprints.expand import expand_network_dsl as _ng_expand
-from ngraph.graph.strict_multidigraph import StrictMultiDiGraph as _NgSMDG
+from ngraph.lib.nx import from_networkx as _from_networkx
+from ngraph.types.base import FlowPlacement
 
 from topogen.blueprints_lib import get_builtin_blueprints as _get_builtins
 from topogen.corridors import (
@@ -982,22 +974,12 @@ def _parse_tm_endpoint_to_metro_idx(endpoint: str) -> int | None:
         return None
 
 
-def _resolve_ngraph_enums(
-    flow_placement: str, edge_select: str
-) -> tuple[_NgFlowPlacement, _NgEdgeSelect]:
-    """Map config strings to ngraph enums with safe defaults."""
-    fp = (
-        _NgFlowPlacement.EQUAL_BALANCED
-        if str(flow_placement).upper() == "EQUAL_BALANCED"
-        else _NgFlowPlacement.PROPORTIONAL
-    )
-    es = _NgEdgeSelect.ALL_MIN_COST
-    es_in = str(edge_select).upper()
-    if es_in == "ALL_MIN_COST":
-        es = _NgEdgeSelect.ALL_MIN_COST
-    elif es_in == "ALL_MIN_COST_WITH_CAP_REMAINING":
-        es = _NgEdgeSelect.ALL_MIN_COST_WITH_CAP_REMAINING
-    return fp, es
+def _resolve_flow_placement(flow_placement: str) -> FlowPlacement:
+    """Map config string to FlowPlacement enum."""
+    fp_str = str(flow_placement).upper()
+    if fp_str == "EQUAL_BALANCED":
+        return FlowPlacement.EQUAL_BALANCED
+    return FlowPlacement.PROPORTIONAL
 
 
 def tm_based_size_capacities(
@@ -1010,8 +992,9 @@ def tm_based_size_capacities(
 
     Pipeline:
     - Generate TM using traffic_matrix.generate_traffic_matrix (in-memory).
-    - Build a metro-level StrictMultiDiGraph with parallel edges per corridor
-      (one per PoP-to-PoP corridor edge in G), cost from G, unit capacity.
+    - Build a metro-level NetworkX graph with inter-metro corridor edges from G.
+    - Convert to netgraph_core StrictMultiDiGraph via from_networkx() with
+      bidirectional edges for symmetric flow routing.
     - For each directed TM demand in the matrix, compute shortest-path ECMP
       fractions and accumulate load on inter-metro corridor edges only.
     - Quantize inter-metro base capacities with headroom.
@@ -1055,22 +1038,19 @@ def tm_based_size_capacities(
             f"TM sizing: traffic matrix '{matrix_name}' is empty despite enabled traffic"
         )
 
-    # Build metro-level graph H and reference mapping to G edges
+    # Build metro-level NetworkX graph from G inter-metro corridors
     metro_idx_map = {m["name"]: idx for idx, m in enumerate(metros, 1)}
-    # Allow reverse map from 'metro{idx}' string
     for idx, _ in enumerate(metros, 1):
         metro_idx_map.setdefault(f"metro{idx}", idx)
 
-    H = _NgSMDG()
+    # Build temporary NetworkX DiGraph with metro nodes and inter-metro corridors
+    H = nx.DiGraph()
     for idx in set(metro_idx_map.values()):
-        if idx not in H:
-            # Pre-initialize node flow attributes expected by placement
-            H.add_node(idx, name=f"metro{idx}", flow_tm=0.0, flows_tm={})
+        H.add_node(idx)
 
-    # Map H edge id -> (g_u, g_v, g_k) for back-mapping loads to G
-    h_edge_to_g_edge: dict[str, tuple[str, str, str]] = {}
+    # Map to track correspondence between H edges and G edges
+    g_edge_refs: dict[tuple[int, int], tuple[str, str, str]] = {}
 
-    # Add directed corridor edges for each inter-metro edge in G
     for u_g, v_g, k_g, data in G.edges(keys=True, data=True):
         if str(data.get("link_type")) != "inter_metro_corridor":
             continue
@@ -1089,48 +1069,45 @@ def tm_based_size_capacities(
             )
 
         cost = int(data.get("cost", 1))
-        # Forward
-        ekey_fwd = H.add_edge(
-            s_idx,
-            t_idx,
-            key=None,
-            cost=cost,
-            capacity_tm=1e18,
-            flow_tm=0.0,
-            flows_tm={},
-        )
-        h_edge_to_g_edge[str(ekey_fwd)] = (str(u_g), str(v_g), str(k_g))
-        # Reverse
-        ekey_rev = H.add_edge(
-            t_idx,
-            s_idx,
-            key=None,
-            cost=cost,
-            capacity_tm=1e18,
-            flow_tm=0.0,
-            flows_tm={},
-        )
-        h_edge_to_g_edge[str(ekey_rev)] = (str(v_g), str(u_g), str(k_g))
+        # Add edge to H with large capacity for sizing
+        H.add_edge(s_idx, t_idx, capacity=1e15, cost=cost)
+        # Track forward direction G edge reference
+        g_edge_refs[(s_idx, t_idx)] = (str(u_g), str(v_g), str(k_g))
 
     if H.number_of_edges() == 0:
         raise ValueError(
             "TM sizing: no inter-metro corridor edges present in site graph"
         )
 
-    # Ensure flow attributes exist on nodes and edges for custom attr names
-    _ng_init_flow_graph(
-        H, flow_attr="flow_tm", flows_attr="flows_tm", reset_flow_graph=True
+    # Convert NetworkX graph to netgraph_core format with bidirectional edges
+    multidigraph, node_map, edge_map = _from_networkx(H, bidirectional=True)
+    num_nodes = multidigraph.num_nodes()
+
+    # Build Core graph handle
+    backend = netgraph_core.Backend.cpu()
+    algorithms = netgraph_core.Algorithms(backend)
+    handle = algorithms.build_graph(multidigraph)
+
+    # Create FlowState for accumulating flows
+    flow_state = netgraph_core.FlowState(multidigraph)
+
+    fp_enum = _resolve_flow_placement(
+        getattr(sizing_cfg, "flow_placement", "EQUAL_BALANCED")
+    )
+    core_fp = (
+        netgraph_core.FlowPlacement.EQUAL_BALANCED
+        if fp_enum == FlowPlacement.EQUAL_BALANCED
+        else netgraph_core.FlowPlacement.PROPORTIONAL
     )
 
-    fp_enum, es_enum = _resolve_ngraph_enums(
-        getattr(sizing_cfg, "flow_placement", "EQUAL_BALANCED"),
-        getattr(sizing_cfg, "edge_select", "ALL_MIN_COST"),
+    # Build edge selection
+    edge_selection = netgraph_core.EdgeSelection(
+        multi_edge=True,
+        require_capacity=False,  # IP-style routing based on cost only
+        tie_break=netgraph_core.EdgeTieBreak.DETERMINISTIC,
     )
 
-    # Accumulate loads per G edge key (u, v, k) in Gbps
-    edge_loads: dict[tuple[str, str, str], float] = {}
-
-    # Iterate demands
+    # Iterate demands and accumulate flows
     for d in demands:
         src = str(d.get("source_path", ""))
         dst = str(d.get("sink_path", ""))
@@ -1140,60 +1117,65 @@ def tm_based_size_capacities(
         s_idx = _parse_tm_endpoint_to_metro_idx(src)
         t_idx = _parse_tm_endpoint_to_metro_idx(dst)
         if s_idx is None or t_idx is None or s_idx == t_idx:
-            # Skip intra-metro or unparsable entries for corridor sizing
             continue
-        if s_idx not in H or t_idx not in H:
+        if s_idx < 0 or s_idx >= num_nodes or t_idx < 0 or t_idx >= num_nodes:
             raise ValueError(
-                f"TM sizing: metro index not in graph (src={s_idx}, dst={t_idx})"
+                f"TM sizing: metro index out of range (src={s_idx}, dst={t_idx}, num_nodes={num_nodes})"
             )
 
-        # SPF with early-exit toward destination
+        # Compute SPF
         try:
-            costs, pred = _ng_spf(
-                H, s_idx, edge_select=es_enum, multipath=True, dst_node=t_idx
+            dists, pred_dag = algorithms.spf(
+                handle,
+                src=s_idx,
+                dst=t_idx,
+                selection=edge_selection,
+                multipath=True,
             )
-        except KeyError as exc:
+        except Exception as exc:
             raise ValueError(
                 f"TM sizing: SPF failed for metro {s_idx}->{t_idx}: {exc}"
             ) from exc
-        if t_idx not in pred:
-            raise ValueError(f"TM sizing: no path between metros {s_idx} and {t_idx}")
 
-        # Place actual flow onto edges (equal split across parallel edges per adjacency)
-        _ng_place_flow(
-            H,
-            s_idx,
-            t_idx,
-            pred,
-            flow=demand_val,
-            flow_index=None,
-            flow_placement=fp_enum,
-            capacity_attr="capacity_tm",
-            flow_attr="flow_tm",
-            flows_attr="flows_tm",
+        # Place flow on DAG
+        placed = flow_state.place_on_dag(
+            src=s_idx,
+            dst=t_idx,
+            dag=pred_dag,
+            requested_flow=demand_val,
+            flow_placement=core_fp,
         )
+
         try:
-            min_cost = float(costs.get(t_idx, 0.0))
+            cost = int(dists[t_idx])
             logger.debug(
-                "TM sizing: placed %s Gbps from metro%d->metro%d (min_cost=%s)",
-                f"{demand_val:,.1f}",
+                "TM sizing: placed %s Gbps from metro%d->metro%d (cost=%s)",
+                f"{placed:,.1f}",
                 s_idx,
                 t_idx,
-                f"{int(min_cost):,}",
+                f"{cost:,}",
             )
         except Exception:
             pass
-        # Accumulate load per underlying G edge
-        for e_id, (_u, _v, _key, attrs) in H.get_edges().items():
-            f = float(attrs.get("flow_tm", 0.0))
-            if f <= 0.0:
-                continue
-            ref = h_edge_to_g_edge.get(str(e_id))
-            if ref is None:
-                continue
-            edge_loads[ref] = edge_loads.get(ref, 0.0) + f
-        # Clear placed flow to avoid capacity coupling across demands
-        _ng_remove_flow(H, flow_attr="flow_tm", flows_attr="flows_tm")
+
+    # Extract edge flows and map back to G edges
+    edge_flows_arr = flow_state.edge_flow_view()
+    ext_edge_ids_view = multidigraph.ext_edge_ids_view()
+    edge_loads: dict[tuple[str, str, str], float] = {}
+    for edge_idx in range(len(edge_flows_arr)):
+        flow_val = float(edge_flows_arr[edge_idx])
+        if flow_val <= 0.0:
+            continue
+        ext_id = int(ext_edge_ids_view[edge_idx])
+        # Map ext_id -> H edge reference (src_idx, dst_idx, key)
+        h_edge_ref = edge_map.to_ref.get(ext_id)
+        if h_edge_ref:
+            src_idx, dst_idx, _ = h_edge_ref
+            # H nodes are int (metro indices), so cast is safe
+            if isinstance(src_idx, int) and isinstance(dst_idx, int):
+                g_edge_ref = g_edge_refs.get((src_idx, dst_idx))
+                if g_edge_ref:
+                    edge_loads[g_edge_ref] = edge_loads.get(g_edge_ref, 0.0) + flow_val
 
     Q = float(getattr(sizing_cfg, "quantum_gbps", 3200.0))
     h_factor = float(getattr(sizing_cfg, "headroom", 1.3))

@@ -662,35 +662,38 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
 
     # Step 12: Export visualization if requested
     if config.clustering.export_integrated_graph:
-        logger.info("Exporting corridor graph visualization")
-        try:
-            from topogen.visualization import export_integrated_graph_map
+        cfg_out = getattr(config, "_output_dir", None)
+        if cfg_out is not None and isinstance(cfg_out, (str, Path)):
+            logger.info("Exporting corridor graph visualization")
+            try:
+                from topogen.visualization import export_integrated_graph_map
 
-            # Use config-derived prefix and configured output directory
-            cfg_out = getattr(config, "_output_dir", None)
-            output_dir = (
-                Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
-            )
-            prefix = getattr(config, "_source_path", None)
-            stem = Path(prefix).stem if isinstance(prefix, Path) else "scenario"
-            visualization_path = output_dir / f"{stem}_integrated_graph.jpg"
+                # Use config-derived prefix and configured output directory
+                output_dir = Path(cfg_out)
+                prefix = getattr(config, "_source_path", None)
+                stem = Path(prefix).stem if isinstance(prefix, Path) else "scenario"
+                visualization_path = output_dir / f"{stem}_integrated_graph.jpg"
 
-            # Visualize the corridor graph instead of the full highway graph
-            export_integrated_graph_map(
-                metros=metros,
-                graph=corridor_graph,  # Use corridor graph for cleaner visualization
-                output_path=visualization_path,
-                conus_boundary_path=config.data_sources.conus_boundary,
-                target_crs=config.projection.target_crs,
-                use_real_geometry=bool(
-                    getattr(config, "_use_real_corridor_geometry", False)
-                ),
-                dpi=int(getattr(config, "_visualization_dpi", 300)),
+                # Visualize the corridor graph instead of the full highway graph
+                export_integrated_graph_map(
+                    metros=metros,
+                    graph=corridor_graph,  # Use corridor graph for cleaner visualization
+                    output_path=visualization_path,
+                    conus_boundary_path=config.data_sources.conus_boundary,
+                    target_crs=config.projection.target_crs,
+                    use_real_geometry=bool(
+                        getattr(config, "_use_real_corridor_geometry", False)
+                    ),
+                    dpi=int(getattr(config, "_visualization_dpi", 300)),
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"Failed to export corridor graph visualization: {e}"
+                ) from e
+        else:
+            logger.debug(
+                "Skipping corridor graph visualization (no output directory configured)"
             )
-        except Exception as e:
-            raise RuntimeError(
-                f"Failed to export corridor graph visualization: {e}"
-            ) from e
 
     logger.info(
         f"Successfully built integrated graph with corridor extraction: "

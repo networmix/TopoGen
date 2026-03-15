@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 # ---------------------------------------------------------------------
 [project]
 name = "topogen"
-version = "0.3.1"
+version = "0.4.0"
 description = "A network topology generator."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
-license = "AGPL-3.0-or-later"
+license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 

@@ -37,11 +37,11 @@ def _make_stub_net():
 def test_export_blueprint_diagram_smoke(tmp_path: Path) -> None:
     # Minimal blueprint with one intra-site adjacency and one external
     bp = {
-        "groups": {
-            "G1": {"node_count": 2},
-            "G2": {"node_count": 1},
+        "nodes": {
+            "G1": {"count": 2},
+            "G2": {"count": 1},
         },
-        "adjacency": [
+        "links": [
             {"source": "G1", "target": "G1", "pattern": "mesh"},
             {"source": "G1", "target": "G2", "pattern": "uplink"},
         ],

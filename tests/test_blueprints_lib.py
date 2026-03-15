@@ -23,24 +23,20 @@ class TestBlueprintsLib:
         blueprints = get_builtin_blueprints()
 
         for name, blueprint in blueprints.items():
-            # Every blueprint must have groups and adjacency
-            assert "groups" in blueprint, f"Blueprint {name} missing 'groups'"
-            assert "adjacency" in blueprint, f"Blueprint {name} missing 'adjacency'"
-            assert isinstance(blueprint["groups"], dict), (
-                f"Blueprint {name} groups not dict"
+            # Every blueprint must have nodes and links
+            assert "nodes" in blueprint, f"Blueprint {name} missing 'nodes'"
+            assert "links" in blueprint, f"Blueprint {name} missing 'links'"
+            assert isinstance(blueprint["nodes"], dict), (
+                f"Blueprint {name} nodes not dict"
             )
-            assert isinstance(blueprint["adjacency"], list), (
-                f"Blueprint {name} adjacency not list"
+            assert isinstance(blueprint["links"], list), (
+                f"Blueprint {name} links not list"
             )
 
             # Every group must have required fields
-            for group_name, group_def in blueprint["groups"].items():
-                assert "node_count" in group_def, (
-                    f"Group {group_name} missing node_count"
-                )
-                assert "name_template" in group_def, (
-                    f"Group {group_name} missing name_template"
-                )
-                assert isinstance(group_def["node_count"], int), (
-                    f"Group {group_name} node_count not int"
+            for group_name, group_def in blueprint["nodes"].items():
+                assert "count" in group_def, f"Group {group_name} missing count"
+                assert "template" in group_def, f"Group {group_name} missing template"
+                assert isinstance(group_def["count"], int), (
+                    f"Group {group_name} count not int"
                 )

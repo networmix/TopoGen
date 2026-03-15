@@ -224,7 +224,7 @@ class TestEndToEndRiskGroups:
         assert "corridor_risk_kansas-city_minneapolis-st-paul" in risk_groups
 
         # Should have metro groups with correct naming (both PoPs and DC regions)
-        groups = scenario_data["network"]["groups"]
+        groups = scenario_data["network"]["nodes"]
         metro_groups = [
             g for g in groups.values() if "metro_name" in g.get("attrs", {})
         ]
@@ -238,12 +238,11 @@ class TestEndToEndRiskGroups:
         assert "minneapolis-st-paul" in metro_names
 
         # Should have corridor adjacencies with risk groups
-        adjacency = scenario_data["network"]["adjacency"]
+        adjacency = scenario_data["network"]["links"]
         corridor_links = [
             adj
             for adj in adjacency
-            if adj.get("link_params", {}).get("attrs", {}).get("link_type")
-            == "inter_metro_corridor"
+            if adj.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
 
         assert len(corridor_links) >= 3  # At least 3 corridors
@@ -251,7 +250,7 @@ class TestEndToEndRiskGroups:
         # Find the Kansas City - Denver corridor (should have shared risk)
         kc_denver_link = None
         for link in corridor_links:
-            attrs = link["link_params"]["attrs"]
+            attrs = link["attrs"]
             if (
                 attrs["source_metro"] == "kansas-city"
                 and attrs["target_metro"] == "denver-aurora"
@@ -265,7 +264,7 @@ class TestEndToEndRiskGroups:
         assert kc_denver_link is not None
 
         # Kansas City - Denver should have shared risk from Minneapolis corridor
-        kc_denver_risks = set(kc_denver_link["link_params"]["risk_groups"])
+        kc_denver_risks = set(kc_denver_link["risk_groups"])
         assert "corridor_risk_denver-aurora_kansas-city" in kc_denver_risks
         assert (
             "corridor_risk_kansas-city_minneapolis-st-paul" in kc_denver_risks
@@ -554,27 +553,26 @@ class TestEndToEndRiskGroups:
         assert "corridor_risk_denver-aurora_kansas-city_path1" in risk_group_names
 
         # Check adjacency links have correct risk groups assigned
-        adjacency = scenario_data["network"]["adjacency"]
+        adjacency = scenario_data["network"]["links"]
         corridor_links = [
             adj
             for adj in adjacency
-            if adj.get("link_params", {}).get("attrs", {}).get("link_type")
-            == "inter_metro_corridor"
+            if adj.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
 
         # Find the Denver-Kansas City link
         denver_kc_link = None
         for link in corridor_links:
-            attrs = link["link_params"]["attrs"]
+            link_attrs = link["attrs"]
             if (
-                attrs["source_metro"] == "denver-aurora"
-                and attrs["target_metro"] == "kansas-city"
+                link_attrs["source_metro"] == "denver-aurora"
+                and link_attrs["target_metro"] == "kansas-city"
             ):
                 denver_kc_link = link
                 break
             elif (
-                attrs["source_metro"] == "kansas-city"
-                and attrs["target_metro"] == "denver-aurora"
+                link_attrs["source_metro"] == "kansas-city"
+                and link_attrs["target_metro"] == "denver-aurora"
             ):
                 denver_kc_link = link
                 break
@@ -582,7 +580,7 @@ class TestEndToEndRiskGroups:
         assert denver_kc_link is not None
 
         # Should have both its own risk group and shared risk from Albuquerque corridor
-        link_risks = set(denver_kc_link["link_params"]["risk_groups"])
+        link_risks = set(denver_kc_link["risk_groups"])
         assert "corridor_risk_denver-aurora_kansas-city" in link_risks
         assert (
             "corridor_risk_albuquerque_denver-aurora_path1" in link_risks

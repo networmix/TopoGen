@@ -135,16 +135,16 @@ def build_abstract_view(
 
     if not isinstance(blueprint_def, dict):
         raise ValueError("blueprint_def must be a mapping")
-    groups = blueprint_def.get("groups")
+    groups = blueprint_def.get("nodes")
     if not isinstance(groups, dict):
-        raise ValueError("blueprint_def must include a 'groups' mapping")
+        raise ValueError("blueprint_def must include a 'nodes' mapping")
 
     abstract = nx.MultiDiGraph()
 
     # Create nodes with base labels
     node_labels: dict[str, str] = {}
     for gname, gdef in groups.items():
-        count = int((gdef or {}).get("node_count", 0))
+        count = int((gdef or {}).get("count", 0))
         role = str(((gdef or {}).get("attrs", {}) or {}).get("role", ""))
         lbl = f"{gname}\nN={count}" + (f"\nrole={role}" if role else "")
         abstract.add_node(gname)
@@ -159,16 +159,20 @@ def build_abstract_view(
     edge_labels: dict[tuple[str, str, int], str] = {}
     self_loops: list[tuple[str, str]] = []
 
-    for adj in blueprint_def.get("adjacency", []) or []:
+    for adj in blueprint_def.get("links", []) or []:
         src_sel = str(adj.get("source", ""))
         dst_sel = str(adj.get("target", ""))
         pattern = str(adj.get("pattern", ""))
-        expand_vars = adj.get("expand_vars") or {}
-        expansion_mode = str(adj.get("expansion_mode", "zip") or "zip")
+        expand_block = adj.get("expand") or {}
+        expand_vars = expand_block.get("vars") if isinstance(expand_block, dict) else {}
+        expand_vars = expand_vars or {}
+        expansion_mode = str(
+            (expand_block.get("mode") if isinstance(expand_block, dict) else None)
+            or "zip"
+        )
 
-        lp = adj.get("link_params", {}) or {}
-        attrs = lp.get("attrs", {}) or {}
-        cap_val = attrs.get("target_capacity", lp.get("capacity"))
+        attrs = adj.get("attrs", {}) or {}
+        cap_val = attrs.get("target_capacity", adj.get("capacity"))
         cap_str = f"{float(cap_val):,.0f}" if cap_val is not None else ""
         edge_label_text = (pattern if pattern else "") + (
             f"\n{cap_str}" if cap_str else ""

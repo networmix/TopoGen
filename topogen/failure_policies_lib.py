@@ -55,7 +55,7 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                         "conditions": [
                             {
                                 "attr": "link_type",
-                                "operator": "==",
+                                "op": "==",
                                 "value": "dc_to_pop",
                             }
                         ],
@@ -75,7 +75,7 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                         "conditions": [
                             {
                                 "attr": "node_type",
-                                "operator": "!=",
+                                "op": "!=",
                                 "value": "dc_region",
                             }
                         ],
@@ -95,22 +95,22 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                         "conditions": [
                             {
                                 "attr": "link_type",
-                                "operator": "==",
+                                "op": "==",
                                 "value": "leaf_spine",
                             },
                             {
                                 "attr": "link_type",
-                                "operator": "==",
+                                "op": "==",
                                 "value": "intra_group",
                             },
                             {
                                 "attr": "link_type",
-                                "operator": "==",
+                                "op": "==",
                                 "value": "inter_group",
                             },
                             {
                                 "attr": "link_type",
-                                "operator": "==",
+                                "op": "==",
                                 "value": "internal_mesh",
                             },
                         ],

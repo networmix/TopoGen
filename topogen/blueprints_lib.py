@@ -16,125 +16,119 @@ import yaml
 # Built-in blueprints used by the scenario pipeline
 _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
     "DCRegion": {
-        "groups": {
+        "nodes": {
             "dc": {
-                "node_count": 1,
-                "name_template": "dc",
+                "count": 1,
+                "template": "dc",
                 "attrs": {"role": "dc"},
             }
         },
-        "adjacency": [],
+        "links": [],
     },
     "SingleRouter": {
-        "groups": {
+        "nodes": {
             "core": {
-                "node_count": 1,
-                "name_template": "core",
+                "count": 1,
+                "template": "core",
                 "attrs": {"role": "core"},
             }
         },
-        "adjacency": [],
+        "links": [],
     },
     "FullMesh4": {
-        "groups": {
+        "nodes": {
             "core": {
-                "node_count": 4,
-                "name_template": "core{node_num}",
+                "count": 4,
+                "template": "core{n}",
                 "attrs": {"role": "core"},
             }
         },
-        "adjacency": [
+        "links": [
             {
                 "source": "/core",
                 "target": "/core",
                 "pattern": "mesh",
-                "link_params": {
-                    "capacity": 12_800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "internal_mesh",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 16.0},
-                            "target": {"component": "800G-DR4", "count": 16.0},
-                        },
+                "capacity": 12_800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "internal_mesh",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 16.0},
+                        "target": {"component": "800G-DR4", "count": 16.0},
                     },
                 },
             }
         ],
     },
     "Clos_L16_S4": {
-        "groups": {
+        "nodes": {
             "spine": {
-                "node_count": 4,
-                "name_template": "spine{node_num}",
+                "count": 4,
+                "template": "spine{n}",
                 "attrs": {
                     "role": "spine",
                     "tier": "spine",
                 },
             },
             "leaf": {
-                "node_count": 16,
-                "name_template": "leaf{node_num}",
+                "count": 16,
+                "template": "leaf{n}",
                 "attrs": {"role": "leaf", "tier": "leaf"},
             },
         },
-        "adjacency": [
+        "links": [
             {
                 "source": "/leaf",
                 "target": "/spine",
                 "pattern": "mesh",
-                "link_params": {
-                    "capacity": 3_200,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "leaf_spine",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 4.0},
-                            "target": {"component": "1600G-2xDR4", "count": 2.0},
-                        },
+                "capacity": 3_200,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "leaf_spine",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 4.0},
+                        "target": {"component": "1600G-2xDR4", "count": 2.0},
                     },
                 },
             }
         ],
     },
     "DragonFly_CustomG4": {
-        "groups": {
+        "nodes": {
             "leafA": {
-                "node_count": 4,
-                "name_template": "leafA{node_num}",
+                "count": 4,
+                "template": "leafA{n}",
                 "attrs": {"role": "leaf", "tier": "leaf", "group": "A"},
             },
             "leafB": {
-                "node_count": 4,
-                "name_template": "leafB{node_num}",
+                "count": 4,
+                "template": "leafB{n}",
                 "attrs": {"role": "leaf", "tier": "leaf", "group": "B"},
             },
             "leafC": {
-                "node_count": 4,
-                "name_template": "leafC{node_num}",
+                "count": 4,
+                "template": "leafC{n}",
                 "attrs": {"role": "leaf", "tier": "leaf", "group": "C"},
             },
             "leafD": {
-                "node_count": 4,
-                "name_template": "leafD{node_num}",
+                "count": 4,
+                "template": "leafD{n}",
                 "attrs": {"role": "leaf", "tier": "leaf", "group": "D"},
             },
         },
-        "adjacency": [
+        "links": [
             # Intra-group: dense (4×800G per pair ≈ 3.2 Tb/s)
             {
                 "source": "/leafA",
                 "target": "/leafA",
                 "pattern": "mesh",
-                "link_params": {
-                    "capacity": 3_200,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "intra_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 4.0},
-                            "target": {"component": "800G-DR4", "count": 4.0},
-                        },
+                "capacity": 3_200,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "intra_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 4.0},
+                        "target": {"component": "800G-DR4", "count": 4.0},
                     },
                 },
             },
@@ -142,15 +136,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "/leafB",
                 "target": "/leafB",
                 "pattern": "mesh",
-                "link_params": {
-                    "capacity": 3_200,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "intra_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 4.0},
-                            "target": {"component": "800G-DR4", "count": 4.0},
-                        },
+                "capacity": 3_200,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "intra_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 4.0},
+                        "target": {"component": "800G-DR4", "count": 4.0},
                     },
                 },
             },
@@ -158,15 +150,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "/leafC",
                 "target": "/leafC",
                 "pattern": "mesh",
-                "link_params": {
-                    "capacity": 3_200,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "intra_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 4.0},
-                            "target": {"component": "800G-DR4", "count": 4.0},
-                        },
+                "capacity": 3_200,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "intra_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 4.0},
+                        "target": {"component": "800G-DR4", "count": 4.0},
                     },
                 },
             },
@@ -174,15 +164,13 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "/leafD",
                 "target": "/leafD",
                 "pattern": "mesh",
-                "link_params": {
-                    "capacity": 3_200,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "intra_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 4.0},
-                            "target": {"component": "800G-DR4", "count": 4.0},
-                        },
+                "capacity": 3_200,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "intra_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 4.0},
+                        "target": {"component": "800G-DR4", "count": 4.0},
                     },
                 },
             },
@@ -192,17 +180,14 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "leafA/leafA{idx}",
                 "target": "leafB/leafB{idx}",
                 "pattern": "one_to_one",
-                "expand_vars": {"idx": [1, 2, 3, 4]},
-                "expansion_mode": "zip",
-                "link_params": {
-                    "capacity": 800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "inter_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 1.0},
-                            "target": {"component": "800G-DR4", "count": 1.0},
-                        },
+                "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
+                "capacity": 800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "inter_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 1.0},
+                        "target": {"component": "800G-DR4", "count": 1.0},
                     },
                 },
             },
@@ -210,17 +195,14 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "leafA/leafA{idx}",
                 "target": "leafD/leafD{idx}",
                 "pattern": "one_to_one",
-                "expand_vars": {"idx": [1, 2, 3, 4]},
-                "expansion_mode": "zip",
-                "link_params": {
-                    "capacity": 800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "inter_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 1.0},
-                            "target": {"component": "800G-DR4", "count": 1.0},
-                        },
+                "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
+                "capacity": 800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "inter_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 1.0},
+                        "target": {"component": "800G-DR4", "count": 1.0},
                     },
                 },
             },
@@ -229,17 +211,14 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "leafB/leafB{idx}",
                 "target": "leafC/leafC{idx}",
                 "pattern": "one_to_one",
-                "expand_vars": {"idx": [1, 2, 3, 4]},
-                "expansion_mode": "zip",
-                "link_params": {
-                    "capacity": 800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "inter_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 1.0},
-                            "target": {"component": "800G-DR4", "count": 1.0},
-                        },
+                "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
+                "capacity": 800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "inter_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 1.0},
+                        "target": {"component": "800G-DR4", "count": 1.0},
                     },
                 },
             },
@@ -247,76 +226,71 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "leafC/leafC{idx}",
                 "target": "leafD/leafD{idx}",
                 "pattern": "one_to_one",
-                "expand_vars": {"idx": [1, 2, 3, 4]},
-                "expansion_mode": "zip",
-                "link_params": {
-                    "capacity": 800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "inter_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 1.0},
-                            "target": {"component": "800G-DR4", "count": 1.0},
-                        },
+                "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
+                "capacity": 800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "inter_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 1.0},
+                        "target": {"component": "800G-DR4", "count": 1.0},
                     },
                 },
             },
         ],
     },
     "Dragonfly_A3H2G7": {
-        "groups": {
+        "nodes": {
             "G1": {
-                "node_count": 3,
-                "name_template": "G1_r{node_num}",
+                "count": 3,
+                "template": "G1_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G1"},
             },
             "G2": {
-                "node_count": 3,
-                "name_template": "G2_r{node_num}",
+                "count": 3,
+                "template": "G2_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G2"},
             },
             "G3": {
-                "node_count": 3,
-                "name_template": "G3_r{node_num}",
+                "count": 3,
+                "template": "G3_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G3"},
             },
             "G4": {
-                "node_count": 3,
-                "name_template": "G4_r{node_num}",
+                "count": 3,
+                "template": "G4_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G4"},
             },
             "G5": {
-                "node_count": 3,
-                "name_template": "G5_r{node_num}",
+                "count": 3,
+                "template": "G5_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G5"},
             },
             "G6": {
-                "node_count": 3,
-                "name_template": "G6_r{node_num}",
+                "count": 3,
+                "template": "G6_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G6"},
             },
             "G7": {
-                "node_count": 3,
-                "name_template": "G7_r{node_num}",
+                "count": 3,
+                "template": "G7_r{n}",
                 "attrs": {"role": "leaf", "tier": "dragonfly", "group": "G7"},
             },
         },
-        "adjacency": [
+        "links": [
             # Intra-group: fully meshed clique, 1×800G per pair
             {
                 "source": "/G{g}",
                 "target": "/G{g}",
                 "pattern": "mesh",
-                "expand_vars": {"g": [1, 2, 3, 4, 5, 6, 7]},
-                "link_params": {
-                    "capacity": 800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "intra_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 1.0},
-                            "target": {"component": "800G-DR4", "count": 1.0},
-                        },
+                "expand": {"vars": {"g": [1, 2, 3, 4, 5, 6, 7]}},
+                "capacity": 800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "intra_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 1.0},
+                        "target": {"component": "800G-DR4", "count": 1.0},
                     },
                 },
             },
@@ -327,110 +301,110 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 "source": "G{gu}/G{gu}_r{ru}",
                 "target": "G{gv}/G{gv}_r{rv}",
                 "pattern": "one_to_one",
-                "expand_vars": {
-                    "gu": [
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                        1,
-                        2,
-                        2,
-                        2,
-                        2,
-                        2,
-                        3,
-                        3,
-                        3,
-                        3,
-                        4,
-                        4,
-                        4,
-                        5,
-                        5,
-                        6,
-                    ],
-                    "ru": [
-                        1,
-                        2,
-                        3,
-                        1,
-                        2,
-                        3,
-                        1,
-                        2,
-                        3,
-                        1,
-                        2,
-                        1,
-                        2,
-                        3,
-                        1,
-                        1,
-                        2,
-                        3,
-                        1,
-                        2,
-                        1,
-                    ],
-                    "gv": [
-                        2,
-                        3,
-                        4,
-                        5,
-                        6,
-                        7,
-                        3,
-                        4,
-                        5,
-                        6,
-                        7,
-                        4,
-                        5,
-                        6,
-                        7,
-                        5,
-                        6,
-                        7,
-                        6,
-                        7,
-                        7,
-                    ],
-                    "rv": [
-                        3,
-                        2,
-                        1,
-                        3,
-                        2,
-                        1,
-                        3,
-                        2,
-                        1,
-                        3,
-                        2,
-                        3,
-                        2,
-                        1,
-                        3,
-                        3,
-                        2,
-                        1,
-                        3,
-                        2,
-                        3,
-                    ],
+                "expand": {
+                    "vars": {
+                        "gu": [
+                            1,
+                            1,
+                            1,
+                            1,
+                            1,
+                            1,
+                            2,
+                            2,
+                            2,
+                            2,
+                            2,
+                            3,
+                            3,
+                            3,
+                            3,
+                            4,
+                            4,
+                            4,
+                            5,
+                            5,
+                            6,
+                        ],
+                        "ru": [
+                            1,
+                            2,
+                            3,
+                            1,
+                            2,
+                            3,
+                            1,
+                            2,
+                            3,
+                            1,
+                            2,
+                            1,
+                            2,
+                            3,
+                            1,
+                            1,
+                            2,
+                            3,
+                            1,
+                            2,
+                            1,
+                        ],
+                        "gv": [
+                            2,
+                            3,
+                            4,
+                            5,
+                            6,
+                            7,
+                            3,
+                            4,
+                            5,
+                            6,
+                            7,
+                            4,
+                            5,
+                            6,
+                            7,
+                            5,
+                            6,
+                            7,
+                            6,
+                            7,
+                            7,
+                        ],
+                        "rv": [
+                            3,
+                            2,
+                            1,
+                            3,
+                            2,
+                            1,
+                            3,
+                            2,
+                            1,
+                            3,
+                            2,
+                            3,
+                            2,
+                            1,
+                            3,
+                            3,
+                            2,
+                            1,
+                            3,
+                            2,
+                            3,
+                        ],
+                    },
+                    "mode": "zip",
                 },
-                "expansion_mode": "zip",
-                "link_params": {
-                    "capacity": 800,
-                    "cost": 1,
-                    "attrs": {
-                        "link_type": "inter_group",
-                        "hardware": {
-                            "source": {"component": "800G-DR4", "count": 1.0},
-                            "target": {"component": "800G-DR4", "count": 1.0},
-                        },
+                "capacity": 800,
+                "cost": 1,
+                "attrs": {
+                    "link_type": "inter_group",
+                    "hardware": {
+                        "source": {"component": "800G-DR4", "count": 1.0},
+                        "target": {"component": "800G-DR4", "count": 1.0},
                     },
                 },
             },

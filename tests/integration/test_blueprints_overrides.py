@@ -14,14 +14,14 @@ def test_user_blueprints_merge_overrides(tmp_path: Path, monkeypatch) -> None:
     lib_dir.mkdir(parents=True)
     user_bp = {
         "SingleRouter": {
-            "groups": {
+            "nodes": {
                 "core": {
-                    "node_count": 2,
-                    "name_template": "core{node_num}",
+                    "count": 2,
+                    "template": "core{n}",
                     "attrs": {"role": "core"},
                 }
             },
-            "adjacency": [],
+            "links": [],
         }
     }
     (lib_dir / "blueprints.yml").write_text(yaml.safe_dump(user_bp))
@@ -30,8 +30,8 @@ def test_user_blueprints_merge_overrides(tmp_path: Path, monkeypatch) -> None:
     bps = get_builtin_blueprints()
     # Ensure override took effect
     sr = bps["SingleRouter"]
-    assert sr["groups"]["core"]["node_count"] == 2
-    assert sr["groups"]["core"]["name_template"].startswith("core")
+    assert sr["nodes"]["core"]["count"] == 2
+    assert sr["nodes"]["core"]["template"].startswith("core")
 
 
 def test_user_blueprints_invalid_yaml_raises(tmp_path: Path, monkeypatch) -> None:

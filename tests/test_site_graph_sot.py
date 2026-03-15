@@ -45,8 +45,8 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     # In the current schema, per-site details are internal to artefacts;
     # ensure the network groups reflect the right blueprints and counts.
     network = data["network"]
-    groups = network.get("groups", {})
+    groups = network.get("nodes", {})
     assert "metro1/pop[1-2]" in groups
-    assert groups["metro1/pop[1-2]"]["use_blueprint"] == "SingleRouter"
+    assert groups["metro1/pop[1-2]"]["blueprint"] == "SingleRouter"
     assert "metro1/dc[1-1]" in groups
-    assert groups["metro1/dc[1-1]"]["use_blueprint"] == "DCRegion"
+    assert groups["metro1/dc[1-1]"]["blueprint"] == "DCRegion"

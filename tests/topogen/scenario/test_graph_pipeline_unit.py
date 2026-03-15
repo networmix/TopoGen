@@ -220,10 +220,7 @@ def test_to_network_sections_serializes_groups_and_adjacency() -> None:
     assert any(path.endswith("/dc[1-1]") for path in groups)
     # Adjacency entry present with target_capacity
     assert any(
-        isinstance(
-            a.get("link_params", {}).get("attrs", {}).get("target_capacity"), float
-        )
-        for a in adjacency
+        isinstance(a.get("attrs", {}).get("target_capacity"), float) for a in adjacency
     )
 
 

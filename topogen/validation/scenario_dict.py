@@ -30,10 +30,10 @@ def validate_scenario_dict(
     # Validate groups structure
     network = (data or {}).get("network", {})
     groups: dict[str, Any] = (
-        network.get("groups", {}) if isinstance(network, dict) else {}
+        network.get("nodes", {}) if isinstance(network, dict) else {}
     )
     if not isinstance(groups, dict) or not groups:
-        issues.append("No network.groups found in scenario")
+        issues.append("No network.nodes found in scenario")
         groups = {}
 
     # Build per-metro references to PoP and DC groups
@@ -139,7 +139,7 @@ def validate_scenario_dict(
         pass
 
     # Simple isolation hint if adjacency is absent
-    adjacency = network.get("adjacency", []) or []
+    adjacency = network.get("links", []) or []
     if not adjacency:
         key_re = re.compile(r"^/?(metro\d+)/(pop|dc)\b")
         for gkey in groups.keys():
@@ -174,18 +174,15 @@ def validate_scenario_dict(
                     continue
                 src = _endpoint_path(rule.get("source"))
                 dst = _endpoint_path(rule.get("target"))
-                lp = (
-                    rule.get("link_params", {})
-                    if isinstance(rule.get("link_params"), dict)
-                    else {}
+                attrs = (
+                    rule.get("attrs", {}) if isinstance(rule.get("attrs"), dict) else {}
                 )
-                attrs = lp.get("attrs", {}) if isinstance(lp.get("attrs"), dict) else {}
                 try:
                     cap_val = float(
-                        attrs.get("target_capacity", lp.get("capacity", 0.0))
+                        attrs.get("target_capacity", rule.get("capacity", 0.0))
                     )
                 except Exception:
-                    cap_val = float(lp.get("capacity", 0.0))
+                    cap_val = float(rule.get("capacity", 0.0))
                 for endpoint in (src, dst):
                     key = _parse_dc_key(endpoint)
                     if key:

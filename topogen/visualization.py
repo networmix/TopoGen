@@ -968,14 +968,14 @@ def export_blueprint_diagram(
     try:
         if not isinstance(blueprint_def, dict):
             raise ValueError("blueprint_def must be a mapping")
-        if "groups" not in blueprint_def or not isinstance(
-            blueprint_def.get("groups"), dict
+        if "nodes" not in blueprint_def or not isinstance(
+            blueprint_def.get("nodes"), dict
         ):
-            raise ValueError("blueprint_def must include a 'groups' mapping")
-        if "adjacency" not in blueprint_def or not isinstance(
-            blueprint_def.get("adjacency"), (list, tuple)
+            raise ValueError("blueprint_def must include a 'nodes' mapping")
+        if "links" not in blueprint_def or not isinstance(
+            blueprint_def.get("links"), (list, tuple)
         ):
-            raise ValueError("blueprint_def must include an 'adjacency' list")
+            raise ValueError("blueprint_def must include a 'links' list")
 
         # Build abstract and concrete views using helper module.
         from .blueprint_viz import build_abstract_view, collect_concrete_site

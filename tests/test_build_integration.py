@@ -88,7 +88,7 @@ class TestBuildIntegration:
             (
                 name
                 for name, bp in bps.items()
-                if {"spine", "leaf"} <= set(bp.get("groups", {}).keys())
+                if {"spine", "leaf"} <= set(bp.get("nodes", {}).keys())
             ),
             None,
         )
@@ -96,7 +96,7 @@ class TestBuildIntegration:
             (
                 name
                 for name, bp in bps.items()
-                if {"core"} <= set(bp.get("groups", {}).keys())
+                if {"core"} <= set(bp.get("nodes", {}).keys())
                 and name != "SingleRouter"
             ),
             None,
@@ -132,11 +132,11 @@ class TestBuildIntegration:
 
         # Validate network structure
         network = scenario_data["network"]
-        assert "groups" in network
-        assert "adjacency" in network
+        assert "nodes" in network
+        assert "links" in network
 
         # Should have 6 groups (3 metros x 2 types: PoPs + DC regions)
-        groups = network["groups"]
+        groups = network["nodes"]
         assert len(groups) == 6
 
         # Separate PoP and DC groups
@@ -155,7 +155,7 @@ class TestBuildIntegration:
                     assert "pop[1-" in group_name  # Bracket expansion present
             elif "/dc[" in group_name:
                 assert "dc[1-" in group_name  # Bracket expansion present
-            assert "use_blueprint" in group_def
+            assert "blueprint" in group_def
             assert "attrs" in group_def
 
             # Check attrs contain metro information
@@ -166,7 +166,7 @@ class TestBuildIntegration:
             assert "location_y" in attrs
 
         # Check adjacency rules
-        adjacency = network["adjacency"]
+        adjacency = network["links"]
         assert len(adjacency) > 0
 
         # Should have both intra-metro and inter-metro adjacency
@@ -175,8 +175,7 @@ class TestBuildIntegration:
         inter_metro_rules = [
             adj
             for adj in adjacency
-            if adj.get("link_params", {}).get("attrs", {}).get("link_type")
-            == "inter_metro_corridor"
+            if adj.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
 
         # Denver (4 sites) contributes 6 edges; each of the 2-site metros contributes 1 → total 8
@@ -187,12 +186,8 @@ class TestBuildIntegration:
             tuple(
                 sorted(
                     (
-                        r.get("link_params", {})
-                        .get("attrs", {})
-                        .get("source_metro", ""),
-                        r.get("link_params", {})
-                        .get("attrs", {})
-                        .get("target_metro", ""),
+                        r.get("attrs", {}).get("source_metro", ""),
+                        r.get("attrs", {}).get("target_metro", ""),
                     )
                 )
             )
@@ -227,9 +222,9 @@ class TestBuildIntegration:
         # Should have network section
         assert any(line.strip() == "network:" for line in lines)
 
-        # Should have groups and adjacency subsections
-        assert any(line.strip() == "groups:" for line in lines)
-        assert any(line.strip() == "adjacency:" for line in lines)
+        # Should have nodes and links subsections
+        assert any(line.strip() == "nodes:" for line in lines)
+        assert any(line.strip() == "links:" for line in lines)
 
     def test_yaml_anchors_toggle(self, sample_integrated_graph, sample_config):
         """Disabling yaml anchors should remove &/* alias tokens from YAML text."""
@@ -277,7 +272,7 @@ class TestBuildIntegration:
         assert "FullMesh4" in blueprints  # Override for Salt Lake City
 
         # Check group configurations match overrides
-        groups = scenario_data["network"]["groups"]
+        groups = scenario_data["network"]["nodes"]
 
         # Denver should support 4 sites (from override)
         denver_group = None
@@ -290,7 +285,7 @@ class TestBuildIntegration:
         expected_denver_bp = sample_config.build.build_overrides["denver"][
             "site_blueprint"
         ]
-        assert denver_group["use_blueprint"] == expected_denver_bp
+        assert denver_group["blueprint"] == expected_denver_bp
 
         # Salt Lake City should use the configured blueprint
         slc_group = None
@@ -300,7 +295,7 @@ class TestBuildIntegration:
                 break
 
         assert slc_group is not None
-        assert isinstance(slc_group["use_blueprint"], str)
+        assert isinstance(slc_group["blueprint"], str)
 
     def test_corridor_connectivity_preservation(
         self, sample_integrated_graph, sample_config
@@ -312,14 +307,13 @@ class TestBuildIntegration:
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        adjacency = scenario_data["network"]["adjacency"]
+        adjacency = scenario_data["network"]["links"]
 
         # Find inter-metro corridor rules
         corridor_rules = [
             rule
             for rule in adjacency
-            if rule.get("link_params", {}).get("attrs", {}).get("link_type")
-            == "inter_metro_corridor"
+            if rule.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
 
         # Should have 3 unique metro pairs (triangle of metros)
@@ -327,8 +321,8 @@ class TestBuildIntegration:
             tuple(
                 sorted(
                     (
-                        rule["link_params"]["attrs"]["source_metro"],
-                        rule["link_params"]["attrs"]["target_metro"],
+                        rule["attrs"]["source_metro"],
+                        rule["attrs"]["target_metro"],
                     )
                 )
             )
@@ -351,12 +345,12 @@ class TestBuildIntegration:
                 (
                     set(
                         (
-                            r["link_params"]["attrs"]["source_metro"],
-                            r["link_params"]["attrs"]["target_metro"],
+                            r["attrs"]["source_metro"],
+                            r["attrs"]["target_metro"],
                         )
                     )
                     == set(pair)
-                    and r["link_params"]["attrs"]["distance_km"] == expected_distance
+                    and r["attrs"]["distance_km"] == expected_distance
                 )
                 for r in corridor_rules
             ), f"Missing expected distance for pair {pair}"
@@ -379,8 +373,8 @@ class TestBuildIntegration:
 
         assert "blueprints" in scenario_data
         assert "network" in scenario_data
-        assert len(scenario_data["network"]["groups"]) == 0
-        assert len(scenario_data["network"]["adjacency"]) == 0
+        assert len(scenario_data["network"]["nodes"]) == 0
+        assert len(scenario_data["network"]["links"]) == 0
 
     def test_single_metro_graph(self):
         """Test handling of graph with single metro."""
@@ -394,7 +388,7 @@ class TestBuildIntegration:
             (
                 name
                 for name, bp in bps.items()
-                if {"spine", "leaf"} <= set(bp.get("groups", {}).keys())
+                if {"spine", "leaf"} <= set(bp.get("nodes", {}).keys())
             ),
             None,
         )
@@ -424,7 +418,7 @@ class TestBuildIntegration:
         scenario_data = yaml.safe_load(yaml_str)
 
         # Should have two groups: one PoP group and one DC group
-        groups = scenario_data["network"]["groups"]
+        groups = scenario_data["network"]["nodes"]
         assert len(groups) == 2
 
         pop_groups = [g for g in groups.keys() if "/pop[" in g]
@@ -433,7 +427,7 @@ class TestBuildIntegration:
         assert len(dc_groups) == 1
 
         # Should have intra-metro adjacency but no inter-metro
-        adjacency = scenario_data["network"]["adjacency"]
+        adjacency = scenario_data["network"]["links"]
         intra_rules = [adj for adj in adjacency if "intra_metro" in str(adj)]
         inter_rules = [adj for adj in adjacency if "inter_metro" in str(adj)]
 

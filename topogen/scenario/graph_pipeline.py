@@ -239,8 +239,7 @@ def _add_intra_metro_edges(
                     pass
                 match_obj = {
                     "conditions": [
-                        {"attr": "role", "operator": "==", "value": r}
-                        for r in sorted(roles)
+                        {"attr": "role", "op": "==", "value": r} for r in sorted(roles)
                     ]
                 }
 
@@ -343,8 +342,7 @@ def _add_dc_to_pop_edges(
                 pass
             match_obj = {
                 "conditions": [
-                    {"attr": "role", "operator": "==", "value": r}
-                    for r in sorted(roles)
+                    {"attr": "role", "op": "==", "value": r} for r in sorted(roles)
                 ],
                 "logic": "or",
             }
@@ -465,7 +463,7 @@ def _add_dc_to_pop_edges(
                     label = stripe_labels[0] if stripe_labels else "g1"
                     match_payload = {
                         "conditions": [
-                            {"attr": stripe_attr, "operator": "==", "value": label}
+                            {"attr": stripe_attr, "op": "==", "value": label}
                         ]
                     }
 
@@ -548,7 +546,7 @@ def _add_inter_metro_edges(
                 "conditions": [
                     {
                         "attr": "role",
-                        "operator": "==",
+                        "op": "==",
                         "value": r,
                     }
                     for r in sorted(
@@ -745,7 +743,7 @@ def _add_inter_metro_edges(
                         "conditions": [
                             {
                                 "attr": stripe_attr,
-                                "operator": "==",
+                                "op": "==",
                                 "value": label,
                             }
                         ]
@@ -894,29 +892,27 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
         dsl = {
             "blueprints": builtins,
             "network": {
-                "groups": {
-                    u_id: {"use_blueprint": bp_u},
-                    v_id: {"use_blueprint": bp_v},
+                "nodes": {
+                    u_id: {"blueprint": bp_u},
+                    v_id: {"blueprint": bp_v},
                 },
-                "adjacency": [
+                "links": [
                     {
                         "source": {"path": u_id, "match": match_dict},
                         "target": {"path": v_id, "match": match_dict},
                         "pattern": "one_to_one",
-                        "link_params": {
-                            "capacity": 1.0,
-                            "cost": 1.0,
-                            "attrs": {"_tg_tmp": "count_me"},
-                        },
+                        "capacity": 1.0,
+                        "cost": 1.0,
+                        "attrs": {"_tg_tmp": "count_me"},
                     }
                 ],
             },
         }
-        # Inject node_overrides (e.g., striping attributes) if present on graph
+        # Inject node_rules (e.g., striping attributes) if present on graph
         try:
             overrides = G.graph.get("node_overrides", [])
             if isinstance(overrides, list) and overrides:
-                dsl["network"]["node_overrides"] = overrides
+                dsl["network"]["node_rules"] = overrides
         except Exception:
             pass
         net = _ng_expand(dsl)
@@ -1360,7 +1356,7 @@ def to_network_sections(
     metro_settings: dict[str, dict[str, Any]],
     config: TopologyConfig,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Serialize MultiGraph to NetGraph 'groups' and 'adjacency' sections."""
+    """Serialize MultiGraph to NetGraph 'nodes' and 'links' sections."""
     logger.info("Serializing MultiGraph to scenario network sections")
     # Groups
     groups: dict[str, Any] = {}
@@ -1373,7 +1369,7 @@ def to_network_sections(
         d = int(metro_settings[name]["dc_regions_per_metro"])  # type: ignore[index]
         pop_group_path = f"metro{idx}/pop[1-{s}]"
         groups[pop_group_path] = {
-            "use_blueprint": metro_settings[name]["site_blueprint"],
+            "blueprint": metro_settings[name]["site_blueprint"],
             "attrs": {
                 "metro_name": name,
                 "metro_name_orig": metro.get("name_orig", name),
@@ -1397,7 +1393,7 @@ def to_network_sections(
         if d > 0:
             dc_group_path = f"metro{idx}/dc[1-{d}]"
             groups[dc_group_path] = {
-                "use_blueprint": metro_settings[name]["dc_region_blueprint"],
+                "blueprint": metro_settings[name]["dc_region_blueprint"],
                 "attrs": {
                     "metro_name": name,
                     "metro_name_orig": metro.get("name_orig", name),
@@ -1461,33 +1457,34 @@ def to_network_sections(
             attrs["detour_ratio"] = float(
                 data["detour_ratio"]
             )  # corridor length / euclidean
-        link_params = {"capacity": cap, "cost": cost, "attrs": attrs}
         # Include computed per-end hardware, if present on this edge
         hw = data.get("hardware")
         if isinstance(hw, dict) and hw:
-            link_params["attrs"]["hardware"] = hw
-        # Risk groups belong at link_params level to align with validation/tests
-        if "risk_groups" in data and data["risk_groups"]:
-            link_params["risk_groups"] = data["risk_groups"]
+            attrs["hardware"] = hw
 
-        adjacency.append(
-            {
-                # Preserve role-based match filters on endpoints
-                # so DSL expansion restricts nodes within each site.
-                "source": (
-                    {"path": u, "match": data.get("match")}
-                    if isinstance(data.get("match"), dict) and data.get("match")
-                    else u
-                ),
-                "target": (
-                    {"path": v, "match": data.get("match")}
-                    if isinstance(data.get("match"), dict) and data.get("match")
-                    else v
-                ),
-                "pattern": "one_to_one",
-                "link_params": link_params,
-            }
-        )
+        link_entry: dict[str, Any] = {
+            # Preserve role-based match filters on endpoints
+            # so DSL expansion restricts nodes within each site.
+            "source": (
+                {"path": u, "match": data.get("match")}
+                if isinstance(data.get("match"), dict) and data.get("match")
+                else u
+            ),
+            "target": (
+                {"path": v, "match": data.get("match")}
+                if isinstance(data.get("match"), dict) and data.get("match")
+                else v
+            ),
+            "pattern": "one_to_one",
+            "capacity": cap,
+            "cost": cost,
+            "attrs": attrs,
+        }
+        # Risk groups belong at link level
+        if "risk_groups" in data and data["risk_groups"]:
+            link_entry["risk_groups"] = data["risk_groups"]
+
+        adjacency.append(link_entry)
 
     # Deduplicate and store node_overrides on graph for assembly to embed
     try:

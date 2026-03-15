@@ -69,8 +69,8 @@ def _build_blueprints_section(
         if blueprint_name not in builtin_blueprints:
             raise ValueError(f"Unknown blueprint: {blueprint_name}")
         blueprint = deepcopy(builtin_blueprints[blueprint_name])
-        if "groups" in blueprint:
-            for group_name, group_def in blueprint["groups"].items():
+        if "nodes" in blueprint:
+            for group_name, group_def in blueprint["nodes"].items():
                 total_groups += 1
                 if "attrs" not in group_def:
                     group_def["attrs"] = {}

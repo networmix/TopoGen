@@ -128,14 +128,14 @@ def test_dc_pop_one_vs_many_width1_reduces_links():
     # POP has 4 core nodes; DC has 1 -> baseline produces 4 per DC-POP pair, width=1 produces 1
     graph = _make_sample_graph()
     core4 = {
-        "groups": {
+        "nodes": {
             "core": {
-                "node_count": 4,
-                "name_template": "core{node_num}",
+                "count": 4,
+                "template": "core{n}",
                 "attrs": {"role": "core"},
             }
         },
-        "adjacency": [],
+        "links": [],
     }
     with _patch_blueprints({"Core4": core4}):
         cfg_a = _base_cfg()
@@ -165,24 +165,24 @@ def test_dc_pop_many_vs_many_width2_groups_links():
     # POP 4 core, DC 4 dc -> baseline 4; width=2 -> 2 per DC-POP pair
     graph = _make_sample_graph()
     core4 = {
-        "groups": {
+        "nodes": {
             "core": {
-                "node_count": 4,
-                "name_template": "core{node_num}",
+                "count": 4,
+                "template": "core{n}",
                 "attrs": {"role": "core"},
             }
         },
-        "adjacency": [],
+        "links": [],
     }
     dc4 = {
-        "groups": {
+        "nodes": {
             "dc": {
-                "node_count": 4,
-                "name_template": "dc{node_num}",
+                "count": 4,
+                "template": "dc{n}",
                 "attrs": {"role": "dc"},
             }
         },
-        "adjacency": [],
+        "links": [],
     }
     with _patch_blueprints({"Core4": core4, "DCRegion4": dc4}):
         cfg_a = _base_cfg()

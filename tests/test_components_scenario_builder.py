@@ -56,7 +56,7 @@ class TestComponentsScenarioBuilder:
             (
                 name
                 for name, bp in bps.items()
-                if {"spine", "leaf"} <= set(bp.get("groups", {}).keys())
+                if {"spine", "leaf"} <= set(bp.get("nodes", {}).keys())
             ),
             None,
         )
@@ -78,7 +78,7 @@ class TestComponentsScenarioBuilder:
             (
                 name
                 for name, bp in bps.items()
-                if {"spine", "leaf"} <= set(bp.get("groups", {}).keys())
+                if {"spine", "leaf"} <= set(bp.get("nodes", {}).keys())
             ),
             None,
         )
@@ -112,9 +112,9 @@ class TestComponentsScenarioBuilder:
 
         # Check that component assignment was added
         single_router = blueprints["SingleRouter"]
-        assert "groups" in single_router
+        assert "nodes" in single_router
 
-        core_group = single_router["groups"]["core"]
+        core_group = single_router["nodes"]["core"]
         assert "attrs" in core_group
         assert core_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
 
@@ -127,7 +127,7 @@ class TestComponentsScenarioBuilder:
             (
                 name
                 for name, bp in bps.items()
-                if {"spine", "leaf"} <= set(bp.get("groups", {}).keys())
+                if {"spine", "leaf"} <= set(bp.get("nodes", {}).keys())
             ),
             None,
         )
@@ -139,8 +139,8 @@ class TestComponentsScenarioBuilder:
         assert clos_name in blueprints
 
         clos_blueprint = blueprints[clos_name]
-        spine_group = clos_blueprint["groups"]["spine"]
-        leaf_group = clos_blueprint["groups"]["leaf"]
+        spine_group = clos_blueprint["nodes"]["spine"]
+        leaf_group = clos_blueprint["nodes"]["leaf"]
 
         # Should use role-based hardware mapping
         assert spine_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"
@@ -155,7 +155,7 @@ class TestComponentsScenarioBuilder:
             (
                 name
                 for name, bp in bps.items()
-                if {"spine", "leaf"} <= set(bp.get("groups", {}).keys())
+                if {"spine", "leaf"} <= set(bp.get("nodes", {}).keys())
             ),
             None,
         )
@@ -165,7 +165,7 @@ class TestComponentsScenarioBuilder:
         blueprints = _build_blueprints_section(used_blueprints, config)
 
         clos_blueprint = blueprints[clos_name]
-        spine_group = clos_blueprint["groups"]["spine"]
+        spine_group = clos_blueprint["nodes"]["spine"]
 
         # Should preserve original attributes
         assert spine_group["attrs"]["role"] == "spine"
@@ -192,7 +192,7 @@ class TestComponentsScenarioBuilder:
         assert "SingleRouter" in blueprints
 
         # Should not add hardware if no assignment
-        core_group = blueprints["SingleRouter"]["groups"]["core"]
+        core_group = blueprints["SingleRouter"]["nodes"]["core"]
         assert "hardware" not in core_group["attrs"]
 
     def test_build_blueprints_section_role_inference(self):
@@ -205,7 +205,7 @@ class TestComponentsScenarioBuilder:
         blueprints = _build_blueprints_section(used_blueprints, config)
 
         full_mesh = blueprints["FullMesh4"]
-        core_group = full_mesh["groups"]["core"]
+        core_group = full_mesh["nodes"]["core"]
 
         # Should use default core assignment since no override
         assert core_group["attrs"].get("hardware", {}).get("component") == "CoreRouter"

@@ -207,12 +207,12 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
 
     logger.info("Serializing network sections from MultiGraph")
     groups, adjacency = to_network_sections(G, metros, metro_settings, config)
-    scenario["network"] = {"groups": groups, "adjacency": adjacency}
+    scenario["network"] = {"nodes": groups, "links": adjacency}
     # Attach node_overrides emitted by graph_pipeline (e.g., for striping)
     try:
         overrides = G.graph.get("__emitted_node_overrides__", [])
         if isinstance(overrides, list) and overrides:
-            scenario["network"]["node_overrides"] = overrides
+            scenario["network"]["node_rules"] = overrides
     except Exception:
         pass
 
@@ -277,7 +277,7 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         try:
             overrides = G.graph.get("__emitted_node_overrides__", [])
             if isinstance(overrides, list) and overrides:
-                probe["network"]["node_overrides"] = overrides
+                probe["network"]["node_rules"] = overrides
         except Exception:
             pass
         net = _ng_expand(probe)
@@ -333,13 +333,12 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             logger.debug("Optics lookup built: %d entries", len(optics_lookup))
         except Exception:
             pass
-    # Augment class-level link_params when a single role pair is present post-expansion
+    # Augment class-level link attrs when a single role pair is present post-expansion
     if optics_lookup:
         augmented_total = 0
         augmented_by_pair: dict[tuple[str, str], int] = {}
-        for adj in scenario["network"].get("adjacency", []):
-            lp = adj.get("link_params", {})
-            attrs = lp.get("attrs", {})
+        for adj in scenario["network"].get("links", []):
+            attrs = adj.get("attrs", {})
             aid = str(attrs.get("adjacency_id") or attrs.get("link_type") or "")
             if not aid or aid not in per_adj:
                 continue
@@ -379,8 +378,7 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             attrs.setdefault("hardware", {})
             attrs["hardware"]["source"] = {"component": optic, "count": float(count)}
             attrs["hardware"]["target"] = {"component": optic, "count": float(count)}
-            lp["attrs"] = attrs
-            adj["link_params"] = lp
+            adj["attrs"] = attrs
             augmented_total += 1
             augmented_by_pair[(sr, tr)] = augmented_by_pair.get((sr, tr), 0) + 1
             try:
@@ -440,8 +438,8 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             # Build mapping: site path -> blueprint used (from groups section attrs)
             # We use the authoritative groups section emitted earlier
             site_to_bp: dict[str, str] = {}
-            for gpath, gdef in scenario.get("network", {}).get("groups", {}).items():
-                bp = str(gdef.get("use_blueprint", ""))
+            for gpath, gdef in scenario.get("network", {}).get("nodes", {}).items():
+                bp = str(gdef.get("blueprint", ""))
                 if not bp:
                     continue
                 # Expand ranges like pop[1-4] into concrete prefixes
@@ -529,7 +527,7 @@ def _add_adjacency_comments(yaml_content: str) -> str:
     intra_metro_added = False
     inter_metro_added = False
     for i, line in enumerate(lines):
-        if line.strip() == "adjacency:" and not in_adjacency:
+        if line.strip() in ("adjacency:", "links:") and not in_adjacency:
             in_adjacency = True
             result_lines.append(line)
             continue

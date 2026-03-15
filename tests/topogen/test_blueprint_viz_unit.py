@@ -38,28 +38,26 @@ def test_helper_functions() -> None:
 
 def test_build_abstract_view_and_self_loops() -> None:
     bp = {
-        "groups": {
-            "G1": {"node_count": 2, "attrs": {"role": "agg"}},
-            "G2": {"node_count": 1},
-            "G1_r1": {"node_count": 2},
-            "G1_r2": {"node_count": 2},
+        "nodes": {
+            "G1": {"count": 2, "attrs": {"role": "agg"}},
+            "G2": {"count": 1},
+            "G1_r1": {"count": 2},
+            "G1_r2": {"count": 2},
         },
-        "adjacency": [
+        "links": [
             {
                 "source": "G{g}",
                 "target": "G{g}_r{r}",
                 "pattern": "uplink",
-                "expand_vars": {"g": [1, 2], "r": [1, 1]},
-                "expansion_mode": "zip",
-                "link_params": {"attrs": {"target_capacity": 100}},
+                "expand": {"vars": {"g": [1, 2], "r": [1, 1]}, "mode": "zip"},
+                "attrs": {"target_capacity": 100},
             },
             {
                 "source": "G1_r{r}",
                 "target": "G1_r{r}",
                 "pattern": "mesh",
-                "expand_vars": {"r": [1, 2]},
-                "expansion_mode": "zip",
-                "link_params": {"attrs": {"target_capacity": 50}},
+                "expand": {"vars": {"r": [1, 2]}, "mode": "zip"},
+                "attrs": {"target_capacity": 50},
             },
         ],
     }

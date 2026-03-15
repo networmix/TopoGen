@@ -20,20 +20,17 @@ def test_expand_checks_flags_empty_groups_and_adjacency_and_bp():
     dsl = {
         "blueprints": {
             "BP": {
-                "groups": {"core": {"node_count": 1, "attrs": {}}},
-                "adjacency": [
-                    {"source": "/core", "target": "/core", "link_params": {}}
-                ],
+                "nodes": {"core": {"count": 1, "attrs": {}}},
+                "links": [{"source": "/core", "target": "/core"}],
             }
         },
         "network": {
-            "groups": {"g1": {"use_blueprint": "BP", "attrs": {}}},
-            "adjacency": [
+            "nodes": {"g1": {"blueprint": "BP", "attrs": {}}},
+            "links": [
                 {
                     "source": "g1",
                     "target": "g1",
                     "pattern": "one_to_one",
-                    "link_params": {},
                 }
             ],
         },
@@ -50,16 +47,15 @@ def test_expand_checks_flags_empty_groups_and_adjacency_and_bp():
         net = stub.get("network", {})
         bps = stub.get("blueprints", {})
         # Groups expansion: read _tg_group_id for counting
-        for gpath, gdef in (net.get("groups", {}) or {}).items():
+        for gpath, gdef in (net.get("nodes", {}) or {}).items():
             # Simulate zero-node expansion for g1 only
             gid = gdef.get("attrs", {}).get("_tg_group_id")
             if gpath == "g1":
                 continue
             n.nodes[gpath] = _Node(gid)
         # Adjacency expansion: only create links when special tag present
-        for rule in net.get("adjacency", []) or []:
-            lp = rule.get("link_params", {}) or {}
-            attrs = lp.get("attrs", {}) or {}
+        for rule in net.get("links", []) or []:
+            attrs = rule.get("attrs", {}) or {}
             if attrs.get("_tg_adj_tag") == "adj_0":
                 # omit to trigger adjacency issue
                 continue

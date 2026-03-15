@@ -13,9 +13,9 @@ def _minimal_scenario() -> dict:
     # Minimal valid-ish structure with one metro pop and dc group
     return {
         "network": {
-            "groups": {
+            "nodes": {
                 "metro1/pop[2]": {
-                    "use_blueprint": "SingleRouter",
+                    "blueprint": "SingleRouter",
                     "attrs": {
                         "metro_name": "Denver",
                         "metro_name_orig": "Denver",
@@ -25,7 +25,7 @@ def _minimal_scenario() -> dict:
                     },
                 },
                 "metro1/dc[1]": {
-                    "use_blueprint": "DCRegion",
+                    "blueprint": "DCRegion",
                     "attrs": {
                         "metro_name": "Denver",
                         "metro_name_orig": "Denver",
@@ -37,7 +37,7 @@ def _minimal_scenario() -> dict:
                     },
                 },
             },
-            "adjacency": [],
+            "links": [],
         },
         # Provide empty sections to satisfy reference checks by default
         "failure_policy_set": {},
@@ -49,7 +49,7 @@ def _minimal_scenario() -> dict:
 def test_validate_scenario_dict_attr_mismatch_detected():
     data = _minimal_scenario()
     # Introduce mismatch
-    data["network"]["groups"]["metro1/dc[1]"]["attrs"]["location_x"] = 11.0
+    data["network"]["nodes"]["metro1/dc[1]"]["attrs"]["location_x"] = 11.0
     issues = validate_scenario_dict(data)
     assert any("location_x mismatch" in s for s in issues)
 
@@ -57,7 +57,7 @@ def test_validate_scenario_dict_attr_mismatch_detected():
 def test_validate_scenario_dict_missing_required_dc_attrs():
     data = _minimal_scenario()
     # Remove required attribute
-    del data["network"]["groups"]["metro1/dc[1]"]["attrs"]["mw_per_dc_region"]
+    del data["network"]["nodes"]["metro1/dc[1]"]["attrs"]["mw_per_dc_region"]
     issues = validate_scenario_dict(data)
     assert any("dc attrs missing required 'mw_per_dc_region'" in s for s in issues)
 
@@ -66,9 +66,9 @@ def test_validate_scenario_yaml_workflow_references_checked(tmp_path: Path):
     # Craft YAML string referencing missing items
     yaml_text = """
 network:
-  groups:
+  nodes:
     metro1/pop[2]:
-      use_blueprint: SingleRouter
+      blueprint: SingleRouter
       attrs:
         metro_name: Denver
         metro_name_orig: Denver
@@ -76,7 +76,7 @@ network:
         location_x: 10.0
         location_y: 20.0
     metro1/dc[1]:
-      use_blueprint: DCRegion
+      blueprint: DCRegion
       attrs:
         metro_name: Denver
         metro_name_orig: Denver
@@ -100,12 +100,8 @@ workflow:
 
 def test_validate_scenario_dict_does_not_flag_adjacency_strings():
     data = _minimal_scenario()
-    data["network"]["adjacency"].append(
-        {"source": "missing", "target": "metro1/pop[2]"}
-    )
-    data["network"]["adjacency"].append(
-        {"source": "metro1/dc[1]", "target": "missing2"}
-    )
+    data["network"]["links"].append({"source": "missing", "target": "metro1/pop[2]"})
+    data["network"]["links"].append({"source": "metro1/dc[1]", "target": "missing2"})
     # String-level adjacency checks are not performed anymore; rely on ngraph
     issues = validate_scenario_dict(data)
     assert not any("adjacency references missing group" in s for s in issues)
@@ -115,9 +111,9 @@ def test_validate_scenario_yaml_isolated_nodes_flagged():
     # No adjacency at all -> groups appear isolated at scenario level
     yaml_text = """
 network:
-  groups:
+  nodes:
     metro1/pop[1]:
-      use_blueprint: SingleRouter
+      blueprint: SingleRouter
       attrs:
         metro_name: Denver
         metro_name_orig: Denver
@@ -125,7 +121,7 @@ network:
         location_x: 10.0
         location_y: 20.0
     metro1/dc[1]:
-      use_blueprint: DCRegion
+      blueprint: DCRegion
       attrs:
         metro_name: Denver
         metro_name_orig: Denver
@@ -146,20 +142,18 @@ def test_dc_capacity_vs_demand_validation():
     # Build a simple scenario with one DC and a DC->PoP adjacency that has limited capacity
     data = _minimal_scenario()
     # Add one dc_to_pop adjacency with target_capacity 1000
-    data["network"]["adjacency"] = [
+    data["network"]["links"] = [
         {
             "source": "metro1/dc1",
             "target": "metro1/pop1",
             "pattern": "one_to_one",
-            "link_params": {
-                "capacity": 1000.0,
-                "cost": 1,
-                "attrs": {
-                    "link_type": "dc_to_pop",
-                    "source_metro": "Denver",
-                    "target_metro": "Denver",
-                    "target_capacity": 1000.0,
-                },
+            "capacity": 1000.0,
+            "cost": 1,
+            "attrs": {
+                "link_type": "dc_to_pop",
+                "source_metro": "Denver",
+                "target_metro": "Denver",
+                "target_capacity": 1000.0,
             },
         }
     ]
@@ -231,10 +225,10 @@ def test_groups_that_expand_to_zero_nodes_are_flagged(monkeypatch):
     data = {
         "blueprints": {},
         "network": {
-            "groups": {
+            "nodes": {
                 # Invalid range [1-0] yields zero nodes
                 "metro1/pop[1-0]": {
-                    "use_blueprint": "SingleRouter",
+                    "blueprint": "SingleRouter",
                     "attrs": {
                         "metro_name": "X",
                         "metro_name_orig": "X",
@@ -244,7 +238,7 @@ def test_groups_that_expand_to_zero_nodes_are_flagged(monkeypatch):
                     },
                 }
             },
-            "adjacency": [],
+            "links": [],
         },
         "failure_policy_set": {},
         "traffic_matrix_set": {},
@@ -296,9 +290,9 @@ def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
     # Construct a scenario with a valid group but an adjacency using nonexistent endpoints
     data = {
         "network": {
-            "groups": {
+            "nodes": {
                 "metro1/pop[1]": {
-                    "use_blueprint": "SingleRouter",
+                    "blueprint": "SingleRouter",
                     "attrs": {
                         "metro_name": "Y",
                         "metro_name_orig": "Y",
@@ -308,12 +302,12 @@ def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
                     },
                 },
             },
-            "adjacency": [
+            "links": [
                 {
                     "source": "metro1/missing",
                     "target": "metro1/also_missing",
                     "pattern": "one_to_one",
-                    "link_params": {"capacity": 100.0},
+                    "capacity": 100.0,
                 }
             ],
         },
@@ -338,14 +332,14 @@ def test_node_hardware_presence_audited():
     data = {
         "blueprints": {
             "SingleRouter": {
-                "groups": {
+                "nodes": {
                     "core": {
-                        "node_count": 1,
-                        "name_template": "core",
+                        "count": 1,
+                        "template": "core",
                         "attrs": {"role": "core"},
                     }
                 },
-                "adjacency": [],
+                "links": [],
             }
         },
         "components": {
@@ -357,9 +351,9 @@ def test_node_hardware_presence_audited():
             "hw_component": {"core": "CoreRouter"},
         },
         "network": {
-            "groups": {
+            "nodes": {
                 "metro1/pop[1]": {
-                    "use_blueprint": "SingleRouter",
+                    "blueprint": "SingleRouter",
                     "attrs": {
                         "metro_name": "X",
                         "metro_id": 1,
@@ -368,7 +362,7 @@ def test_node_hardware_presence_audited():
                     },
                 }
             },
-            "adjacency": [],
+            "links": [],
         },
     }
     issues = validate_scenario_yaml(
@@ -384,10 +378,10 @@ def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
     invalid = {
         # e.g., missing required 'network' or malformed types
         "network": {
-            # wrong type: groups should be a mapping, make it a list to fail
-            "groups": [
+            # wrong type: nodes should be a mapping, make it a list to fail
+            "nodes": [
                 {
-                    "use_blueprint": "SingleRouter",
+                    "blueprint": "SingleRouter",
                     "attrs": {
                         "metro_name": "A",
                         "metro_id": 1,
@@ -396,10 +390,10 @@ def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
                     },
                 }
             ],
-            # adjacency should be a list of mappings; keep as valid list to isolate the groups error
-            "adjacency": [],
+            # links should be a list of mappings; keep as valid list to isolate the nodes error
+            "links": [],
         },
-        # required sets/workflow may be missing; schema should still complain primarily about groups type
+        # required sets/workflow may be missing; schema should still complain primarily about nodes type
     }
 
     issues = validate_scenario_yaml(
@@ -413,28 +407,26 @@ def test_link_optics_presence_audited_unordered_and_directional():
     data = {
         "blueprints": {
             "Clos_2_1": {
-                "groups": {
+                "nodes": {
                     "spine": {
-                        "node_count": 1,
-                        "name_template": "spine{node_num}",
+                        "count": 1,
+                        "template": "spine{n}",
                         "attrs": {"role": "spine"},
                     },
                     "leaf": {
-                        "node_count": 2,
-                        "name_template": "leaf{node_num}",
+                        "count": 2,
+                        "template": "leaf{n}",
                         "attrs": {"role": "leaf"},
                     },
                 },
-                "adjacency": [
+                "links": [
                     {
                         "source": "/leaf",
                         "target": "/spine",
                         "pattern": "mesh",
-                        "link_params": {
-                            "capacity": 100.0,
-                            "cost": 1,
-                            "attrs": {"link_type": "leaf_spine"},
-                        },
+                        "capacity": 100.0,
+                        "cost": 1,
+                        "attrs": {"link_type": "leaf_spine"},
                     }
                 ],
             }
@@ -447,9 +439,9 @@ def test_link_optics_presence_audited_unordered_and_directional():
             "optics": {"leaf|spine": "800G-DR4"},
         },
         "network": {
-            "groups": {
+            "nodes": {
                 "metro1/pop[1]": {
-                    "use_blueprint": "Clos_2_1",
+                    "blueprint": "Clos_2_1",
                     "attrs": {
                         "metro_name": "X",
                         "metro_id": 1,
@@ -458,7 +450,7 @@ def test_link_optics_presence_audited_unordered_and_directional():
                     },
                 }
             },
-            "adjacency": [],
+            "links": [],
         },
     }
     # No hardware assigned on links in blueprint -> should flag both ends
@@ -492,35 +484,33 @@ def test_port_budget_detects_platform_port_overuse():
     data = {
         "blueprints": {
             "Tiny_1_1": {
-                "groups": {
+                "nodes": {
                     "spine": {
-                        "node_count": 1,
-                        "name_template": "spine{node_num}",
+                        "count": 1,
+                        "template": "spine{n}",
                         "attrs": {
                             "role": "spine",
                             "hardware": {"component": "SpineRouter", "count": 1},
                         },
                     },
                     "leaf": {
-                        "node_count": 1,
-                        "name_template": "leaf{node_num}",
+                        "count": 1,
+                        "template": "leaf{n}",
                         "attrs": {
                             "role": "leaf",
                             "hardware": {"component": "LeafRouter", "count": 1},
                         },
                     },
                 },
-                "adjacency": [
+                "links": [
                     {
                         "source": "/leaf",
                         "target": "/spine",
                         "pattern": "mesh",
-                        "link_params": {
-                            # 54.4 Tb/s per link requires ceil(54400/800)=68 modules at each end
-                            "capacity": 54_400.0,
-                            "cost": 1,
-                            "attrs": {"link_type": "leaf_spine"},
-                        },
+                        # 54.4 Tb/s per link requires ceil(54400/800)=68 modules at each end
+                        "capacity": 54_400.0,
+                        "cost": 1,
+                        "attrs": {"link_type": "leaf_spine"},
                     }
                 ],
             }
@@ -530,9 +520,9 @@ def test_port_budget_detects_platform_port_overuse():
             "optics": {"leaf|spine": "800G-DR4"},
         },
         "network": {
-            "groups": {
+            "nodes": {
                 "metro1/pop[1]": {
-                    "use_blueprint": "Tiny_1_1",
+                    "blueprint": "Tiny_1_1",
                     "attrs": {
                         "metro_name": "Z",
                         "metro_id": 1,
@@ -541,7 +531,7 @@ def test_port_budget_detects_platform_port_overuse():
                     },
                 }
             },
-            "adjacency": [],
+            "links": [],
         },
     }
     issues = validate_scenario_yaml(

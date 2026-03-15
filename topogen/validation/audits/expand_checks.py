@@ -1,4 +1,4 @@
-"""Strict DSL expansion checks: groups & adjacency yield something, blueprint edges exist."""
+"""Strict DSL expansion checks: nodes & links yield something, blueprint edges exist."""
 
 from __future__ import annotations
 
@@ -11,16 +11,16 @@ def check_groups_adjacency_blueprints(
     ng_expand: Callable[[dict[str, Any]], Any],
     logger_obj,
 ) -> list[str]:
-    """Ensure groups expand to nodes and adjacency rules expand to links.
+    """Ensure nodes expand to nodes and link rules expand to links.
 
-    Also validates each blueprint's adjacency rules expand to links.
+    Also validates each blueprint's link rules expand to links.
     """
     issues: list[str] = []
 
     # --- Groups -> nodes ---
     groups_orig = (
-        _deepcopy((dsl.get("network") or {}).get("groups", {}))
-        if isinstance((dsl.get("network") or {}).get("groups", {}), dict)
+        _deepcopy((dsl.get("network") or {}).get("nodes", {}))
+        if isinstance((dsl.get("network") or {}).get("nodes", {}), dict)
         else {}
     )
     gid_to_path: dict[int, str] = {}
@@ -37,8 +37,8 @@ def check_groups_adjacency_blueprints(
         dsl_groups = {
             "blueprints": dsl.get("blueprints") or {},
             "network": {
-                "groups": groups_orig,
-                "adjacency": (dsl.get("network") or {}).get("adjacency", []),
+                "nodes": groups_orig,
+                "links": (dsl.get("network") or {}).get("links", []),
             },
         }
         net_groups = ng_expand(dsl_groups)
@@ -61,8 +61,8 @@ def check_groups_adjacency_blueprints(
                     pass
                 issues.append(f"group '{gpath}' expands to 0 nodes")
 
-    # --- Scenario adjacency -> links ---
-    adj_list = (dsl.get("network") or {}).get("adjacency", [])
+    # --- Scenario links -> links ---
+    adj_list = (dsl.get("network") or {}).get("links", [])
     if isinstance(adj_list, list) and adj_list:
         tagged_adj: list[dict[str, Any]] = []
         tag_attr = "_tg_adj_tag"
@@ -70,25 +70,21 @@ def check_groups_adjacency_blueprints(
             if not isinstance(rule, dict):
                 continue
             r = _deepcopy(rule)
-            lp = r.get("link_params")
-            if not isinstance(lp, dict):
-                lp = {}
-                r["link_params"] = lp
-            attrs = lp.get("attrs")
+            attrs = r.get("attrs")
             if not isinstance(attrs, dict):
                 attrs = {}
-                lp["attrs"] = attrs
+                r["attrs"] = attrs
             attrs[tag_attr] = f"adj_{idx}"
             tagged_adj.append(r)
         dsl_adj = {
             "blueprints": dsl.get("blueprints") or {},
             "network": {
-                "groups": (
-                    _deepcopy((dsl.get("network") or {}).get("groups", {}))
-                    if isinstance((dsl.get("network") or {}).get("groups", {}), dict)
+                "nodes": (
+                    _deepcopy((dsl.get("network") or {}).get("nodes", {}))
+                    if isinstance((dsl.get("network") or {}).get("nodes", {}), dict)
                     else {}
                 ),
-                "adjacency": tagged_adj,
+                "links": tagged_adj,
             },
         }
         net_adj = ng_expand(dsl_adj)
@@ -124,35 +120,31 @@ def check_groups_adjacency_blueprints(
                     f"adjacency[{idx}] expands to 0 links (source={src}, target={dst}, pattern={patt})"
                 )
 
-    # --- Blueprint adjacency -> links ---
+    # --- Blueprint links -> links ---
     blueprints = dsl.get("blueprints") or {}
     if isinstance(blueprints, dict) and blueprints:
         for bp_name, bp_def in blueprints.items():
             if not isinstance(bp_def, dict):
                 continue
-            bp_adj = bp_def.get("adjacency", [])
+            bp_adj = bp_def.get("links", [])
             if not isinstance(bp_adj, list) or not bp_adj:
                 continue
             bp_copy = _deepcopy(bp_def)
             tag_attr = "_tg_bp_adj_tag"
             expected_tags: list[str] = []
-            for i, rule in enumerate(bp_copy.get("adjacency", [])):
+            for i, rule in enumerate(bp_copy.get("links", [])):
                 if not isinstance(rule, dict):
                     continue
-                lp = rule.get("link_params")
-                if not isinstance(lp, dict):
-                    lp = {}
-                    rule["link_params"] = lp
-                attrs = lp.get("attrs")
+                attrs = rule.get("attrs")
                 if not isinstance(attrs, dict):
                     attrs = {}
-                    lp["attrs"] = attrs
+                    rule["attrs"] = attrs
                 tag_val = f"{bp_name}#{i}"
                 expected_tags.append(tag_val)
                 attrs[tag_attr] = tag_val
             dsl_bp = {
                 "blueprints": {str(bp_name): bp_copy},
-                "network": {"groups": {"__check__": {"use_blueprint": str(bp_name)}}},
+                "network": {"nodes": {"__check__": {"blueprint": str(bp_name)}}},
             }
             net_bp = ng_expand(dsl_bp)
             seen: set[str] = set()

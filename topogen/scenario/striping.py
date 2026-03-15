@@ -47,19 +47,19 @@ def eligible_device_names_from_blueprint(
     """
 
     names: List[str] = []
-    groups = blueprint.get("groups", {}) if isinstance(blueprint, dict) else {}
+    groups = blueprint.get("nodes", {}) if isinstance(blueprint, dict) else {}
     for _gname, gdef in groups.items():
         attrs = gdef.get("attrs", {}) if isinstance(gdef, dict) else {}
         role = str(attrs.get("role", ""))
         if roles and role not in roles:
             continue
         try:
-            n = int(gdef.get("node_count", 0))
+            n = int(gdef.get("count", 0))
         except Exception:
             n = 0
-        template = str(gdef.get("name_template", ""))
+        template = str(gdef.get("template", ""))
         for i in range(1, n + 1):
-            names.append(template.replace("{node_num}", str(i)))
+            names.append(template.replace("{n}", str(i)))
     names.sort(key=_natural_key)
     return names
 
@@ -94,7 +94,7 @@ def group_by_attr(
     """
 
     labels: Dict[str, List[str]] = {}
-    groups = blueprint.get("groups", {}) if isinstance(blueprint, dict) else {}
+    groups = blueprint.get("nodes", {}) if isinstance(blueprint, dict) else {}
     for _gname, gdef in groups.items():
         attrs = gdef.get("attrs", {}) if isinstance(gdef, dict) else {}
         role = str(attrs.get("role", ""))
@@ -105,12 +105,12 @@ def group_by_attr(
             continue
         label_str = str(label)
         try:
-            n = int(gdef.get("node_count", 0))
+            n = int(gdef.get("count", 0))
         except Exception:
             n = 0
-        template = str(gdef.get("name_template", ""))
+        template = str(gdef.get("template", ""))
         for i in range(1, n + 1):
-            namestr = template.replace("{node_num}", str(i))
+            namestr = template.replace("{n}", str(i))
             labels.setdefault(label_str, []).append(namestr)
     # Sort each bucket
     for lab in list(labels.keys()):

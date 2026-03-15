@@ -125,21 +125,17 @@ class TestScenarioRiskGroups:
         assert risk_groups[0]["attrs"]["distance_km"] == 500
 
         # Check risk groups are assigned to links
-        adjacency = scenario_data["network"]["adjacency"]
+        adjacency = scenario_data["network"]["links"]
         corridor_links = [
             adj
             for adj in adjacency
-            if adj.get("link_params", {}).get("attrs", {}).get("link_type")
-            == "inter_metro_corridor"
+            if adj.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
         assert len(corridor_links) > 0
 
         corridor_link = corridor_links[0]
-        assert "risk_groups" in corridor_link["link_params"]
-        assert (
-            "corridor_risk_denver-aurora_kansas-city"
-            in corridor_link["link_params"]["risk_groups"]
-        )
+        assert "risk_groups" in corridor_link
+        assert "corridor_risk_denver-aurora_kansas-city" in corridor_link["risk_groups"]
 
     def test_multiple_risk_groups_per_link(self):
         """Test that links can have multiple risk groups assigned."""
@@ -206,12 +202,11 @@ class TestScenarioRiskGroups:
         # Link should have all 3 risk groups assigned
         corridor_links = [
             adj
-            for adj in scenario_data["network"]["adjacency"]
-            if adj.get("link_params", {}).get("attrs", {}).get("link_type")
-            == "inter_metro_corridor"
+            for adj in scenario_data["network"]["links"]
+            if adj.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
         corridor_link = corridor_links[0]
-        link_risk_groups = corridor_link["link_params"]["risk_groups"]
+        link_risk_groups = corridor_link["risk_groups"]
         assert len(link_risk_groups) == 3
         assert set(link_risk_groups) == risk_group_names
 
@@ -246,10 +241,9 @@ class TestScenarioRiskGroups:
         assert "risk_groups" not in scenario_data
 
         # Links should not have risk groups
-        adjacency = scenario_data["network"]["adjacency"]
+        adjacency = scenario_data["network"]["links"]
         for adj in adjacency:
-            link_params = adj.get("link_params", {})
-            assert "risk_groups" not in link_params
+            assert "risk_groups" not in adj
 
     def test_risk_groups_only_on_corridor_edges(self):
         """Test that risk groups are only collected from metro-to-metro edges."""
@@ -317,7 +311,7 @@ class TestScenarioRiskGroups:
         scenario_data = yaml.safe_load(yaml_str)
 
         # Find the metro group
-        groups = scenario_data["network"]["groups"]
+        groups = scenario_data["network"]["nodes"]
         metro_group = list(groups.values())[0]
 
         # Should have both sanitized and original names

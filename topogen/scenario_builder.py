@@ -1,9 +1,4 @@
-"""NetGraph scenario builder facade.
-
-Public entry points for building scenarios live in ``topogen.scenario``. This
-module re-exports the functions to keep the stable import path
-``topogen.scenario_builder``.
-"""
+"""Public scenario-building entry points, re-exported from ``topogen.scenario``."""
 
 from __future__ import annotations
 

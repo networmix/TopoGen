@@ -1,10 +1,5 @@
-"""Topology Generator for Network Analysis.
+"""Generate backbone topologies from US Census urban areas and highway data."""
 
-Generates continental-scale backbone network topologies from population
-density and highway infrastructure data.
-"""
-
-# Core classes and utilities
 from . import visualization
 from .config import TopologyConfig
 from .integrated_graph import build_integrated_graph, load_from_json, save_to_json

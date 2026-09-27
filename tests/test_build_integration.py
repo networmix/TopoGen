@@ -17,10 +17,8 @@ class TestBuildIntegration:
 
     @pytest.fixture
     def sample_integrated_graph(self):
-        """Create a sample integrated graph for testing."""
         graph = nx.Graph()
 
-        # Add metro nodes
         denver = (100.0, 200.0)
         slc = (150.0, 250.0)
         phoenix = (75.0, 150.0)
@@ -53,13 +51,11 @@ class TestBuildIntegration:
             radius_km=45.0,
         )
 
-        # Add some highway nodes
         highway1 = (125.0, 225.0)
         highway2 = (90.0, 180.0)
         graph.add_node(highway1, node_type="highway")
         graph.add_node(highway2, node_type="highway")
 
-        # Add corridor edges between metros
         graph.add_edge(denver, slc, length_km=530.0, capacity=400, edge_type="corridor")
         graph.add_edge(
             denver, phoenix, length_km=890.0, capacity=400, edge_type="corridor"
@@ -68,7 +64,6 @@ class TestBuildIntegration:
             slc, phoenix, length_km=650.0, capacity=400, edge_type="corridor"
         )
 
-        # Add highway edges
         graph.add_edge(denver, highway1, length_km=25.0)
         graph.add_edge(highway1, slc, length_km=30.0)
         graph.add_edge(phoenix, highway2, length_km=20.0)
@@ -77,7 +72,6 @@ class TestBuildIntegration:
 
     @pytest.fixture
     def sample_config(self):
-        """Create a sample configuration for testing."""
         config = TopologyConfig()
         config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
@@ -112,25 +106,19 @@ class TestBuildIntegration:
         return config
 
     def test_build_scenario_complete(self, sample_integrated_graph, sample_config):
-        """Test complete scenario building with realistic data."""
-        # Pick a current built-in workflow name dynamically
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
 
-        # Parse the YAML to ensure it's valid
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Validate top-level structure
         assert "blueprints" in scenario_data
         assert "network" in scenario_data
 
-        # Validate blueprints section is present and non-empty
         blueprints = scenario_data["blueprints"]
         assert isinstance(blueprints, dict) and len(blueprints) >= 1
 
-        # Validate network structure
         network = scenario_data["network"]
         assert "nodes" in network
         assert "links" in network
@@ -139,37 +127,33 @@ class TestBuildIntegration:
         groups = network["nodes"]
         assert len(groups) == 6
 
-        # Separate PoP and DC groups
         pop_groups = [g for g in groups.keys() if "/pop[" in g]
         dc_groups = [g for g in groups.keys() if "/dc[" in g]
-        assert len(pop_groups) == 3  # One per metro
-        assert len(dc_groups) == 3  # One per metro
+        assert len(pop_groups) == 3
+        assert len(dc_groups) == 3
 
         # Check groups use bracket expansion; Denver has 4 POPs, others use defaults
         for group_name, group_def in groups.items():
             assert "metro" in group_name
             if "/pop[" in group_name:
                 if group_def["attrs"].get("metro_name") == "Denver":
-                    assert "pop[1-4]" in group_name  # Override for Denver
+                    assert "pop[1-4]" in group_name
                 else:
-                    assert "pop[1-" in group_name  # Bracket expansion present
+                    assert "pop[1-" in group_name
             elif "/dc[" in group_name:
-                assert "dc[1-" in group_name  # Bracket expansion present
+                assert "dc[1-" in group_name
             assert "blueprint" in group_def
             assert "attrs" in group_def
 
-            # Check attrs contain metro information
             attrs = group_def["attrs"]
             assert "metro_name" in attrs
             assert "metro_id" in attrs
             assert "location_x" in attrs
             assert "location_y" in attrs
 
-        # Check adjacency rules
         adjacency = network["links"]
         assert len(adjacency) > 0
 
-        # Should have both intra-metro and inter-metro adjacency
         intra_metro_rules = [adj for adj in adjacency if "intra_metro" in str(adj)]
         # Inter-metro links are emitted as explicit per-pair entries with attrs.link_type
         inter_metro_rules = [
@@ -181,7 +165,6 @@ class TestBuildIntegration:
         # Denver (4 sites) contributes 6 edges; each of the 2-site metros contributes 1 → total 8
         assert len(intra_metro_rules) == 8
 
-        # Should have inter-metro corridor connectivity for the 3 metro pairs
         pairs = {
             tuple(
                 sorted(
@@ -200,29 +183,22 @@ class TestBuildIntegration:
         }
 
     def test_scenario_yaml_format(self, sample_integrated_graph, sample_config):
-        """Test that generated YAML follows expected format."""
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
 
-        # Should be valid YAML
         scenario_data = yaml.safe_load(yaml_str)
         assert scenario_data is not None
 
-        # Check specific formatting expectations
         lines = yaml_str.split("\n")
 
-        # Should include top-level seed
         assert scenario_data.get("seed") == 42
 
-        # Should start with blueprints section
         assert any(line.strip() == "blueprints:" for line in lines)
 
-        # Should have network section
         assert any(line.strip() == "network:" for line in lines)
 
-        # Should have nodes and links subsections
         assert any(line.strip() == "nodes:" for line in lines)
         assert any(line.strip() == "links:" for line in lines)
 
@@ -233,16 +209,14 @@ class TestBuildIntegration:
             iter(get_builtin_workflows().keys())
         )
         yaml_with_default = build_scenario(sample_integrated_graph, sample_config)
-        assert yaml_with_default  # sanity
+        assert yaml_with_default
 
-        # Disable anchors
         sample_config.output.formatting.yaml_anchors = False
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
         yaml_no_anchors = build_scenario(sample_integrated_graph, sample_config)
 
-        # Basic sanity: valid YAML
         data = yaml.safe_load(yaml_no_anchors)
         assert data is not None
 
@@ -253,17 +227,14 @@ class TestBuildIntegration:
         assert alias_pat.search(yaml_no_anchors) is None
 
     def test_metro_override_application(self, sample_integrated_graph, sample_config):
-        """Test that metro overrides are correctly applied."""
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
         yaml_str = build_scenario(sample_integrated_graph, sample_config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Check that correct blueprints are used based on overrides
         blueprints = scenario_data["blueprints"]
 
-        # Should include all blueprints referenced in config
         assert "SingleRouter" in blueprints  # Default for Phoenix
         expected_denver_bp = sample_config.build.build_overrides["denver"][
             "site_blueprint"
@@ -271,10 +242,8 @@ class TestBuildIntegration:
         assert expected_denver_bp in blueprints  # Override for Denver
         assert "FullMesh4" in blueprints  # Override for Salt Lake City
 
-        # Check group configurations match overrides
         groups = scenario_data["network"]["nodes"]
 
-        # Denver should support 4 sites (from override)
         denver_group = None
         for _group_name, group_def in groups.items():
             if group_def["attrs"]["metro_name"] == "Denver":
@@ -287,7 +256,6 @@ class TestBuildIntegration:
         ]
         assert denver_group["blueprint"] == expected_denver_bp
 
-        # Salt Lake City should use the configured blueprint
         slc_group = None
         for _group_name, group_def in groups.items():
             if group_def["attrs"]["metro_name"] == "Salt Lake City":
@@ -300,7 +268,6 @@ class TestBuildIntegration:
     def test_corridor_connectivity_preservation(
         self, sample_integrated_graph, sample_config
     ):
-        """Test that corridor connectivity between metros is preserved."""
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
@@ -356,14 +323,11 @@ class TestBuildIntegration:
             ), f"Missing expected distance for pair {pair}"
 
     def test_empty_graph_handling(self):
-        """Test handling of empty or minimal graphs."""
-        # Create config with no overrides for empty graph
         config = TopologyConfig()
         config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
         config.build.build_overrides = {}
 
-        # Empty graph
         empty_graph = nx.Graph()
         config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
@@ -377,8 +341,6 @@ class TestBuildIntegration:
         assert len(scenario_data["network"]["links"]) == 0
 
     def test_single_metro_graph(self):
-        """Test handling of graph with single metro."""
-        # Create config with overrides only for Denver
         config = TopologyConfig()
         config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
@@ -417,7 +379,6 @@ class TestBuildIntegration:
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Should have two groups: one PoP group and one DC group
         groups = scenario_data["network"]["nodes"]
         assert len(groups) == 2
 
@@ -426,20 +387,18 @@ class TestBuildIntegration:
         assert len(pop_groups) == 1
         assert len(dc_groups) == 1
 
-        # Should have intra-metro adjacency but no inter-metro
         adjacency = scenario_data["network"]["links"]
         intra_rules = [adj for adj in adjacency if "intra_metro" in str(adj)]
         inter_rules = [adj for adj in adjacency if "inter_metro" in str(adj)]
 
         # 4 POPs → 6 explicit one_to_one entries in the graph-based pipeline
         assert len(intra_rules) == 6
-        assert len(inter_rules) == 0  # No other metros to connect to
+        assert len(inter_rules) == 0
 
     def test_top_level_seed_default_and_override(
         self, sample_integrated_graph, sample_config
     ):
         """Top-level scenario 'seed' should exist and reflect config override."""
-        # Default (42)
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
@@ -447,7 +406,6 @@ class TestBuildIntegration:
         scenario_data = yaml.safe_load(yaml_str)
         assert scenario_data.get("seed") == 42
 
-        # Override
         sample_config.output.scenario_seed = 123
         sample_config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())

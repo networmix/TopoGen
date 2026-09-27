@@ -1,4 +1,4 @@
-"""Dedicated port budget audit used by the pipeline."""
+"""Compare per-link optic requirements with node platform port budgets."""
 
 from __future__ import annotations
 

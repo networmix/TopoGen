@@ -1,4 +1,4 @@
-"""Scenario assembly orchestrator and YAML post-processing."""
+"""Assemble NetGraph scenario sections and serialize them to YAML."""
 
 from __future__ import annotations
 
@@ -32,15 +32,7 @@ logger = get_logger(__name__)
 
 
 def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
-    """Serialize scenario dict to YAML, optionally disabling anchors.
-
-    Args:
-        scenario: Scenario dictionary to serialize.
-        yaml_anchors: If True, allow YAML anchors; otherwise, suppress aliases.
-
-    Returns:
-        YAML string with adjacency comments injected.
-    """
+    """Serialize a scenario with adjacency comments and optional YAML anchors."""
     emit_anchors = bool(yaml_anchors)
     if emit_anchors:
         yaml_output = yaml.safe_dump(
@@ -64,30 +56,12 @@ def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
 
 
 def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
-    """Build a NetGraph scenario YAML from the integrated graph.
+    """Build NetGraph scenario YAML from a metro-to-metro corridor graph.
 
-    Transforms each metro node into a site-level MultiGraph (PoPs and DC regions),
-    assigns base and per-link capacities, serializes `blueprints`, `components`,
-    and `network` sections, and optionally augments class-level adjacency with
-    per-end hardware derived from optics mapping.
-
-    Args:
-        graph: Integrated metro-highway graph loaded from JSON.
-        config: Topology configuration object.
-
-    Returns:
-        YAML string representing the NetGraph scenario.
-
-    Notes:
-        - Validation is performed by the caller (CLI) after YAML emission using
-          `topogen.validation.validate_scenario_yaml`.
-        - Side artifacts may be written if enabled in `config` (network graph JSON,
-          optional visualization exports).
-
-    Raises:
-        ValueError: If unknown blueprints are referenced; if ring-based adjacency
-            requires a positive metro radius; or if capacity assignment detects an
-            invalid or zero-size expansion.
+    Expand metros into PoP and DC sites, size links, and resolve hardware and
+    scenario libraries. Write site-graph JSON when an output directory is set,
+    and export maps when configured. The caller validates the returned YAML
+    with ``validate_scenario_yaml``; this function does not run workflows.
     """
     logger.info("Building NetGraph scenario from integrated graph")
 
@@ -110,16 +84,10 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         scenario_seed = 42
     scenario["seed"] = scenario_seed
 
-    # New graph-based pipeline builds the authoritative site graph first
     logger.info("Building site-level MultiGraph")
     G = build_site_graph(metros, metro_settings, graph, config)
     # Optional TM-based sizing before per-link capacity split
-    try:
-        tm_based_size_capacities(G, metros, metro_settings, config)
-    except Exception:
-        # Fail fast with clear error; no silent fallback
-        raise
-    # Log clearly which capacity path is in effect
+    tm_based_size_capacities(G, metros, metro_settings, config)
     try:
         tm_enabled = bool(
             getattr(getattr(config.build, "tm_sizing", object()), "enabled", False)
@@ -132,8 +100,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         logger.info("Assigning per-link capacities from configured base capacities")
     assign_per_link_capacity(G, config)
 
-    # Persist the site-level network graph JSON artefact in configured output dir
-    # Skip if no output directory is configured (e.g., during tests)
     try:
         cfg_out = getattr(config, "_output_dir", None)
         if cfg_out is not None and isinstance(cfg_out, (str, Path)):
@@ -159,7 +125,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     except Exception as e:  # pragma: no cover - best-effort artefact save
         logger.warning("Failed to save site-level network graph: %s", e)
 
-    # Optional: export a JPEG visualization of the site-level graph (match integrated graph DPI)
     try:
         cfg_out = getattr(config, "_output_dir", None)
         if (
@@ -190,7 +155,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     except Exception as e:  # pragma: no cover - best-effort
         logger.warning("Failed to export site-level graph visualization: %s", e)
 
-    # Determine used blueprints directly from the site graph (source of truth)
     used_blueprints = {
         str(data.get("site_blueprint", "")) for _n, data in G.nodes(data=True)
     }
@@ -208,7 +172,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     logger.info("Serializing network sections from MultiGraph")
     groups, adjacency = to_network_sections(G, metros, metro_settings, config)
     scenario["network"] = {"nodes": groups, "links": adjacency}
-    # Attach node_overrides emitted by graph_pipeline (e.g., for striping)
     try:
         overrides = G.graph.get("__emitted_node_overrides__", [])
         if isinstance(overrides, list) and overrides:
@@ -216,18 +179,16 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
     except Exception:
         pass
 
-    # Build risk groups and other sections prior to late HW so early exits still include them
     risk_groups = _build_risk_groups_section(graph, config)
     if risk_groups:
         scenario["risk_groups"] = risk_groups
-    scenario["failure_policy_set"] = _build_failure_policy_set_section(config)
+    scenario["failures"] = _build_failure_policy_set_section(config)
     traffic_section = _build_traffic_matrix_section(metros, metro_settings, config)
     if traffic_section:
-        scenario["traffic_matrix_set"] = traffic_section
+        scenario["demands"] = traffic_section
     scenario["workflow"] = _build_workflow_section(config)
-    # nothing to embed; keep scenario dict YAML-serializable only
 
-    # --- Late HW resolution using expanded DSL ---
+    # Resolve link hardware from expanded endpoint roles.
     from collections.abc import Mapping as _Mapping
 
     comp_obj = getattr(config, "components", None)
@@ -243,7 +204,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             get_builtin_components as _get_components_lib,
         )
     except Exception as exc:
-        # If optics are configured, expansion is required
         if optics_enabled:
             raise RuntimeError(
                 "Late hardware resolution requires DSL expansion when optics mapping is configured"
@@ -273,7 +233,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             "blueprints": scenario["blueprints"],
             "network": scenario["network"],
         }
-        # Ensure node_overrides (e.g., striping attributes) are available for expansion
         try:
             overrides = G.graph.get("__emitted_node_overrides__", [])
             if isinstance(overrides, list) and overrides:
@@ -292,14 +251,12 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
         )
         return _emit_yaml(scenario, yaml_anchors=_anchors)
 
-    # Build endpoint role lookup
     node_role: dict[str, str] = {}
     for node in net.nodes.values():
         r = str(node.attrs.get("role", "")).strip()
         if r:
             node_role[str(node.name)] = r
 
-    # Collect roles/capacities per adjacency id
     from collections import defaultdict
 
     per_adj: dict[str, list[tuple[str, str, float]]] = defaultdict(list)
@@ -316,7 +273,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             aid = str(link.attrs.get("link_type", ""))
         per_adj[aid].append((rs, rd, float(link.capacity)))
 
-    # Build optics lookup (unordered A|B and directional A-B)
     optics_lookup: dict[tuple[str, str], str] = {}
     if isinstance(raw_optics, _Mapping) and len(raw_optics) > 0:
         for k, v in raw_optics.items():
@@ -333,7 +289,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             logger.debug("Optics lookup built: %d entries", len(optics_lookup))
         except Exception:
             pass
-    # Augment class-level link attrs when a single role pair is present post-expansion
     if optics_lookup:
         augmented_total = 0
         augmented_by_pair: dict[tuple[str, str], int] = {}
@@ -394,7 +349,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
             except Exception:
                 pass
 
-        # Aggregate summary at INFO level
         try:
             if augmented_total > 0:
                 top_pairs = sorted(
@@ -416,15 +370,11 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
 
     _fmt = getattr(getattr(config, "output", None), "formatting", None)
     _anchors = bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
-    # Optional: export per-blueprint diagrams (abstract + concrete)
     try:
         if bool(getattr(config, "_export_blueprint_diagrams", False)):
             from topogen.visualization import export_blueprint_diagram
 
-            # Determine used blueprints again (same as before)
             used_blueprints = set(scenario.get("blueprints", {}).keys())
-            # Select a representative site with maximum attached capacity per blueprint
-            # Build lookup: site node name -> total incident link capacity from expanded net
             attached: dict[str, float] = {}
             for link in net.links.values():
                 cap = float(getattr(link, "capacity", 0.0) or 0.0)
@@ -435,8 +385,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
                 if t:
                     attached[t] = attached.get(t, 0.0) + cap
 
-            # Build mapping: site path -> blueprint used (from groups section attrs)
-            # We use the authoritative groups section emitted earlier
             site_to_bp: dict[str, str] = {}
             for gpath, gdef in scenario.get("network", {}).get("nodes", {}).items():
                 bp = str(gdef.get("blueprint", ""))
@@ -448,7 +396,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
                 m = _re.match(r"^(?P<prefix>.+?)\[(?P<a>\d+)-(?:\d+)\]$", gpath)
                 if m:
                     prefix = m.group("prefix")
-                    # Find any nodes whose path starts with this prefix in expanded net
                     for node in net.nodes.values():
                         nname = str(node.name)
                         if nname.startswith(prefix.rstrip("/")):
@@ -456,16 +403,13 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
                             site_path = "/".join(head)
                             site_to_bp[site_path] = bp
                 else:
-                    # Non-ranged path; take as-is
                     # Normalize to the first two components (site scope)
                     head = gpath.split("/", 2)[0:2]
                     site_path = "/".join(head)
                     site_to_bp[site_path] = bp
 
-            # For each used blueprint, pick site with max attached capacity
             bp_to_best_site: dict[str, str] = {}
             for site_path, bp in site_to_bp.items():
-                # Aggregate attached over concrete nodes under the site
                 prefix = f"{site_path}/"
                 tot = 0.0
                 for node_name, val in attached.items():
@@ -475,7 +419,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
                 if prev_site is None:
                     bp_to_best_site[bp] = site_path
                 else:
-                    # Compare totals
                     prev_tot = 0.0
                     for node_name, val in attached.items():
                         if str(node_name).startswith(f"{prev_site}/"):
@@ -483,7 +426,6 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
                     if tot > prev_tot:
                         bp_to_best_site[bp] = site_path
 
-            # Export one diagram per blueprint actually used
             cfg_out = getattr(config, "_output_dir", None)
             output_dir = (
                 Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
@@ -520,7 +462,7 @@ def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
 
 
 def _add_adjacency_comments(yaml_content: str) -> str:
-    """Add section comments to the adjacency section of the YAML."""
+    """Label intra-metro and inter-metro link sections in emitted YAML."""
     lines = yaml_content.split("\n")
     result_lines: list[str] = []
     in_adjacency = False
@@ -548,14 +490,10 @@ def _add_adjacency_comments(yaml_content: str) -> str:
                     link_type = "inter_metro"
                     break
             if link_type == "intra_metro" and not intra_metro_added:
-                result_lines.append(
-                    "  # Intra-metro adjacency (connectivity within each metro's sites)"
-                )
+                result_lines.append("  # Intra-metro links")
                 intra_metro_added = True
             elif link_type == "inter_metro" and not inter_metro_added:
-                result_lines.append(
-                    "  # Inter-metro corridor connectivity (backbone links between metros)"
-                )
+                result_lines.append("  # Inter-metro corridors")
                 inter_metro_added = True
         result_lines.append(line)
     return "\n".join(result_lines)

@@ -6,14 +6,7 @@ from typing import Any
 
 
 def _build_ig_coord_map(ig_json: dict[str, Any]) -> dict[str, tuple[float, float]]:
-    """Return metro name to (x, y) coordinate map from integrated graph JSON.
-
-    Args:
-        ig_json: Parsed JSON object for the integrated graph.
-
-    Returns:
-        Mapping from metro display name to coordinate tuple in the target CRS.
-    """
+    """Map metro names to projected (x, y) coordinates from integrated graph JSON."""
     mapping: dict[str, tuple[float, float]] = {}
     for node in ig_json.get("nodes", []) or []:
         try:

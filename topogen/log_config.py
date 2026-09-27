@@ -1,4 +1,4 @@
-"""Logging configuration for TopologyGenerator."""
+"""Logging configuration for TopoGen."""
 
 from __future__ import annotations
 
@@ -7,24 +7,12 @@ import sys
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance with the specified name.
-
-    Args:
-        name: Logger name, typically __name__ from calling module.
-
-    Returns:
-        Configured logger instance.
-    """
+    """Return the named logger without configuring it."""
     return logging.getLogger(name)
 
 
 def set_global_log_level(level: int) -> None:
-    """Set the global logging level for all topogen loggers.
-
-    Args:
-        level: Logging level (e.g., logging.DEBUG, logging.INFO).
-    """
-    # Configure root logger
+    """Configure root logging and set the level for TopoGen loggers."""
     logging.basicConfig(
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -33,6 +21,5 @@ def set_global_log_level(level: int) -> None:
         force=True,
     )
 
-    # Set level for topogen package loggers
     topogen_logger = logging.getLogger("topogen")
     topogen_logger.setLevel(level)

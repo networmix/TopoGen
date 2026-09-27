@@ -16,6 +16,24 @@ from topogen.naming import metro_slug
 logger = get_logger(__name__)
 
 
+def _validate_flow_policy_names(policies: dict[int, str]) -> None:
+    """Validate priority-to-preset mappings."""
+    from ngraph.model.flow import FlowPolicyPreset
+
+    if not isinstance(policies, dict):
+        raise ValueError(
+            "traffic.flow_policy_config must map priorities to preset names"
+        )
+    for value in policies.values():
+        if (
+            not isinstance(value, str)
+            or value.strip().upper() not in FlowPolicyPreset.__members__
+        ):
+            raise ValueError(
+                f"traffic.flow_policy_config values must be preset names, got {value!r}"
+            )
+
+
 def _normalize_int(value: Any, field: str) -> int:
     """Return an int from possibly underscored or float-like input.
 
@@ -23,7 +41,7 @@ def _normalize_int(value: Any, field: str) -> int:
     ValueError with field context on failure.
     """
     try:
-        if isinstance(value, bool):  # bool is int subclass; disallow here
+        if isinstance(value, bool):
             return int(value)
         if isinstance(value, int):
             return value
@@ -37,7 +55,6 @@ def _normalize_int(value: Any, field: str) -> int:
             if "." in s:
                 return int(float(s))
             return int(s)
-        # Fallback attempt
         return int(value)  # type: ignore[arg-type]
     except Exception as exc:  # noqa: BLE001
         raise ValueError(f"Invalid integer for {field}: {value!r}") from exc
@@ -45,11 +62,7 @@ def _normalize_int(value: Any, field: str) -> int:
 
 @dataclass
 class DataSources:
-    """Data source configuration for topology generation.
-
-    Contains paths to required geospatial datasets including Urban Area Centroids,
-    TIGER/Line Primary Roads, and CONUS boundary files.
-    """
+    """Paths to Census urban areas, TIGER/Line roads, and state boundaries."""
 
     uac_polygons: Path
     tiger_roads: Path
@@ -64,45 +77,36 @@ class DataSources:
 
 @dataclass
 class ProjectionConfig:
-    """Geographic projection configuration for coordinate reference systems.
-
-    Defines the target coordinate reference system for spatial operations and
-    transformations during topology generation.
-    """
+    """Target coordinate reference system for spatial operations."""
 
     target_crs: str = "EPSG:5070"
 
 
 @dataclass
 class HighwayProcessingConfig:
-    """Highway data processing configuration for lightweight approach.
+    """Highway class filtering, coordinate snapping, and graph cleanup settings.
 
-    Contains parameters for filtering, simplifying, and processing highway network
-    data from TIGER/Line sources to create a backbone topology graph.
+    The pipeline does not use ``min_cycle_nodes`` or ``validation_sample_size``.
     """
 
-    min_edge_length_km: float = 0.05  # Minimum edge length in kilometers
-    snap_precision_m: float = 10.0  # Grid snap precision in meters
+    min_edge_length_km: float = 0.05
+    snap_precision_m: float = 10.0
     highway_classes: list[str] = field(
         default_factory=lambda: ["S1100", "S1200"]
     )  # TIGER highway classes to keep
-    min_cycle_nodes: int = 3  # Minimum nodes to contract isolated cycles
+    min_cycle_nodes: int = 3
     filter_largest_component: bool = (
         True  # Keep only largest connected component if highway graph is disconnected
     )
-    validation_sample_size: int = 5  # Number of edges to validate for efficiency
+    validation_sample_size: int = 5
 
 
 @dataclass
 class RiskGroupsConfig:
-    """Risk groups configuration for corridor edge assignment.
+    """Corridor risk-group naming and metro-radius exclusion settings."""
 
-    Defines how risk groups are created and assigned to corridor edges,
-    supporting failure scenario analysis across the network.
-    """
-
-    enabled: bool = True  # Enable risk group assignment for corridor edges
-    group_prefix: str = "corridor_risk"  # Prefix for generated risk group names
+    enabled: bool = True
+    group_prefix: str = "corridor_risk"
     exclude_metro_radius_shared: bool = (
         True  # Exclude highway segments within metro radius from risk groups
     )
@@ -110,13 +114,9 @@ class RiskGroupsConfig:
 
 @dataclass
 class CorridorsConfig:
-    """Corridor discovery configuration for metro connectivity.
+    """Metro adjacency, path discovery, and corridor risk-group settings."""
 
-    Parameters for discovering and tagging corridors between metropolitan areas,
-    including adjacency rules and risk group assignment settings.
-    """
-
-    k_paths: int = 1  # Maximum number of diverse paths per adjacent metro pair (reduced for performance)
+    k_paths: int = 1  # Maximum number of shortest simple paths per adjacent metro pair
     k_nearest: int = 3  # Number of nearest neighbors per metro for adjacency
     # Euclidean threshold (km) for k-NN adjacency between metros.
     # Computed from centroid separation in target CRS; does not limit path length.
@@ -129,30 +129,22 @@ class CorridorsConfig:
 
 @dataclass
 class ValidationConfig:
-    """Validation parameters for topology generation quality checks.
-
-    Contains thresholds and requirements for validating the generated topology
-    meets connectivity and structural requirements.
-    """
+    """Distance, degree, and connectivity thresholds for graph validation."""
 
     max_metro_highway_distance_km: float = 10.0
     require_connected: bool = True
-    max_degree_threshold: int = 1000  # Maximum node degree before validation error
-    high_degree_warning: int = 20  # Node degree threshold for warnings
-    min_largest_component_fraction: float = 0.5  # Fails if sliver removal causes largest component to drop below 50% OR if corridor graph's largest component is below 50%
+    max_degree_threshold: int = 1000
+    high_degree_warning: int = 20
+    min_largest_component_fraction: float = (
+        0.5  # Minimum fraction of nodes in the largest component
+    )
 
 
 @dataclass
 class LinkParams:
-    """Link parameter configuration including capacity, cost, and attributes.
+    """Capacity budget, cost, and attributes for a site-to-site adjacency.
 
-    Defines link properties with both functional parameters (capacity, cost)
-    and metadata attributes that appear in the generated scenario.
-
-    Notes:
-        - ``match`` holds a NetGraph-style matcher object applied symmetrically to
-          both endpoints when emitting DSL. The graph-based pipeline stores this on
-          edges but does not interpret it during explicit pair serialization.
+    ``match`` is applied to both endpoints during NetGraph expansion.
     """
 
     capacity: int
@@ -163,7 +155,6 @@ class LinkParams:
     #   ["core|core", "core|leaf"] or [["core", "core"], ["core", "leaf"]]
     # The pipeline will auto-render a symmetric match from the union of roles.
     role_pairs: list[Any] = field(default_factory=list)
-    # endpoint_roles removed: explicit direction should not be configured.
     # Optional striping configuration for controlled device-group partitioning
     # during adjacency creation. Example: {"width": 4}
     striping: dict[str, Any] = field(default_factory=dict)
@@ -175,12 +166,7 @@ class LinkParams:
 
 @dataclass
 class BuildDefaults:
-    """Default configuration for build operations and site generation.
-
-    Default settings for generating sites within metropolitan areas,
-    including site count, blueprint assignments, and link parameters.
-    DC Regions are single-node groups connected to all local PoPs.
-    """
+    """Site counts, blueprints, and link settings used unless a metro overrides them."""
 
     pop_per_metro: int = 2
     site_blueprint: str = "SingleRouter"
@@ -217,11 +203,7 @@ class BuildDefaults:
 
 @dataclass
 class BuildConfig:
-    """Configuration for the build process and metro customization.
-
-    Contains default build settings and per-metro overrides for
-    customizing site generation within metropolitan areas.
-    """
+    """Scenario build defaults, per-metro overrides, and traffic sizing settings."""
 
     build_defaults: BuildDefaults = field(default_factory=BuildDefaults)
     build_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -232,25 +214,22 @@ class BuildConfig:
 
 @dataclass
 class BuildTmSizingConfig:
-    """Traffic-matrix-based capacity sizing configuration.
+    """Capacity sizing from traffic routed on a collapsed metro graph.
 
-    When enabled, capacities are sized from an early traffic matrix and ECMP
-    routing on the site-level graph before DSL expansion. This stage computes
-    per-corridor loads from DC-to-DC demands, applies headroom, and quantizes
-    to discrete capacity increments. Local DC-to-PoP and PoP-to-PoP base
-    capacities are then derived from metro egress.
+    Corridors are sized for peak directional load, with headroom and rounding
+    up to capacity increments. Local link capacities derive from PoP egress.
 
     Attributes:
-        enabled: Enable TM-based sizing stage.
-        matrix_name: Traffic matrix name to use. Defaults to ``traffic.matrix_name``.
-        quantum_gbps: Capacity quantum Q in Gb/s for rounding up.
-        headroom: Headroom multiplier h applied to corridor loads before quantizing.
-        alpha_dc_to_pop: Fraction for DC→PoP base capacity relative to PoP egress.
-        beta_intra_pop: Fraction for intra-metro PoP↔PoP base capacity relative to
-            the minimum of the two PoP egress values.
-        flow_placement: Flow splitting policy. One of {"EQUAL_BALANCED", "PROPORTIONAL"}.
-        edge_select: Path selection policy. One of {"ALL_MIN_COST", "ALL_MIN_COST_WITH_CAP_REMAINING"}.
-        respect_min_base_capacity: If True, do not size below configured base capacities.
+        matrix_name: Demand set to size for; defaults to ``traffic.matrix_name``.
+        quantum_gbps: Capacity increment in Gb/s.
+        headroom: Multiplier applied to corridor loads before rounding up.
+        alpha_dc_to_pop: DC-to-PoP capacity multiplier relative to PoP egress.
+        beta_intra_pop: Intra-metro capacity multiplier relative to the smaller
+            egress of the two PoPs.
+        flow_placement: ``EQUAL_BALANCED`` or ``PROPORTIONAL`` splitting.
+        edge_select: Stored setting; sizing uses all minimum-cost edges
+            regardless of this value.
+        respect_min_base_capacity: Keep capacities at least at their configured values.
     """
 
     enabled: bool = False
@@ -266,11 +245,7 @@ class BuildTmSizingConfig:
 
 @dataclass
 class ComponentAssignment:
-    """Component assignment configuration for a network role.
-
-    Defines hardware component and optics assignments for specific
-    roles within the network hierarchy (spine, leaf, core).
-    """
+    """Platform and optic names assigned to a network role."""
 
     hw_component: str = ""
     optics: str = ""
@@ -278,11 +253,7 @@ class ComponentAssignment:
 
 @dataclass
 class ComponentAssignments:
-    """Component assignments for network roles.
-
-    Only role-based assignments are supported. Blueprint-specific overrides and
-    inline library definitions have been removed to simplify configuration.
-    """
+    """Component assignments for network roles."""
 
     spine: ComponentAssignment = field(default_factory=ComponentAssignment)
     leaf: ComponentAssignment = field(default_factory=ComponentAssignment)
@@ -292,29 +263,23 @@ class ComponentAssignments:
 
 @dataclass
 class ComponentsConfig:
-    """Component assignment configuration for network hardware.
+    """Role-to-platform and role-pair-to-optic assignments.
 
-    Notes:
-        - Component definitions are not embedded in the config.
-        - At runtime, the merged library is used: built-ins updated with
-          entries from ``cwd/lib/components.yml`` (direct mapping name -> def).
-        - The configuration only specifies role assignments.
+    Definitions come from the built-ins and ``cwd/lib/components.yml``.
     """
 
     assignments: ComponentAssignments = field(default_factory=ComponentAssignments)
-    # New streamlined mappings (preferred over assignments when provided)
     # hw_component: role -> platform component name
-    # optics: "srcRole-dstRole" -> optic component name (applies to source end)
+    # optics: "source_role|target_role" -> optic component name
     hw_component: dict[str, str] = field(default_factory=dict)
     optics: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class FailurePolicyAssignments:
-    """Failure policy assignment configuration for scenarios.
+    """Failure-policy selection.
 
-    Defines default failure policies and scenario-specific overrides
-    for network resilience testing and analysis.
+    Scenario assembly uses ``default``; ``scenario_overrides`` is stored but not applied.
     """
 
     default: str = "single_random_link_failure"
@@ -323,14 +288,7 @@ class FailurePolicyAssignments:
 
 @dataclass
 class FailurePoliciesConfig:
-    """Failure policy assignment configuration for analysis.
-
-    Notes:
-        - Policy definitions are not embedded in the config.
-        - At runtime, the merged library is used: built-ins updated with
-          entries from ``cwd/lib/failure_policies.yml`` (direct mapping).
-        - The configuration only specifies default and per-scenario overrides.
-    """
+    """Select policies from the built-ins and ``cwd/lib/failure_policies.yml``."""
 
     assignments: FailurePolicyAssignments = field(
         default_factory=FailurePolicyAssignments
@@ -339,26 +297,18 @@ class FailurePoliciesConfig:
 
 @dataclass
 class WorkflowAssignments:
-    """Workflow assignment configuration for analysis execution.
+    """Workflow selection.
 
-    Defines default analysis workflows and scenario-specific overrides
-    for customizing network analysis procedures.
+    Scenario assembly uses ``default``; ``scenario_overrides`` is stored but not applied.
     """
 
-    default: str = "capacity_analysis"
+    default: str = "design_analysis_brief"
     scenario_overrides: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass
 class WorkflowsConfig:
-    """Workflow assignment configuration for network analysis.
-
-    Notes:
-        - Workflow step definitions are not embedded in the config.
-        - At runtime, the merged library is used: built-ins updated with
-          entries from ``cwd/lib/workflows.yml`` (direct mapping).
-        - The configuration only specifies default and per-scenario overrides.
-    """
+    """Select workflows from the built-ins and ``cwd/lib/workflows.yml``."""
 
     assignments: WorkflowAssignments = field(default_factory=WorkflowAssignments)
 
@@ -376,11 +326,10 @@ class TrafficGravityConfig:
         jitter_stddev: Lognormal sigma for multiplicative noise (0 disables jitter).
         rounding_gbps: If > 0, quantize undirected per-pair totals to this step size.
         rounding_policy: Quantization policy for undirected totals. One of
-            {"nearest", "ceil", "floor"}. "nearest" minimizes absolute error,
-            "ceil" guarantees non-negative inflation (sum >= exact total), and
-            "floor" guarantees non-positive inflation (sum <= exact total).
+            {"nearest", "ceil", "floor"}. Positive residual is distributed by
+            largest remainder; the final total may differ from offered traffic.
         mw_per_dc_region_overrides: Optional overrides by metro name or full DC path
-            (e.g., "metro3/dc2"). Overrides apply after defaults.
+            (e.g., "salt-lake-city/dc2"). Overrides apply after defaults.
     """
 
     alpha: float = 1.0
@@ -400,7 +349,7 @@ class TrafficHoseConfig:
 
     Attributes:
         tilt_exponent: Non-negative exponent controlling gravity tilt strength.
-            0.0 yields unbiased hose; higher values bias initialization toward
+            0.0 disables distance weighting; higher values bias initialization toward
             shorter-distance pairs via a distance kernel before IPF.
         beta: Distance exponent in the tilt kernel (km-based).
         min_distance_km: Minimum effective distance to avoid singularities.
@@ -411,7 +360,7 @@ class TrafficHoseConfig:
     beta: float = 1.0
     min_distance_km: float = 1.0
     exclude_same_metro: bool = False
-    # Optional gravity-carved support: keep only strongest partners per DC
+    # Retain the union of each DC's top-K partners by fitted traffic volume.
     carve_top_k: int | None = None
 
 
@@ -419,18 +368,16 @@ class TrafficHoseConfig:
 class TrafficConfig:
     """Traffic generation configuration for scenario build.
 
-    Defines parameters for generating DC-to-DC traffic matrices.
-
     Attributes:
         enabled: Whether to generate and include a traffic matrix.
         gbps_per_mw: Offered traffic per MW of DC power (Gbps/MW).
         mw_per_dc_region: Power per DC region (MW).
         priority_ratios: Mapping from priority class to ratio. Values must sum to 1.0.
-        flow_policy_config: Optional mapping from priority class to flow policy
-            configuration name to attach to each demand entry as
-            ``flow_policy_config``. Keys are integers matching priority classes.
-        matrix_name: Name of the traffic matrix in the scenario.
-        model: "uniform" (default) or "gravity".
+        flow_policy_config: Optional mapping from priority class to NetGraph flow
+            policy preset name, emitted as ``flow_policy`` in the scenario.
+            Keys are integers matching priority classes.
+        matrix_name: Name of the demand set in the emitted scenario.
+        model: "uniform" (default), "gravity", or "hose".
         gravity: Parameters for gravity model when model == "gravity".
     """
 
@@ -448,33 +395,28 @@ class TrafficConfig:
     gravity: TrafficGravityConfig = field(default_factory=TrafficGravityConfig)
     hose: TrafficHoseConfig = field(default_factory=TrafficHoseConfig)
 
+    def __post_init__(self) -> None:
+        _validate_flow_policy_names(self.flow_policy_config)
+
 
 @dataclass
 class ScenarioMetadata:
-    """NetGraph scenario metadata for generated topologies.
-
-    Contains descriptive information about generated network scenarios
-    including title, description, and version information.
-    """
+    """Title, description, and version for generated scenarios."""
 
     title: str = "Continental US Backbone Topology"
-    description: str = "Generated backbone topology based on population density and highway infrastructure"
+    description: str = (
+        "Generated backbone topology from Census urban areas and highway corridors"
+    )
     version: str = "1.0"
 
 
 @dataclass
 class ClusteringConfig:
-    """Metro clustering configuration for urban area processing.
-
-    Parameters for selecting and processing metropolitan areas from Census data,
-    including clustering parameters and visualization export settings.
-    """
+    """Urban-area selection, radius limits, precision, and map export settings."""
 
     metro_clusters: int = 30  # Target number of metro clusters
     max_uac_radius_km: float = 100.0  # Maximum radius for UAC urban areas
-    export_clusters: bool = (
-        False  # Export cluster visualization files (JPEG + simplified GeoJSON)
-    )
+    export_clusters: bool = False  # Export metro points as GeoJSON and a JPEG map
     export_integrated_graph: bool = (
         False  # Export integrated graph visualization (metro clusters + corridors)
     )
@@ -487,11 +429,7 @@ class ClusteringConfig:
 
 @dataclass
 class FormattingConfig:
-    """Data formatting and precision configuration for output generation.
-
-    Controls output formatting and precision settings for consistent
-    data representation across all generated files.
-    """
+    """JSON indentation and YAML anchor settings."""
 
     json_indent: int = 2  # JSON output indentation
     yaml_anchors: bool = True  # Emit YAML anchors/aliases when dumping scenario YAML
@@ -499,11 +437,7 @@ class FormattingConfig:
 
 @dataclass
 class OutputConfig:
-    """Output configuration for scenario generation and formatting.
-
-    Combines scenario metadata and formatting settings to control
-    how generated topologies are structured and presented.
-    """
+    """Scenario metadata, formatting, and random seed."""
 
     scenario_metadata: ScenarioMetadata = field(default_factory=ScenarioMetadata)
     formatting: FormattingConfig = field(default_factory=FormattingConfig)
@@ -513,11 +447,7 @@ class OutputConfig:
 
 @dataclass
 class TopologyConfig:
-    """Complete topology generator configuration for backbone generation.
-
-    Main configuration class that aggregates all subsystem configurations
-    for comprehensive topology generation from raw data to NetGraph scenarios.
-    """
+    """Settings for geographic graph generation and NetGraph scenario assembly."""
 
     # Configuration sections
     data_sources: DataSources = field(
@@ -536,9 +466,6 @@ class TopologyConfig:
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
 
-    # Visualization settings
-    # Added as optional section; defaults preserve previous behavior (straight-line corridors)
-    # Parsed below after class definitions.
     build: BuildConfig = field(default_factory=BuildConfig)
     components: ComponentsConfig = field(default_factory=ComponentsConfig)
     failure_policies: FailurePoliciesConfig = field(
@@ -546,7 +473,6 @@ class TopologyConfig:
     )
     workflows: WorkflowsConfig = field(default_factory=WorkflowsConfig)
     traffic: TrafficConfig = field(default_factory=TrafficConfig)
-    # Visualization behavior; default False keeps previous straight-line rendering
     _use_real_corridor_geometry: bool = False
     _export_site_graph: bool = False
     _visualization_dpi: int = 300
@@ -559,18 +485,10 @@ class TopologyConfig:
 
     @classmethod
     def from_yaml(cls, config_path: Path) -> TopologyConfig:
-        """Load configuration from YAML file.
+        """Load YAML, validate it against the packaged schema, and parse settings.
 
-        Args:
-            config_path: Path to YAML configuration file.
-
-        Returns:
-            Parsed configuration object.
-
-        Raises:
-            FileNotFoundError: If config file doesn't exist.
-            yaml.YAMLError: If YAML is invalid.
-            ValueError: If configuration is invalid.
+        Raises FileNotFoundError for a missing file, yaml.YAMLError for invalid
+        YAML, and ValueError for invalid settings.
         """
         logger.info(f"Loading configuration from: {config_path}")
 
@@ -620,15 +538,7 @@ class TopologyConfig:
 
     @classmethod
     def _from_dict(cls, config_dict: dict[str, Any]) -> TopologyConfig:
-        """Create configuration from dictionary.
-
-        Args:
-            config_dict: Raw configuration dictionary.
-
-        Returns:
-            Parsed configuration object.
-        """
-        # Extract nested configurations with strict validation
+        """Parse configuration sections and validate their types and values."""
         if "data_sources" not in config_dict:
             raise ValueError("Missing required 'data_sources' configuration section")
         if "projection" not in config_dict:
@@ -650,14 +560,12 @@ class TopologyConfig:
         projection_dict = config_dict["projection"]
         clustering_dict = config_dict["clustering"]
 
-        # Handle override_metro_clusters as optional list
         if "override_metro_clusters" not in clustering_dict:
             clustering_dict["override_metro_clusters"] = []
         highway_dict = config_dict["highway_processing"]
         corridors_dict = config_dict["corridors"]
         validation_dict = config_dict["validation"]
 
-        # Handle risk_groups configuration within corridors
         if "risk_groups" in corridors_dict:
             risk_groups_dict = corridors_dict["risk_groups"]
             risk_groups_config = RiskGroupsConfig(**risk_groups_dict)
@@ -665,7 +573,6 @@ class TopologyConfig:
             corridors_dict["risk_groups"] = risk_groups_config
         output_dict = config_dict["output"]
 
-        # Create nested objects with validation
         data_sources = DataSources(**data_sources_dict)
         projection = ProjectionConfig(**projection_dict)
         clustering = ClusteringConfig(**clustering_dict)
@@ -673,7 +580,6 @@ class TopologyConfig:
         corridors = CorridorsConfig(**corridors_dict)
         validation = ValidationConfig(**validation_dict)
 
-        # Handle output configuration with strict validation
         if "scenario_metadata" not in output_dict:
             raise ValueError(
                 "Missing required 'scenario_metadata' in output configuration"
@@ -692,7 +598,6 @@ class TopologyConfig:
             scenario_seed=int(output_dict.get("scenario_seed", 42)),
         )
 
-        # Handle optional build configuration
         build_dict = config_dict.get("build", {})
         if not isinstance(build_dict, dict):
             raise ValueError("'build' configuration section must be a dictionary")
@@ -710,7 +615,6 @@ class TopologyConfig:
         if not isinstance(tm_sizing_dict, dict):
             raise ValueError("'tm_sizing' must be a dictionary if provided")
 
-        # Parse link parameter configurations
         intra_metro_link_dict = build_defaults_dict.get("intra_metro_link", {})
         inter_metro_link_dict = build_defaults_dict.get("inter_metro_link", {})
         dc_to_pop_link_dict = build_defaults_dict.get("dc_to_pop_link", {})
@@ -722,7 +626,6 @@ class TopologyConfig:
         if not isinstance(dc_to_pop_link_dict, dict):
             raise ValueError("'build_defaults.dc_to_pop_link' must be a dictionary")
 
-        # Create link parameter objects with defaults
         intra_metro_link = LinkParams(
             capacity=_normalize_int(
                 intra_metro_link_dict.get("capacity", 400),
@@ -777,7 +680,6 @@ class TopologyConfig:
             mode=str(dc_to_pop_link_dict.get("mode", "mesh")),
         )
 
-        # Create BuildDefaults with explicit parameters
         build_defaults = BuildDefaults(
             pop_per_metro=build_defaults_dict.get("pop_per_metro", 2),
             site_blueprint=build_defaults_dict.get("site_blueprint", "SingleRouter"),
@@ -789,7 +691,6 @@ class TopologyConfig:
             inter_metro_link=inter_metro_link,
             dc_to_pop_link=dc_to_pop_link,
         )
-        # TM-based sizing configuration
         _allowed_tm_keys = {
             "enabled",
             "matrix_name",
@@ -852,10 +753,8 @@ class TopologyConfig:
             else:
                 raise ValueError("'metros' must be a string or a list of strings")
 
-            # Extract override body excluding 'metros'
             override_body = {k: v for k, v in entry.items() if k != "metros"}
 
-            # Validate override keys strictly
             extra_keys = set(override_body.keys()) - allowed_override_keys
             if extra_keys:
                 raise ValueError(
@@ -874,17 +773,14 @@ class TopologyConfig:
             tm_sizing=tm_sizing,
         )
 
-        # Handle optional components configuration (streamlined mappings)
         components_dict = config_dict.get("components", {})
         if not isinstance(components_dict, dict):
             raise ValueError("'components' configuration section must be a dictionary")
 
-        # Parse component assignments
         assignments_dict = components_dict.get("assignments", {})
         if not isinstance(assignments_dict, dict):
             raise ValueError("'components.assignments' must be a dictionary")
 
-        # Parse role assignments
         spine_assignment = ComponentAssignment(**assignments_dict.get("spine", {}))
         leaf_assignment = ComponentAssignment(**assignments_dict.get("leaf", {}))
         core_assignment = ComponentAssignment(**assignments_dict.get("core", {}))
@@ -897,7 +793,6 @@ class TopologyConfig:
             dc=dc_assignment,
         )
 
-        # New streamlined mappings
         hw_component_map = components_dict.get("hw_component", {}) or {}
         optics_map = components_dict.get("optics", {}) or {}
         if hw_component_map is not None and not isinstance(hw_component_map, dict):
@@ -913,14 +808,12 @@ class TopologyConfig:
             optics=optics_map if isinstance(optics_map, dict) else {},
         )
 
-        # Handle optional failure_policies configuration (assignments only)
         failure_policies_dict = config_dict.get("failure_policies", {})
         if not isinstance(failure_policies_dict, dict):
             raise ValueError(
                 "'failure_policies' configuration section must be a dictionary"
             )
 
-        # Parse failure policy assignments
         fp_assignments_dict = failure_policies_dict.get("assignments", {})
         if fp_assignments_dict is None:
             fp_assignments_dict = {}
@@ -939,19 +832,17 @@ class TopologyConfig:
 
         failure_policies = FailurePoliciesConfig(assignments=fp_assignments)
 
-        # Handle optional workflows configuration (assignments only)
         workflows_dict = config_dict.get("workflows", {})
         if not isinstance(workflows_dict, dict):
             raise ValueError("'workflows' configuration section must be a dictionary")
 
-        # Parse workflow assignments
         wf_assignments_dict = workflows_dict.get("assignments", {})
         if wf_assignments_dict is None:
             wf_assignments_dict = {}
         if not isinstance(wf_assignments_dict, dict):
             raise ValueError("'workflows.assignments' must be a dictionary")
 
-        wf_default = wf_assignments_dict.get("default", "capacity_analysis")
+        wf_default = wf_assignments_dict.get("default", WorkflowAssignments().default)
         wf_scenario_overrides = wf_assignments_dict.get("scenario_overrides", {})
         if wf_scenario_overrides is None:
             wf_scenario_overrides = {}
@@ -963,7 +854,6 @@ class TopologyConfig:
 
         workflows = WorkflowsConfig(assignments=wf_assignments)
 
-        # Handle optional traffic configuration
         traffic_dict = config_dict.get("traffic", {})
         if traffic_dict is None:
             traffic_dict = {}
@@ -986,7 +876,6 @@ class TopologyConfig:
                 normalized_ratios[key_int] = float(v)
             traffic_dict = {**traffic_dict, "priority_ratios": normalized_ratios}
 
-        # Normalize nested gravity config if present
         gravity_dict = traffic_dict.get("gravity", None)
         if gravity_dict is None:
             gravity_cfg = TrafficGravityConfig()
@@ -995,7 +884,6 @@ class TopologyConfig:
                 raise ValueError("'traffic.gravity' must be a dictionary")
             gravity_cfg = TrafficGravityConfig(**gravity_dict)
 
-        # Normalize optional hose config
         hose_dict = traffic_dict.get("hose", None)
         if hose_dict is None:
             hose_cfg = TrafficHoseConfig()
@@ -1022,9 +910,8 @@ class TopologyConfig:
                     raise ValueError(
                         "'traffic.flow_policy_config' keys must be integers"
                     ) from exc
-                flow_policy_cfg_map[key_int] = str(v)
+                flow_policy_cfg_map[key_int] = v
 
-        # Compose TrafficConfig
         traffic = TrafficConfig(
             enabled=bool(traffic_dict.get("enabled", True)),
             gbps_per_mw=float(traffic_dict.get("gbps_per_mw", 1000.0)),
@@ -1034,14 +921,12 @@ class TopologyConfig:
             ),
             flow_policy_config=flow_policy_cfg_map,
             matrix_name=str(traffic_dict.get("matrix_name", "default")),
-            # Accept both "uniform" and the historical name "uniform_pairwise"
             model=str(traffic_dict.get("model", "uniform")).strip(),
             samples=int(traffic_dict.get("samples", 1)),
             gravity=gravity_cfg,
             hose=hose_cfg,
         )
 
-        # Validate traffic configuration
         if traffic.enabled:
             if traffic.gbps_per_mw < 0:
                 raise ValueError("traffic.gbps_per_mw must be non-negative")
@@ -1060,7 +945,6 @@ class TopologyConfig:
             if abs(total_ratio - 1.0) > 1e-9:
                 raise ValueError("traffic.priority_ratios values must sum to 1.0")
 
-            # Validate optional per-priority flow policy mapping
             if traffic.flow_policy_config:
                 # Keys must be subset of defined priority classes
                 extra_keys = [
@@ -1071,14 +955,7 @@ class TopologyConfig:
                         "traffic.flow_policy_config contains unknown priority classes; "
                         f"allowed: {classes}, got: {sorted(extra_keys)}"
                     )
-                # Values must be non-empty strings
-                for v in traffic.flow_policy_config.values():
-                    if not isinstance(v, str) or not v.strip():
-                        raise ValueError(
-                            "traffic.flow_policy_config values must be non-empty strings"
-                        )
 
-            # Validate traffic model
             if traffic.model not in {"uniform", "gravity", "hose"}:
                 raise ValueError(
                     "traffic.model must be 'uniform', 'gravity', or 'hose'"
@@ -1088,7 +965,6 @@ class TopologyConfig:
                     raise ValueError(
                         "traffic.samples must be a positive integer for hose model"
                     )
-                # Validate hose sub-config
                 h = getattr(traffic, "hose", TrafficHoseConfig())
                 if h.tilt_exponent < 0.0:
                     raise ValueError("traffic.hose.tilt_exponent must be non-negative")
@@ -1101,7 +977,6 @@ class TopologyConfig:
                         "traffic.hose.carve_top_k must be positive when set"
                     )
 
-            # Validate gravity sub-config
             g = traffic.gravity
             if g.alpha <= 0.0:
                 raise ValueError("traffic.gravity.alpha must be positive")
@@ -1109,7 +984,6 @@ class TopologyConfig:
                 raise ValueError("traffic.gravity.beta must be positive")
             if g.min_distance_km <= 0.0:
                 raise ValueError("traffic.gravity.min_distance_km must be positive")
-            # distance_metric and emission removed; only explicit per-pair emission with Euclidean distance is supported
             if g.max_partners_per_dc is not None and g.max_partners_per_dc <= 0:
                 raise ValueError(
                     "traffic.gravity.max_partners_per_dc must be positive when set"
@@ -1119,7 +993,6 @@ class TopologyConfig:
             if g.rounding_gbps < 0.0:
                 raise ValueError("traffic.gravity.rounding_gbps must be non-negative")
 
-        # Optional visualization flags
         vis = config_dict.get("visualization", {}) or {}
         if not isinstance(vis, dict):
             raise ValueError(
@@ -1137,14 +1010,12 @@ class TopologyConfig:
                 "'visualization.site_graph' must be a dictionary if provided"
             )
         export_site_graph = bool(vis_site.get("export", False))
-        # Optional per-blueprint diagram export
         vis_blueprints = vis.get("blueprints", {}) or {}
         if not isinstance(vis_blueprints, dict):
             raise ValueError(
                 "'visualization.blueprints' must be a dictionary if provided"
             )
         export_blueprints = bool(vis_blueprints.get("export", False))
-        # Optional global visualization DPI
         dpi_val = vis.get("dpi", 300)
         try:
             visualization_dpi = int(dpi_val)
@@ -1153,7 +1024,6 @@ class TopologyConfig:
         except Exception as exc:
             raise ValueError("'visualization.dpi' must be a positive integer") from exc
 
-        # Create main configuration
         cfg = cls(
             data_sources=data_sources,
             projection=projection,
@@ -1168,7 +1038,6 @@ class TopologyConfig:
             workflows=workflows,
             traffic=traffic,
         )
-        # Attach dynamic flag for visualization behavior; default False if unspecified
         cfg._use_real_corridor_geometry = use_real_geometry
         cfg._export_site_graph = export_site_graph
         cfg._visualization_dpi = visualization_dpi
@@ -1176,18 +1045,12 @@ class TopologyConfig:
         return cfg
 
     def validate(self) -> None:
-        """Validate configuration parameters.
-
-        Raises:
-            ValueError: If configuration is invalid.
-        """
+        """Check the metro count and required data files, raising ValueError on failure."""
         logger.info("Validating configuration")
 
-        # Validate numeric parameters first
         if self.clustering.metro_clusters <= 0:
             raise ValueError("metro_clusters must be positive")
 
-        # Check data sources exist (only if doing full validation)
         if not self.data_sources.uac_polygons.exists():
             raise ValueError(
                 f"UAC polygons file not found: {self.data_sources.uac_polygons}"
@@ -1206,11 +1069,7 @@ class TopologyConfig:
         logger.info("Configuration validation passed")
 
     def summary(self) -> str:
-        """Generate configuration summary string.
-
-        Returns:
-            Human-readable configuration summary.
-        """
+        """Return a human-readable configuration summary."""
         lines = [
             "TOPOLOGY GENERATOR CONFIGURATION",
             "=" * 60,

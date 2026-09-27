@@ -23,11 +23,7 @@ from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestEndToEndRiskGroups:
-    """Test complete risk group workflow from corridor discovery to scenario generation."""
-
     def test_complete_risk_group_workflow(self):
-        """Test complete workflow: corridor discovery → risk assignment → scenario generation."""
-        # Step 1: Create test highway network with metro anchors
         highway_graph = nx.Graph()
 
         # Highway backbone: A --- B --- C --- D
@@ -38,7 +34,6 @@ class TestEndToEndRiskGroups:
         # Branch from B: B --- E
         highway_graph.add_edge((500.0, 0.0), (500.0, 500.0), length_km=500.0)  # B-E
 
-        # Step 2: Create metros
         metros = [
             MetroCluster(
                 "metro1",
@@ -75,7 +70,6 @@ class TestEndToEndRiskGroups:
             ),
         ]
 
-        # Step 3: Add metro nodes to highway graph
         for metro in metros:
             highway_graph.add_node(
                 metro.node_key,
@@ -88,13 +82,10 @@ class TestEndToEndRiskGroups:
                 radius_km=metro.radius_km,
             )
 
-            # Add anchor edges (metros connected to highway nodes)
             anchor_point = metro.node_key  # For simplicity, metro is at highway node
             if anchor_point in highway_graph.nodes:
-                # Already added as highway node, just update type
                 highway_graph.nodes[anchor_point]["node_type"] = "metro+highway"
 
-        # Step 4: Simulate corridor discovery by adding corridor tags
         # Denver → Kansas City corridor (uses A-B-C)
         highway_graph[(0.0, 0.0)][(500.0, 0.0)]["corridor"] = [
             {
@@ -141,7 +132,6 @@ class TestEndToEndRiskGroups:
             }
         ]
 
-        # Step 5: Assign risk groups
         config = CorridorsConfig()
         config.risk_groups = RiskGroupsConfig(
             enabled=True,
@@ -151,7 +141,6 @@ class TestEndToEndRiskGroups:
 
         assign_risk_groups_to_corridors(highway_graph, metros, config)
 
-        # Step 6: Prepare minimal registry for extraction (one shortest path per pair)
         registry = {}
         # metro1-metro2 via two edges total 1000km
         pid_12 = ("metro1", "metro2", 0)
@@ -187,7 +176,6 @@ class TestEndToEndRiskGroups:
             geometry=[metros[1].node_key, metros[3].node_key],
         )
         highway_graph.graph["corridor_paths"] = registry
-        # Tag edges with path membership for risk aggregation
         highway_graph[(0.0, 0.0)][(500.0, 0.0)]["corridor_path_ids"] = {pid_12}
         highway_graph[(500.0, 0.0)][(1000.0, 0.0)]["corridor_path_ids"] = {
             pid_12,
@@ -198,7 +186,6 @@ class TestEndToEndRiskGroups:
 
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
-        # Step 7: Generate scenario
         scenario_config = TopologyConfig()
         scenario_config.build = BuildConfig(
             build_defaults=BuildDefaults(pop_per_metro=2, site_blueprint="SingleRouter")
@@ -212,32 +199,25 @@ class TestEndToEndRiskGroups:
         yaml_str = build_scenario(corridor_graph, scenario_config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Step 8: Verify end-to-end results
-
-        # Should have risk groups section
         assert "risk_groups" in scenario_data
         risk_groups = {rg["name"] for rg in scenario_data["risk_groups"]}
 
-        # Should have risk groups for each corridor
         assert "corridor_risk_denver-aurora_kansas-city" in risk_groups
         assert "corridor_risk_kansas-city_omaha" in risk_groups
         assert "corridor_risk_kansas-city_minneapolis-st-paul" in risk_groups
 
-        # Should have metro groups with correct naming (both PoPs and DC regions)
         groups = scenario_data["network"]["nodes"]
         metro_groups = [
             g for g in groups.values() if "metro_name" in g.get("attrs", {})
         ]
         assert len(metro_groups) == 8  # 4 metros x 2 types (PoPs + DC regions)
 
-        # Check metro name attributes
         metro_names = {g["attrs"]["metro_name"] for g in metro_groups}
         assert "denver-aurora" in metro_names
         assert "kansas-city" in metro_names
         assert "omaha" in metro_names
         assert "minneapolis-st-paul" in metro_names
 
-        # Should have corridor adjacencies with risk groups
         adjacency = scenario_data["network"]["links"]
         corridor_links = [
             adj
@@ -247,7 +227,6 @@ class TestEndToEndRiskGroups:
 
         assert len(corridor_links) >= 3  # At least 3 corridors
 
-        # Find the Kansas City - Denver corridor (should have shared risk)
         kc_denver_link = None
         for link in corridor_links:
             attrs = link["attrs"]
@@ -271,8 +250,6 @@ class TestEndToEndRiskGroups:
         )  # Shared risk
 
     def test_metro_radius_exclusion_integration(self):
-        """Test that metro radius exclusion works in the complete workflow."""
-        # Create highway network with edges near metro
         highway_graph = nx.Graph()
 
         # Highway edge very close to metro center (passes through center at y=1000)
@@ -286,7 +263,6 @@ class TestEndToEndRiskGroups:
             (1200000.0, 1000.0), (2000000.0, 1000.0), length_km=800.0
         )
 
-        # Add metros
         metros = [
             MetroCluster(
                 "metro1", "test-metro", "Test Metro", "001", 100.0, 1000.0, 1000.0, 50.0
@@ -307,7 +283,6 @@ class TestEndToEndRiskGroups:
                 radius_km=metro.radius_km,
             )
 
-        # Add corridor tags to both edges
         highway_graph[close_edge[0]][close_edge[1]]["corridor"] = [
             {
                 "metro_a": "metro1",
@@ -325,23 +300,20 @@ class TestEndToEndRiskGroups:
             }
         ]
 
-        # Configure with metro radius exclusion enabled
         config = CorridorsConfig()
         config.risk_groups = RiskGroupsConfig(
             enabled=True,
-            exclude_metro_radius_shared=True,  # Enable exclusion
+            exclude_metro_radius_shared=True,
         )
 
         assign_risk_groups_to_corridors(highway_graph, metros, config)
 
-        # Close edge should NOT have risk groups (within metro radius)
         close_edge_data = highway_graph[close_edge[0]][close_edge[1]]
         assert (
             "risk_groups" not in close_edge_data
             or len(close_edge_data.get("risk_groups", [])) == 0
         )
 
-        # Far edge should have risk groups
         far_edge_data = highway_graph[(1200000.0, 1000.0)][(2000000.0, 1000.0)]
         assert "risk_groups" in far_edge_data
         assert len(far_edge_data["risk_groups"]) > 0
@@ -378,13 +350,10 @@ class TestEndToEndRiskGroups:
         yaml_str = build_scenario(corridor_graph, scenario_config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Should still have risk groups in scenario (from far edge)
         assert "risk_groups" in scenario_data
         assert len(scenario_data["risk_groups"]) > 0
 
     def test_risk_group_naming_consistency_end_to_end(self):
-        """Test that risk group naming is consistent throughout the complete workflow."""
-        # Create simple 3-metro network
         highway_graph = nx.Graph()
 
         metros = [
@@ -428,7 +397,6 @@ class TestEndToEndRiskGroups:
                 metro_id=metro.metro_id,
             )
 
-        # Add highway edges connecting metros
         highway_graph.add_edge(
             (100000.0, 0.0),
             (900000.0, 0.0),
@@ -514,7 +482,6 @@ class TestEndToEndRiskGroups:
             ),
         }
 
-        # Tag edges for chosen paths
         highway_graph[(100000.0, 0.0)][(900000.0, 0.0)]["corridor_path_ids"] = {
             pid_12_0
         }
@@ -541,18 +508,14 @@ class TestEndToEndRiskGroups:
         yaml_str = build_scenario(corridor_graph, scenario_config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Check that risk group names use sanitized metro names consistently
         risk_group_names = {rg["name"] for rg in scenario_data["risk_groups"]}
 
-        # Should use alphabetically sorted sanitized names
         assert "corridor_risk_albuquerque_denver-aurora" in risk_group_names
         assert "corridor_risk_denver-aurora_kansas-city" in risk_group_names
 
-        # Should handle multiple paths
         assert "corridor_risk_albuquerque_denver-aurora_path1" in risk_group_names
         assert "corridor_risk_denver-aurora_kansas-city_path1" in risk_group_names
 
-        # Check adjacency links have correct risk groups assigned
         adjacency = scenario_data["network"]["links"]
         corridor_links = [
             adj
@@ -560,7 +523,6 @@ class TestEndToEndRiskGroups:
             if adj.get("attrs", {}).get("link_type") == "inter_metro_corridor"
         ]
 
-        # Find the Denver-Kansas City link
         denver_kc_link = None
         for link in corridor_links:
             link_attrs = link["attrs"]

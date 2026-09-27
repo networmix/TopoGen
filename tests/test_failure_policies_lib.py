@@ -1,4 +1,4 @@
-"""Tests for the failure policies library module (minimal API)."""
+"""Tests for failure policy defaults and file overrides."""
 
 from __future__ import annotations
 
@@ -12,8 +12,6 @@ from topogen.failure_policies_lib import get_builtin_failure_policies
 
 
 class TestBuiltinFailurePoliciesMinimal:
-    """Tests for minimal API: get_builtin_failure_policies and merging behavior."""
-
     def test_returns_dict_and_contains_single_random_link(self) -> None:
         policies = get_builtin_failure_policies()
         assert isinstance(policies, dict)
@@ -29,7 +27,6 @@ class TestBuiltinFailurePoliciesMinimal:
         assert "X" not in p2
 
     def test_user_library_merge_and_override(self, tmp_path: Path) -> None:
-        # Create lib/failure_policies.yml in a temp cwd
         lib_dir = tmp_path / "lib"
         lib_dir.mkdir(parents=True)
         user_yaml: dict[str, Any] = {
@@ -56,7 +53,6 @@ class TestBuiltinFailurePoliciesMinimal:
         with (lib_dir / "failure_policies.yml").open("w", encoding="utf-8") as f:
             yaml.safe_dump(user_yaml, f)
 
-        # Change cwd to tmp and verify merge
         old_cwd = Path.cwd()
         try:
             os.chdir(tmp_path)
@@ -66,7 +62,6 @@ class TestBuiltinFailurePoliciesMinimal:
                 merged["single_random_link_failure"]["modes"][0]["rules"][0]["count"]
                 == 2
             )
-            # Custom added
             assert "custom_policy" in merged
         finally:
             os.chdir(old_cwd)

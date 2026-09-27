@@ -1,16 +1,8 @@
-"""Scenario validation package.
+"""Validate generated scenarios against schema, topology, and hardware constraints.
 
-This package provides validation helpers to check a generated NetGraph scenario for:
-
-- Intra-metro attribute consistency between PoP and DC groups
-- Presence of required DC attributes (``mw_per_dc_region``, ``gbps_per_mw``)
-- Existence of referenced traffic matrices and failure policies in workflow
-- Optional cross-check of metro coordinates against the integrated graph
-- Optional schema validation via ``ngraph.scenario.Scenario`` and expansion/audits
-
-Public API:
-    - validate_scenario_dict
-    - validate_scenario_yaml
+``validate_scenario_dict`` checks attributes, coordinates, and references.
+With ``run_ngraph=True``, ``validate_scenario_yaml`` also checks the schema,
+constructs a NetGraph Scenario, and audits expansion, hardware, optics, and ports.
 """
 
 from __future__ import annotations

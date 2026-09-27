@@ -2,10 +2,9 @@
 requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
-# ---------------------------------------------------------------------
 [project]
 name = "topogen"
-version = "0.4.0"
+version = "0.5.0"
 description = "A network topology generator."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
@@ -46,9 +45,9 @@ dependencies = [
     # Strict schema validation at runtime
     "jsonschema",
     # NetGraph ecosystem
-    "ngraph>=0.12.0",
-    "netgraph-core>=0.3.0",
-] # Runtime deps
+    "ngraph>=0.23.1",
+    "netgraph-core>=0.10.0",
+]
 
 # Dev / CI extras
 [project.optional-dependencies]
@@ -77,7 +76,6 @@ dev = [
 [project.scripts]
 topogen = "topogen.cli:main"
 
-# ---------------------------------------------------------------------
 # Pytest flags
 [tool.pytest.ini_options]
 addopts = "--cov=./topogen --cov-fail-under=50 --cov-report term-missing --benchmark-disable-gc --benchmark-min-rounds=5 --benchmark-warmup=on"
@@ -87,7 +85,6 @@ markers = [
     "benchmark: marks tests as performance benchmarks (run with '-m benchmark')",
 ]
 
-# ---------------------------------------------------------------------
 # Coverage configuration
 [tool.coverage.run]
 source = ["."]
@@ -101,7 +98,6 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-# ---------------------------------------------------------------------
 # Package discovery
 [tool.setuptools.packages.find]
 include = ["topogen*"]
@@ -111,7 +107,6 @@ exclude = ["tests*", "notebooks*", "examples*", "dev*"]
 "topogen.schemas" = ["topogen_config.json"]
 "topogen" = ["py.typed"]
 
-# ---------------------------------------------------------------------
 # Ruff
 [tool.ruff]
 line-length = 88
@@ -119,7 +114,7 @@ indent-width = 4
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "B", "I"] # core + Bugbear + isort
-ignore = ["E501"]                          # long lines handled by formatter
+ignore = ["E501"]                          # allow long strings and comments
 fixable = ["ALL"]
 
 [tool.ruff.lint.isort]
@@ -129,10 +124,9 @@ known-first-party = ["topogen"]
 quote-style = "double"
 skip-magic-trailing-comma = false
 
-# ---------------------------------------------------------------------
 # Pyright / Pylance
 [tool.pyright]
-typeCheckingMode = "standard" # balanced level
+typeCheckingMode = "standard"
 pythonVersion = "3.11"
 venvPath = "."
 venv = "venv"

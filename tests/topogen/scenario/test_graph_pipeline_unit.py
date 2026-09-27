@@ -50,7 +50,6 @@ def test_metro_index_and_node_id_helpers() -> None:
 
 def test_assign_site_positions_inside_radius() -> None:
     G = nx.MultiGraph()
-    # Create 1 metro with 3 pops and 1 dc
     metros = [
         {
             "name": "A",
@@ -80,7 +79,6 @@ def test_add_intra_metro_edges_cost_arc() -> None:
         {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 10.0, "node_key": (0.0, 0.0)}
     ]
     idx_map = {"A": 1}
-    # 3 pops -> 3 edges
     for p in range(1, 4):
         G.add_node(
             gp._site_node_id(1, "pop", p), metro_idx=1, site_kind="pop", site_ordinal=p
@@ -101,7 +99,6 @@ def test_add_intra_metro_edges_cost_arc() -> None:
 
 
 def test_add_inter_metro_edges_one_to_one(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    # Prepare graph nodes for two metros, 2 sites each
     G = nx.MultiGraph()
     metros = [
         {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 10.0, "node_key": (0.0, 0.0)},
@@ -155,7 +152,6 @@ def test_add_inter_metro_edges_one_to_one(monkeypatch) -> None:  # type: ignore[
         idx_map,
         {(0.0, 0.0): metros[0], (100.0, 0.0): metros[1]},
     )
-    # Expect 2 one_to_one edges
     assert G.number_of_edges() == 2
     for _u, _v, d in G.edges(data=True):
         assert d["link_type"] == "inter_metro_corridor" and d["cost"] == 500
@@ -200,7 +196,6 @@ def test_to_network_sections_serializes_groups_and_adjacency() -> None:
             "dc_region_blueprint": "DCRegion",
         },
     }
-    # Build nodes and one edge
     G.add_node("metro1/pop1", site_blueprint="SingleRouter", site_kind="pop")
     G.add_node("metro1/dc1", site_blueprint="DCRegion", site_kind="dc")
     G.add_node("metro2/pop1", site_blueprint="SingleRouter", site_kind="pop")
@@ -215,22 +210,15 @@ def test_to_network_sections_serializes_groups_and_adjacency() -> None:
         target_metro="B",
     )
     groups, adjacency = gp.to_network_sections(G, metros, settings, _cfg())
-    # Groups contain bracketed paths
     assert any(path.endswith("/pop[1-1]") for path in groups)
     assert any(path.endswith("/dc[1-1]") for path in groups)
-    # Adjacency entry present with target_capacity
     assert any(
         isinstance(a.get("attrs", {}).get("target_capacity"), float) for a in adjacency
     )
 
 
 def test_tm_sizing_preserves_parallel_edges() -> None:
-    """TM sizing must update all parallel corridor edges, not just one.
-
-    When multiple corridor edges exist between the same metro pair (striping),
-    each edge must get its capacity sized independently based on its share of
-    the traffic load.
-    """
+    """Each parallel corridor must be sized for its share of the traffic."""
     # Build a site graph with 3 parallel corridor edges between metros A and B
     G = nx.MultiGraph()
     metros = [
@@ -248,7 +236,6 @@ def test_tm_sizing_preserves_parallel_edges() -> None:
         "B": {"pop_per_metro": 1, "dc_regions_per_metro": 1},
     }
 
-    # Add nodes
     G.add_node("metro1/pop1", site_kind="pop")
     G.add_node("metro1/dc1", site_kind="dc")
     G.add_node("metro2/pop1", site_kind="pop")
@@ -311,7 +298,6 @@ def test_tm_sizing_preserves_parallel_edges() -> None:
     with patch("topogen.traffic_matrix.generate_traffic_matrix", return_value=mock_tm):
         gp.tm_based_size_capacities(G, metros, metro_settings, cfg)
 
-    # Verify ALL 3 parallel corridor edges got updated (not just one)
     corridor_edges = [
         (u, v, k, d)
         for u, v, k, d in G.edges(keys=True, data=True)
@@ -319,13 +305,11 @@ def test_tm_sizing_preserves_parallel_edges() -> None:
     ]
     assert len(corridor_edges) == 3, "Should still have 3 parallel corridor edges"
 
-    # Each edge should have been sized (base_capacity increased from original)
     updated_count = 0
     for _u, _v, _k, data in corridor_edges:
         if data["base_capacity"] > original_capacity:
             updated_count += 1
 
-    # All parallel edges should be sized independently
     assert updated_count == 3, (
         f"Expected all 3 parallel edges to be sized, but only {updated_count} were. "
         "Parallel edges between the same metro pair must be tracked individually."
@@ -333,7 +317,7 @@ def test_tm_sizing_preserves_parallel_edges() -> None:
 
 
 def test_tm_sizing_single_edge_baseline() -> None:
-    """TM sizing works correctly with a single corridor edge (no parallelism)."""
+    """A single corridor carries the full inter-metro load."""
     G = nx.MultiGraph()
     metros = [
         {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 10.0, "node_key": (0.0, 0.0)},
@@ -402,7 +386,6 @@ def test_tm_sizing_single_edge_baseline() -> None:
     with patch("topogen.traffic_matrix.generate_traffic_matrix", return_value=mock_tm):
         gp.tm_based_size_capacities(G, metros, metro_settings, cfg)
 
-    # The single corridor edge should be sized
     corridor_data = G.get_edge_data("metro1/pop1", "metro2/pop1", "corridor:0")
     assert corridor_data is not None
     assert corridor_data["base_capacity"] > original_capacity, (

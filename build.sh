@@ -13,12 +13,10 @@
 #
 # Behavior:
 # - Finds .yml/.yaml files directly under <configs_dir> (no recursion).
-# - For each config, creates <output_dir>/<config_stem>/ and runs both stages
-#   in that directory so artefacts are kept together:
+# - Writes each config's artifacts under <output_dir>/<config_stem>/:
 #     <config_stem>_integrated_graph.json
 #     <config_stem>_scenario.yml
 #     generate.log, build.log
-# - Prints a concise emoji summary at the end.
 
 set -u -o pipefail
 
@@ -199,7 +197,7 @@ while IFS= read -r -d '' cfg; do
 
   gen_ec=0
   if [[ "$BUILD_ONLY" == "true" ]]; then
-    # Explicitly skip generate stage, proceed straight to build
+    # --build-only requires a saved graph.
     echo "⏭️  Skipping generate due to --build-only" | tee "$workdir/generate.log" >/dev/null
     gen_ec=100  # treat as cached/ready so build runs
   else
@@ -239,7 +237,7 @@ while IFS= read -r -d '' cfg; do
     gen_fail=$((gen_fail + 1))
   fi
 
-  # Run build only if generate succeeded
+  # Build after successful generation or when a saved graph is available.
   build_icon="⏭️"
   build_note="skipped"
   build_ec=-1

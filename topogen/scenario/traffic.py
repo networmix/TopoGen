@@ -1,8 +1,4 @@
-"""Traffic section builder for scenario assembly.
-
-Provides a thin adapter that constructs the ``traffic_matrix_set`` section
-using the traffic generation algorithms in ``topogen.traffic_matrix``.
-"""
+"""Map generated traffic matrices to the NetGraph ``demands`` section."""
 
 from __future__ import annotations
 
@@ -19,16 +15,21 @@ def _build_traffic_matrix_section(
     metro_settings: dict[str, dict[str, Any]],
     config: "TopologyConfig",
 ) -> dict[str, list[dict[str, Any]]]:
-    """Build the ``traffic_matrix_set`` section if enabled.
+    """Return NetGraph demand sets, or {} when traffic is disabled or no DCs exist."""
 
-    Args:
-        metros: Extracted metro descriptors.
-        metro_settings: Per-metro settings including DC region counts.
-        config: Full topology configuration.
-
-    Returns:
-        Mapping for the scenario ``traffic_matrix_set`` section. Returns empty
-        mapping when traffic generation is disabled or no DC regions exist.
-    """
-
-    return generate_traffic_matrix(metros, metro_settings, config)
+    # Map traffic generator fields to NetGraph demand fields.
+    field_names = {
+        "source_path": "source",
+        "sink_path": "target",
+        "demand": "volume",
+        "flow_policy_config": "flow_policy",
+    }
+    return {
+        name: [
+            {field_names.get(key, key): value for key, value in demand.items()}
+            for demand in demands
+        ]
+        for name, demands in generate_traffic_matrix(
+            metros, metro_settings, config
+        ).items()
+    }

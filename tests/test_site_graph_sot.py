@@ -1,4 +1,4 @@
-"""Tests for MultiGraph-as-source-of-truth site metadata serialization."""
+"""Tests for serialization of site metadata from the MultiGraph."""
 
 from __future__ import annotations
 
@@ -35,15 +35,12 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     cfg.build.build_defaults.site_blueprint = "SingleRouter"
     cfg.build.build_defaults.dc_region_blueprint = "DCRegion"
 
-    # Per-site assignments removed; blueprint-level hardware covers nodes
-
     # Select any available workflow so the scenario builder can proceed without assuming names
     cfg.workflows.assignments.default = next(iter(get_builtin_workflows().keys()))
     yaml_str = build_scenario(graph, cfg)
     data = yaml.safe_load(yaml_str)
 
-    # In the current schema, per-site details are internal to artefacts;
-    # ensure the network groups reflect the right blueprints and counts.
+    # Network groups must reflect the configured blueprints and site counts.
     network = data["network"]
     groups = network.get("nodes", {})
     assert "metro1/pop[1-2]" in groups

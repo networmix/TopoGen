@@ -8,11 +8,7 @@ from topogen.metro_clusters import MetroCluster
 
 
 class TestRiskGroupAssignment:
-    """Test risk group assignment functionality."""
-
     def test_basic_risk_group_assignment(self):
-        """Test basic risk group assignment to corridor edges."""
-        # Create test metros
         metros = [
             MetroCluster(
                 metro_id="01171",
@@ -36,7 +32,6 @@ class TestRiskGroupAssignment:
             ),
         ]
 
-        # Create test graph with corridor edge
         graph = nx.Graph()
         graph.add_edge(
             (1500.0, 2500.0),
@@ -51,7 +46,6 @@ class TestRiskGroupAssignment:
             ],
         )
 
-        # Configure risk groups
         config = CorridorsConfig()
         config.risk_groups = RiskGroupsConfig(
             enabled=True,
@@ -59,17 +53,14 @@ class TestRiskGroupAssignment:
             exclude_metro_radius_shared=False,  # Don't exclude for this test
         )
 
-        # Assign risk groups
         assign_risk_groups_to_corridors(graph, metros, config)
 
-        # Verify risk group was assigned
         edge_data = graph[(1500.0, 2500.0)][(1600.0, 2600.0)]
         assert "risk_groups" in edge_data
         assert len(edge_data["risk_groups"]) == 1
         assert edge_data["risk_groups"][0] == "corridor_risk_albuquerque_denver-aurora"
 
     def test_risk_group_naming_consistency(self):
-        """Test that risk group names are generated consistently."""
         metros = [
             MetroCluster(
                 "metro1", "zzz-metro", "ZZZ Metro", "001", 100.0, 0.0, 0.0, 25.0
@@ -113,7 +104,6 @@ class TestRiskGroupAssignment:
 
         assign_risk_groups_to_corridors(graph, metros, config)
 
-        # Both edges should get the same risk group name (alphabetically sorted)
         edge1_risks = graph[(50.0, 50.0)][(150.0, 150.0)]["risk_groups"]
         edge2_risks = graph[(200.0, 200.0)][(250.0, 250.0)]["risk_groups"]
 
@@ -125,7 +115,6 @@ class TestRiskGroupAssignment:
         )  # Alphabetically sorted
 
     def test_metro_radius_exclusion(self):
-        """Test that edges within metro radius are excluded from risk groups."""
         # Use coordinates in meters to match the actual implementation
         metros = [
             MetroCluster(
@@ -189,25 +178,22 @@ class TestRiskGroupAssignment:
         config = CorridorsConfig()
         config.risk_groups = RiskGroupsConfig(
             enabled=True,
-            exclude_metro_radius_shared=True,  # Enable exclusion
+            exclude_metro_radius_shared=True,
         )
 
         assign_risk_groups_to_corridors(graph, metros, config)
 
-        # Close edge should NOT have risk groups (excluded)
         close_edge_data = graph[close_edge[0]][close_edge[1]]
         assert (
             "risk_groups" not in close_edge_data
             or len(close_edge_data.get("risk_groups", [])) == 0
         )
 
-        # Far edge should have risk groups
         far_edge_data = graph[far_edge[0]][far_edge[1]]
         assert "risk_groups" in far_edge_data
         assert len(far_edge_data["risk_groups"]) > 0
 
     def test_multiple_corridors_same_edge(self):
-        """Test edge with multiple corridor assignments gets multiple risk groups."""
         metros = [
             MetroCluster(
                 "01171",
@@ -269,7 +255,6 @@ class TestRiskGroupAssignment:
 
         assign_risk_groups_to_corridors(graph, metros, config)
 
-        # Should have risk groups for both corridors
         edge_data = graph[(1500.0, 1500.0)][(1600.0, 1600.0)]
         risk_groups = edge_data["risk_groups"]
 
@@ -278,7 +263,6 @@ class TestRiskGroupAssignment:
         assert "corridor_risk_denver-aurora_kansas-city" in risk_groups
 
     def test_risk_groups_disabled(self):
-        """Test that no risk groups are assigned when disabled."""
         metros = [
             MetroCluster(
                 "01171",
@@ -317,16 +301,14 @@ class TestRiskGroupAssignment:
         )
 
         config = CorridorsConfig()
-        config.risk_groups = RiskGroupsConfig(enabled=False)  # Disabled
+        config.risk_groups = RiskGroupsConfig(enabled=False)
 
         assign_risk_groups_to_corridors(graph, metros, config)
 
-        # Should not add any risk groups
         edge_data = graph[(500.0, 500.0)][(600.0, 600.0)]
         assert "risk_groups" not in edge_data
 
     def test_multi_path_risk_groups(self):
-        """Test risk group naming for multiple paths between same metro pair."""
         metros = [
             MetroCluster(
                 "01171",
@@ -387,22 +369,17 @@ class TestRiskGroupAssignment:
 
         assign_risk_groups_to_corridors(graph, metros, config)
 
-        # Path 0 should have base risk group name
         edge0_risks = graph[(100.0, 100.0)][(200.0, 200.0)]["risk_groups"]
         assert len(edge0_risks) == 1
         assert edge0_risks[0] == "corridor_risk_albuquerque_denver-aurora"
 
-        # Path 1 should have path suffix
         edge1_risks = graph[(300.0, 300.0)][(400.0, 400.0)]["risk_groups"]
         assert len(edge1_risks) == 1
         assert edge1_risks[0] == "corridor_risk_albuquerque_denver-aurora_path1"
 
 
 class TestMetroNameSanitization:
-    """Test metro name sanitization functionality."""
-
     def test_metro_name_sanitization(self):
-        """Test that metro names are properly sanitized."""
         test_cases = [
             ("New York--Jersey City--Newark, NY--NJ", "new-york-jersey-city-newark"),
             ("Dallas--Fort Worth--Arlington, TX", "dallas-fort-worth-arlington"),
@@ -420,16 +397,12 @@ class TestMetroNameSanitization:
             )
 
     def test_sanitization_edge_cases(self):
-        """Test sanitization handles edge cases correctly."""
-        # Special characters
         assert MetroCluster._sanitize_metro_name("Test & City, CA") == "test-city"
 
-        # Multiple spaces/dashes
         assert (
             MetroCluster._sanitize_metro_name("Multi  --  Space,  TX") == "multi-space"
         )
 
-        # Length limiting
         very_long_name = (
             "Very Long Metro Name That Exceeds Thirty Characters, State--Extra--Parts"
         )
@@ -438,7 +411,6 @@ class TestMetroNameSanitization:
         assert sanitized == "very-long-metro-name-that-exce"  # Truncated at 30 chars
 
     def test_metro_cluster_uses_sanitized_names(self):
-        """Test that MetroCluster stores both sanitized and original names."""
         original_name = "Denver--Aurora, CO"
         metro = MetroCluster(
             metro_id="23527",
@@ -451,5 +423,5 @@ class TestMetroNameSanitization:
             radius_km=35.0,
         )
 
-        assert metro.name == "denver-aurora"  # Sanitized
-        assert metro.name_orig == "Denver--Aurora, CO"  # Original
+        assert metro.name == "denver-aurora"
+        assert metro.name_orig == "Denver--Aurora, CO"

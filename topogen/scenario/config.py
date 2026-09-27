@@ -1,13 +1,10 @@
-"""Configuration resolution for scenario building.
-
-Determines per-metro settings from the global configuration and overrides.
-"""
+"""Resolve build defaults and overrides for each metro."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from topogen.config import _normalize_int  # reuse integer normalization
+from topogen.config import _normalize_int
 from topogen.naming import metro_slug
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
@@ -17,24 +14,14 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 def _determine_metro_settings(
     metros: list[dict[str, Any]], config: "TopologyConfig"
 ) -> dict[str, dict[str, Any]]:
-    """Determine per-metro configuration settings from config and overrides.
+    """Return build settings keyed by metro name, with overrides applied.
 
-    Args:
-        metros: List of metro dictionaries.
-        config: Topology configuration with build settings.
-
-    Returns:
-        Dictionary mapping metro names to their resolved settings.
-
-    Raises:
-        ValueError: If override references unknown metro name or if resolved
-            settings contain invalid values.
+    Raise ValueError for unknown metro names or invalid resolved settings.
     """
     build_config = config.build
     defaults = build_config.build_defaults
     overrides = build_config.build_overrides
 
-    # Strictly validate override keys against available metro slugs
     if metros:
         available_slugs = set()
         for m in metros:
@@ -114,7 +101,6 @@ def _determine_metro_settings(
             },
         }
 
-        # Apply overrides (exact slug match only)
         metro_name_orig = metro.get("name_orig", metro_name)
         override = None
         slug_sanitized = metro_slug(metro_name)
@@ -194,7 +180,6 @@ def _determine_metro_settings(
                         else:
                             metro_settings["dc_to_pop_link"][key] = value
 
-        # Validate values
         if metro_settings["pop_per_metro"] < 1:
             raise ValueError(
                 f"Metro '{metro_name}' has invalid pop_per_metro: {metro_settings['pop_per_metro']}"

@@ -1,8 +1,4 @@
-"""Network helpers retained for internal use.
-
-This module exposes only `_extract_metros_from_graph`. All scenario building is
-handled by `topogen.scenario.graph_pipeline`.
-"""
+"""Extract metro attributes for scenario assembly."""
 
 from __future__ import annotations
 
@@ -19,16 +15,9 @@ logger = get_logger(__name__)
 
 
 def _extract_metros_from_graph(graph: nx.Graph) -> list[dict[str, Any]]:
-    """Extract metro node information from the integrated graph.
+    """Extract metro nodes and their identity, coordinates, and radius.
 
-    Args:
-        graph: Integrated graph containing metro and highway nodes.
-
-    Returns:
-        List of metro node dictionaries with required attributes.
-
-    Raises:
-        ValueError: If metro nodes are missing required attributes.
+    Raise ValueError if a metro lacks ``name``, ``metro_id``, or ``radius_km``.
     """
     metros: list[dict[str, Any]] = []
     for node, data in graph.nodes(data=True):
@@ -54,6 +43,3 @@ def _extract_metros_from_graph(graph: nx.Graph) -> list[dict[str, Any]]:
 
 
 __all__ = ["_extract_metros_from_graph"]
-
-
-## Note: corridor extraction logic is implemented in graph_pipeline

@@ -33,14 +33,13 @@ def export_cluster_map(
         target_crs: Target coordinate reference system.
 
     Raises:
-        RuntimeError: If JPEG export fails for any critical reason.
+        RuntimeError: If rendering or file output fails.
     """
     fig = None
 
     try:
         logger.info(f"Exporting cluster map to {output_path}")
 
-        # Validate inputs
         if len(centroids) == 0:
             raise ValueError("Cannot create map: no centroids provided")
 
@@ -55,7 +54,6 @@ def export_cluster_map(
                 f"Cannot create map: CONUS boundary file not found at {conus_boundary_path}"
             )
 
-        # Create GeoDataFrame of centroids
         try:
             from shapely.geometry import Point
 
@@ -76,7 +74,7 @@ def export_cluster_map(
                 f"Failed to create GeoDataFrame for centroids: {e}"
             ) from e
 
-        # Load CONUS boundary for visual context (NOT for filtering - that's done in UAC processor)
+        # Urban areas are already filtered; use the boundary as a map background.
         try:
             from topogen.geo_utils import create_conus_mask
 
@@ -86,34 +84,29 @@ def export_cluster_map(
                 f"Failed to load CONUS boundary for map context: {e}"
             ) from e
 
-        # Create plot
         try:
             fig, ax = plt.subplots(figsize=(12, 8))
             logger.debug("Created matplotlib figure (12x8) for cluster map")
         except Exception as e:
             raise RuntimeError(f"Failed to create matplotlib figure: {e}") from e
 
-        # Plot CONUS boundary for geographic context
         try:
             conus_poly.plot(ax=ax, edgecolor="k", facecolor="none", linewidth=0.4)
         except Exception as e:
             raise RuntimeError(f"Failed to plot CONUS boundary: {e}") from e
 
-        # Plot centroids
         try:
             gdf.plot(ax=ax, markersize=24, color="red", alpha=0.7)
             logger.debug(f"Plotted {len(gdf)} cluster centroids (red circles)")
         except Exception as e:
             raise RuntimeError(f"Failed to plot cluster centroids: {e}") from e
 
-        # Add basemap using contextily
         try:
             cx.add_basemap(ax, crs=gdf.crs, attribution=False, alpha=0.3)
             logger.debug("Added contextily basemap to cluster map")
         except Exception as e:
             raise RuntimeError(f"Failed to add basemap: {e}") from e
 
-        # Style the plot
         try:
             ax.set_axis_off()
             ax.set_title(f"Metro Clusters (n={len(centroids)})", fontsize=14, pad=20)
@@ -121,7 +114,6 @@ def export_cluster_map(
         except Exception as e:
             raise RuntimeError(f"Failed to style the plot: {e}") from e
 
-        # Save JPEG - this is critical
         try:
             logger.debug(f"Saving cluster map to {output_path} (DPI=150, format=JPEG)")
             plt.savefig(output_path, dpi=150, format="jpeg", bbox_inches="tight")
@@ -129,9 +121,8 @@ def export_cluster_map(
             raise RuntimeError(f"Failed to save JPEG file to {output_path}: {e}") from e
         finally:
             plt.close(fig)
-            fig = None  # Mark as closed
+            fig = None
 
-        # Validate the JPEG was actually created and has reasonable size
         if not output_path.exists():
             raise RuntimeError(f"JPEG file was not created at {output_path}")
 
@@ -144,14 +135,12 @@ def export_cluster_map(
         )
 
     except Exception as e:
-        # Clean up the figure if it exists
         if fig is not None:
             try:
                 plt.close(fig)
             except Exception:
                 pass
 
-        # Clean up partial file if it exists
         if output_path.exists():
             try:
                 output_path.unlink()
@@ -159,9 +148,8 @@ def export_cluster_map(
             except Exception:
                 pass
 
-        # Re-raise with clear context
         if isinstance(e, (ValueError, RuntimeError)):
-            raise  # Re-raise our custom errors as-is
+            raise
         else:
             raise RuntimeError(
                 f"Unexpected error during cluster map export: {e}"
@@ -189,14 +177,13 @@ def export_integrated_graph_map(
         dpi: Output image dots-per-inch when saving.
 
     Raises:
-        RuntimeError: If JPEG export fails for any critical reason.
+        RuntimeError: If rendering or file output fails.
     """
     fig = None
 
     try:
         logger.info(f"Exporting integrated graph map to {output_path}")
 
-        # Validate inputs
         if len(metros) == 0:
             raise ValueError("Cannot create map: no metros provided")
 
@@ -214,25 +201,19 @@ def export_integrated_graph_map(
                 f"Cannot create map: CONUS boundary file not found at {conus_boundary_path}"
             )
 
-        # Extract metro centroids and radii (meters in target CRS)
         centroids = np.array([metro.coordinates for metro in metros])
         metro_radii_m = [
             float(getattr(metro, "radius_km", 0.0)) * 1000.0 for metro in metros
         ]
 
-        # Extract corridor connections from graph
         corridor_lines = []
-        # Extract metro coordinates for plotting
-        # metro_coords_dict = {metro.node_key: metro for metro in metros}  # Kept for potential future use
         metro_id_to_coords = {metro.metro_id: metro.coordinates for metro in metros}
 
-        # Find unique metro pairs from corridor-tagged edges
         corridor_pairs = set()
 
         # Handle both full highway graphs (with corridor tags) and corridor graphs (direct edges)
         corridor_edges_found = 0
 
-        # Check if this is a corridor graph (edges have edge_type="corridor")
         is_corridor_graph = any(
             data.get("edge_type") == "corridor" for u, v, data in graph.edges(data=True)
         )
@@ -259,7 +240,6 @@ def export_integrated_graph_map(
                         ) from e
                     corridor_lines.append(LineString(coords))
                 else:
-                    # Straight line required
                     metro_a_id = data.get("metro_a")
                     metro_b_id = data.get("metro_b")
                     if metro_a_id and metro_b_id:
@@ -286,13 +266,11 @@ def export_integrated_graph_map(
             for _u, _v, data in graph.edges(data=True):
                 if "corridor" in data and data["corridor"]:
                     corridor_edges_found += 1
-                    # Extract metro pairs from corridor information
                     for corridor_info in data["corridor"]:
                         try:
                             metro_a_id = corridor_info["metro_a"]
                             metro_b_id = corridor_info["metro_b"]
 
-                            # Validate metro IDs exist
                             if metro_a_id not in metro_id_to_coords:
                                 raise ValueError(
                                     f"Corridor references unknown metro ID: {metro_a_id}"
@@ -302,7 +280,6 @@ def export_integrated_graph_map(
                                     f"Corridor references unknown metro ID: {metro_b_id}"
                                 )
 
-                            # Create sorted tuple to avoid duplicates
                             pair = tuple(sorted([metro_a_id, metro_b_id]))
                             corridor_pairs.add(pair)
 
@@ -322,7 +299,6 @@ def export_integrated_graph_map(
                 coords_b = metro_id_to_coords[metro_b_id]
                 corridor_lines.append(LineString([coords_a, coords_b]))
 
-        # Validate corridor discovery results
         if corridor_edges_found > 0 and len(corridor_lines) == 0:
             raise RuntimeError(
                 f"Corridor extraction failed: found {corridor_edges_found} corridor-tagged edges "
@@ -336,14 +312,12 @@ def export_integrated_graph_map(
             f"Extracted {len(corridor_pairs)} unique metro pairs from corridor metadata"
         )
 
-        # Log informational message if no corridors (but don't fail - graph building would have failed first)
         if len(corridor_lines) == 0:
             logger.warning(
                 "No corridor connections found for visualization. "
                 "Map will show metro clusters only without corridor lines."
             )
 
-        # Create GeoDataFrame of centroids
         try:
             geometry = [Point(float(x), float(y)) for x, y in centroids]
             metros_gdf = gpd.GeoDataFrame(
@@ -362,7 +336,6 @@ def export_integrated_graph_map(
         except Exception as e:
             raise RuntimeError(f"Failed to create GeoDataFrame for metros: {e}") from e
 
-        # Create GeoDataFrame for corridors if any exist
         corridors_gdf = None
         if corridor_lines:
             try:
@@ -381,7 +354,6 @@ def export_integrated_graph_map(
         else:
             logger.debug("No corridor lines to create GeoDataFrame")
 
-        # Load CONUS boundary for visual context
         try:
             from topogen.geo_utils import create_conus_mask
 
@@ -391,14 +363,12 @@ def export_integrated_graph_map(
                 f"Failed to load CONUS boundary for map context: {e}"
             ) from e
 
-        # Create plot
         try:
             fig, ax = plt.subplots(figsize=(14, 10))
             logger.debug("Created matplotlib figure (14x10)")
         except Exception as e:
             raise RuntimeError(f"Failed to create matplotlib figure: {e}") from e
 
-        # Plot CONUS boundary for geographic context
         try:
             conus_poly.plot(ax=ax, edgecolor="k", facecolor="none", linewidth=0.4)
         except Exception as e:
@@ -412,7 +382,7 @@ def export_integrated_graph_map(
             except Exception as e:
                 raise RuntimeError(f"Failed to plot corridor connections: {e}") from e
 
-        # Plot metro circles (accurate radius) behind points
+        # Draw circles using configured metro radii.
         try:
             for (x0, y0), r_m in zip(centroids, metro_radii_m, strict=False):
                 if r_m > 0.0:
@@ -430,7 +400,7 @@ def export_integrated_graph_map(
         except Exception as e:
             raise RuntimeError(f"Failed to draw metro radius circles: {e}") from e
 
-        # Metro name labels outside the circle with leader lines (deterministic angles)
+        # Place labels outside metro circles at hash-derived angles.
         label_extent_x: list[float] = []
         label_extent_y: list[float] = []
         try:
@@ -479,7 +449,6 @@ def export_integrated_graph_map(
         except Exception:
             pass
 
-        # Plot metro centroids
         try:
             metros_gdf.plot(
                 ax=ax,
@@ -493,14 +462,12 @@ def export_integrated_graph_map(
         except Exception as e:
             raise RuntimeError(f"Failed to plot metro centroids: {e}") from e
 
-        # Add basemap using contextily
         try:
             cx.add_basemap(ax, crs=metros_gdf.crs, attribution=False, alpha=0.3)
             logger.debug("Added contextily basemap to integrated graph map")
         except Exception as e:
             raise RuntimeError(f"Failed to add basemap: {e}") from e
 
-        # Style the plot
         try:
             ax.set_axis_off()
             corridor_count = len(corridor_lines) if corridor_lines else 0
@@ -533,7 +500,6 @@ def export_integrated_graph_map(
         except Exception as e:
             raise RuntimeError(f"Failed to style the plot: {e}") from e
 
-        # Save JPEG - this is critical
         try:
             logger.debug(
                 f"Saving integrated graph visualization to {output_path} (DPI={int(dpi)}, format=JPEG)"
@@ -543,9 +509,8 @@ def export_integrated_graph_map(
             raise RuntimeError(f"Failed to save JPEG file to {output_path}: {e}") from e
         finally:
             plt.close(fig)
-            fig = None  # Mark as closed
+            fig = None
 
-        # Validate the JPEG was actually created and has reasonable size
         if not output_path.exists():
             raise RuntimeError(f"JPEG file was not created at {output_path}")
 
@@ -558,14 +523,12 @@ def export_integrated_graph_map(
         )
 
     except Exception as e:
-        # Clean up the figure if it exists
         if fig is not None:
             try:
                 plt.close(fig)
             except Exception:
                 pass
 
-        # Clean up partial file if it exists
         if output_path.exists():
             try:
                 output_path.unlink()
@@ -573,9 +536,8 @@ def export_integrated_graph_map(
             except Exception:
                 pass
 
-        # Re-raise with clear context
         if isinstance(e, (ValueError, RuntimeError)):
-            raise  # Re-raise our custom errors as-is
+            raise
         else:
             raise RuntimeError(
                 f"Unexpected error during integrated graph map export: {e}"
@@ -595,8 +557,9 @@ def export_site_graph_map(
 
     Draws each metro's radius as a thin circle, places sites at their assigned
     ``pos_x``/``pos_y`` coordinates, and renders edges as straight segments
-    between sites. Each edge is labeled with its adjacency capacity
-    (``target_capacity`` if present; else ``base_capacity``; else ``capacity``).
+    between sites. Local edges are labeled with adjacency capacity
+    (``target_capacity``, then ``base_capacity``, then ``capacity``). Inter-metro
+    capacity is aggregated into one label per directed metro pair.
 
     Required node attributes:
         - ``pos_x`` and ``pos_y``: site coordinates in target CRS units.
@@ -651,13 +614,11 @@ def export_site_graph_map(
             except Exception:
                 pass
 
-        # Create figure/axes
         try:
             fig, ax = plt.subplots(figsize=figure_size)
         except Exception as e:
             raise RuntimeError(f"Failed to create matplotlib figure: {e}") from e
 
-        # Draw metro circles (light outline) and labels (outside the circle)
         label_extent_x: list[float] = []
         label_extent_y: list[float] = []
         for _idx, (cx, cy, r) in metros.items():
@@ -675,14 +636,12 @@ def export_site_graph_map(
                     ax.add_patch(circ)
                 except Exception as e:
                     raise RuntimeError(f"Failed to draw metro circle: {e}") from e
-            # Metro name label outside the circle at deterministic angle
             try:
                 label = metro_names.get(_idx, f"metro{_idx}")
                 import math as _m
 
                 h = abs(hash(label))
                 phi = (h % 360) * _m.pi / 180.0
-                # Offset beyond the circle radius
                 offset = max(0.08 * rr, 8000.0)
                 lx = float(cx) + (rr + offset) * _m.cos(phi)
                 ly = float(cy) + (rr + offset) * _m.sin(phi)
@@ -712,7 +671,6 @@ def export_site_graph_map(
             except Exception:
                 pass
 
-        # Draw edges and labels
         for u, v, k, data in G.edges(keys=True, data=True):
             try:
                 ux = float(G.nodes[u]["pos_x"])  # type: ignore[index]
@@ -727,7 +685,6 @@ def export_site_graph_map(
             except Exception as e:
                 raise RuntimeError(f"Failed to draw edge {u}-{v}") from e
 
-            # Label with adjacency capacity (prefer total target capacity)
             val = data.get(
                 "target_capacity", data.get("base_capacity", data.get("capacity", None))
             )
@@ -737,7 +694,7 @@ def export_site_graph_map(
             if val is not None:
                 try:
                     cap = float(val)
-                    # Deterministic jitter to reduce overlap across edges
+                    # Hash-based offsets reduce overlap across edge labels.
                     edge_key = f"{u}|{v}|{k}"
                     h = abs(hash(edge_key))
                     # Along-edge parameter in [0.35, 0.65]
@@ -794,13 +751,11 @@ def export_site_graph_map(
             key = (s_name, t_name)
             corridor_caps[key] = corridor_caps.get(key, 0.0) + cap_num
 
-        # Build name -> (cx, cy) lookup from collected metros and names
         name_to_center: dict[str, tuple[float, float]] = {}
         for idx, (cx, cy, _r) in metros.items():
             nm = metro_names.get(idx, f"metro{idx}")
             name_to_center[nm] = (float(cx), float(cy))
 
-        # Place corridor labels
         corr_label_x: list[float] = []
         corr_label_y: list[float] = []
         for (s_name, t_name), cap_num in corridor_caps.items():
@@ -817,7 +772,6 @@ def export_site_graph_map(
             length = _m.hypot(dx, dy)
             if length <= 0.0:
                 continue
-            # Along-line parameter and perpendicular offset based on pair hash
             h = abs(hash(f"{s_name}->{t_name}"))
             tpar = 0.45 + 0.10 * ((h % 5) / 4.0)  # 0.45..0.55
             mx = ax0 + tpar * dx
@@ -848,7 +802,6 @@ def export_site_graph_map(
             except Exception:
                 pass
 
-        # Draw site nodes on top
         try:
             ax.scatter(
                 xs,
@@ -863,7 +816,6 @@ def export_site_graph_map(
         except Exception as e:
             raise RuntimeError(f"Failed to draw site nodes: {e}") from e
 
-        # Add basemap using contextily to match integrated graph background
         try:
             if isinstance(target_crs, str) and target_crs.strip():
                 import contextily as _cx  # type: ignore
@@ -898,7 +850,6 @@ def export_site_graph_map(
         except Exception as e:
             raise RuntimeError(f"Failed to style site graph plot: {e}") from e
 
-        # Save JPEG
         try:
             plt.savefig(output_path, dpi=int(dpi), format="jpeg", bbox_inches="tight")
         except Exception as e:
@@ -943,26 +894,11 @@ def export_blueprint_diagram(
     figure_size: tuple[int, int] = (14, 6),
     seed: int = 7,
 ) -> None:
-    """Export a two-panel diagram for a single blueprint.
+    """Export a two-panel JPEG of a blueprint and one expanded site.
 
-    Left panel: abstract group-level adjacency from the blueprint definition.
-    Right panel: concrete expanded nodes and internal links for one site instance
-    (selected by the caller), with external links shown as small markers from
-    internal nodes.
-
-    Args:
-        blueprint_name: Name of the blueprint.
-        blueprint_def: Blueprint mapping with ``groups`` and ``adjacency`` keys.
-        net: Expanded DSL network object (from ngraph) containing nodes/links.
-        selected_site_path: Site path prefix to visualize (e.g., "metro1/pop2").
-        output_path: Path where a JPEG will be saved.
-        dpi: Image DPI for saving.
-        figure_size: Matplotlib figure size.
-        seed: Layout seed for deterministic positioning.
-
-    Raises:
-        ValueError: On invalid inputs or missing data in the blueprint.
-        RuntimeError: If rendering or file IO fails.
+    The left panel shows group-level links from blueprint ``nodes`` and ``links``.
+    The right panel shows concrete nodes and internal links under
+    ``selected_site_path`` (for example, ``metro1/pop2``). External links are omitted.
     """
     fig = None
     try:
@@ -977,7 +913,6 @@ def export_blueprint_diagram(
         ):
             raise ValueError("blueprint_def must include a 'links' list")
 
-        # Build abstract and concrete views using helper module.
         from .blueprint_viz import build_abstract_view, collect_concrete_site
 
         abs_view = build_abstract_view(blueprint_def, include_self_loops=True)
@@ -990,7 +925,6 @@ def export_blueprint_diagram(
                 f"No expanded nodes found under site '{selected_site_path}'"
             )
 
-        # Start figure
         fig, axes = plt.subplots(1, 2, figsize=figure_size)
         ax_abs, ax_conc = axes
 
@@ -1048,28 +982,23 @@ def export_blueprint_diagram(
 
         # Concrete panel drawing
         try:
-            # Internal links
             for s, t, _cap in internal_links:
                 if s in node_pos and t in node_pos:
                     x0, y0 = node_pos[s]
                     x1, y1 = node_pos[t]
                     ax_conc.plot([x0, x1], [y0, y1], color="#4a90e2", linewidth=1.0)
 
-            # Internal nodes
             xs = [node_pos[n][0] for n in internal_nodes if n in node_pos]
             ys = [node_pos[n][1] for n in internal_nodes if n in node_pos]
             ax_conc.scatter(
                 xs, ys, s=80, c="#cc2a36", edgecolors="white", linewidths=0.6
             )
-            # Labels: short local names
             for n in internal_nodes:
                 if n not in node_pos:
                     continue
                 x, y = node_pos[n]
                 short = n.split("/", 2)[-1]
                 ax_conc.text(x, y, short, fontsize=7, ha="center", va="bottom")
-
-            # External adjacency markers intentionally omitted
 
             ax_conc.set_title(f"Concrete: {selected_site_path}")
             ax_conc.set_axis_off()

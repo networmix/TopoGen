@@ -62,7 +62,6 @@ def test_build_abstract_view_and_self_loops() -> None:
         ],
     }
     av: AbstractView = build_abstract_view(bp)
-    # Nodes created and labeled
     assert set(av.graph.nodes) >= {"G1", "G2", "G1_r1", "G1_r2"}
     assert "role=agg" in av.node_labels["G1"]
     # Inter-group edges deduplicated by unordered pair and labeled
@@ -70,7 +69,6 @@ def test_build_abstract_view_and_self_loops() -> None:
     assert edges, "expected at least one inter-group edge"
     any_label = next(iter(av.edge_labels.values()))
     assert "uplink" in any_label and "100" in any_label
-    # Self-loops reflected as notes
     loop_groups = {g for (g, _lbl) in av.self_loops}
     assert {"G1_r1", "G1_r2"} & loop_groups
 
@@ -106,7 +104,6 @@ def test_collect_concrete_site_filters_and_positions() -> None:
     ns, pos, links = collect_concrete_site(net, "metro1/dc1")
     assert set(ns) == {"metro1/dc1/A1", "metro1/dc1/B1"}
     assert set((s, t) for s, t, _ in links) == {("metro1/dc1/A1", "metro1/dc1/B1")}
-    # Position entries exist for internal nodes
     for n in ns:
         assert (
             n in pos and isinstance(pos[n][0], float) and isinstance(pos[n][1], float)

@@ -1,8 +1,6 @@
-"""Built-in failure policy definitions.
+"""Built-in failure policies with overrides from ``cwd/lib/failure_policies.yml``.
 
-Provides the minimal API used by the scenario pipeline and merges overrides
-from ``cwd/lib/failure_policies.yml`` when present. The user file must be
-direct mapping: name -> definition. User entries override built-ins.
+The YAML file maps names to definitions; each entry replaces the matching built-in.
 """
 
 from __future__ import annotations
@@ -13,9 +11,8 @@ from typing import Any
 
 import yaml
 
-# Built-in failure policy definitions
 _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
-    "empty": {},
+    "empty": {"modes": [{"weight": 1.0, "rules": []}]},
     "single_random_link_failure": {
         "attrs": {
             "description": "Fails exactly one random link to test network resilience"
@@ -23,7 +20,7 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
         "modes": [
             {
                 "weight": 1.0,
-                "rules": [{"entity_scope": "link", "rule_type": "choice", "count": 1}],
+                "rules": [{"scope": "link", "mode": "choice", "count": 1}],
             }
         ],
     },
@@ -37,8 +34,8 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                 "weight": 0.30,
                 "rules": [
                     {
-                        "entity_scope": "risk_group",
-                        "rule_type": "choice",
+                        "scope": "risk_group",
+                        "mode": "choice",
                         "count": 1,
                         "weight_by": "distance_km",
                     }
@@ -49,17 +46,19 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                 "weight": 0.35,
                 "rules": [
                     {
-                        "entity_scope": "link",
-                        "rule_type": "choice",
+                        "scope": "link",
+                        "mode": "choice",
                         "count": 3,
-                        "conditions": [
-                            {
-                                "attr": "link_type",
-                                "op": "==",
-                                "value": "dc_to_pop",
-                            }
-                        ],
-                        "logic": "and",
+                        "match": {
+                            "conditions": [
+                                {
+                                    "attr": "link_type",
+                                    "op": "==",
+                                    "value": "dc_to_pop",
+                                }
+                            ],
+                            "logic": "and",
+                        },
                         "weight_by": "target_capacity",
                     }
                 ],
@@ -69,17 +68,19 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                 "weight": 0.25,
                 "rules": [
                     {
-                        "entity_scope": "node",
-                        "rule_type": "choice",
+                        "scope": "node",
+                        "mode": "choice",
                         "count": 1,
-                        "conditions": [
-                            {
-                                "attr": "node_type",
-                                "op": "!=",
-                                "value": "dc_region",
-                            }
-                        ],
-                        "logic": "and",
+                        "match": {
+                            "conditions": [
+                                {
+                                    "attr": "node_type",
+                                    "op": "!=",
+                                    "value": "dc_region",
+                                }
+                            ],
+                            "logic": "and",
+                        },
                         "weight_by": "attached_capacity_gbps",
                     }
                 ],
@@ -89,32 +90,34 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
                 "weight": 0.10,
                 "rules": [
                     {
-                        "entity_scope": "link",
-                        "rule_type": "choice",
+                        "scope": "link",
+                        "mode": "choice",
                         "count": 4,
-                        "conditions": [
-                            {
-                                "attr": "link_type",
-                                "op": "==",
-                                "value": "leaf_spine",
-                            },
-                            {
-                                "attr": "link_type",
-                                "op": "==",
-                                "value": "intra_group",
-                            },
-                            {
-                                "attr": "link_type",
-                                "op": "==",
-                                "value": "inter_group",
-                            },
-                            {
-                                "attr": "link_type",
-                                "op": "==",
-                                "value": "internal_mesh",
-                            },
-                        ],
-                        "logic": "or",
+                        "match": {
+                            "conditions": [
+                                {
+                                    "attr": "link_type",
+                                    "op": "==",
+                                    "value": "leaf_spine",
+                                },
+                                {
+                                    "attr": "link_type",
+                                    "op": "==",
+                                    "value": "intra_group",
+                                },
+                                {
+                                    "attr": "link_type",
+                                    "op": "==",
+                                    "value": "inter_group",
+                                },
+                                {
+                                    "attr": "link_type",
+                                    "op": "==",
+                                    "value": "internal_mesh",
+                                },
+                            ],
+                            "logic": "or",
+                        },
                     }
                 ],
             },
@@ -124,14 +127,9 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
 
 
 def get_builtin_failure_policies() -> dict[str, dict[str, Any]]:
-    """Return failure policies library merged with user overrides.
-
-    Returns:
-        Dictionary mapping policy names to their definitions.
-    """
+    """Return built-in failure policies with user overrides applied."""
     policies = deepcopy(_BUILTIN_FAILURE_POLICIES)
     user_policies = _load_user_library("failure_policies.yml")
-    # Support only direct mapping: name -> definition
     policies.update(user_policies)
     return policies
 

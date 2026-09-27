@@ -1,14 +1,4 @@
-"""Corridor discovery, extraction, and validation.
-
-Provides functions to:
-- Discover corridor paths between metros and tag highway edges
-- Assign risk groups to corridor-tagged edges
-- Extract a metro-to-metro corridor graph
-- Validate the resulting corridor-level graph
-
-Intended to be used with a full integrated graph containing highway and metro
-nodes. See ``topogen.integrated_graph`` for building the integrated graph.
-"""
+"""Discover highway paths between metros, assign risk groups, and extract corridors."""
 
 from __future__ import annotations
 
@@ -29,7 +19,6 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 logger = get_logger(__name__)
 
 
-# Public typed registry structures
 PathId = tuple[str, str, int]
 
 
@@ -103,11 +92,9 @@ def add_corridors(
 
     adjacent_pairs: list[tuple[str, str, float]] = []
     for metro in metros:
-        # Find k nearest neighbors
         k_query = min(corridors_config.k_nearest + 1, len(metros))
         distances, indices = tree.query([metro.centroid_x, metro.centroid_y], k=k_query)
 
-        # Handle numpy array results properly
         indices_list = (
             indices.tolist() if isinstance(indices, np.ndarray) else [indices]
         )
@@ -120,7 +107,6 @@ def add_corridors(
             distance_km = distances_list[j] / 1000.0
 
             if distance_km <= corridors_config.max_edge_km:
-                # Add pair in sorted order to avoid duplicates
                 metro_a_id = metro.metro_id
                 metro_b_id = metros[neighbor_idx].metro_id
                 if metro_a_id < metro_b_id:
@@ -133,11 +119,9 @@ def add_corridors(
     if not adjacent_pairs:
         raise ValueError("No adjacent metro pairs found for corridor discovery")
 
-    # Initialize path registry on the graph
     if "corridor_paths" not in graph.graph:
         graph.graph["corridor_paths"] = {}
 
-    # Process corridors with progress reporting
     corridor_count = 0
     processed_pairs = 0
     skipped_pairs = 0
@@ -145,7 +129,6 @@ def add_corridors(
 
     logger.info(f"Processing {len(adjacent_pairs)} metro pairs for corridor discovery")
 
-    # Precompute metro_id -> node_key for path endpoints
     metro_id_to_node: dict[str, tuple[float, float]] = {
         m.metro_id: m.node_key for m in metros
     }
@@ -153,7 +136,6 @@ def add_corridors(
     for metro_a_id, metro_b_id, pair_distance in adjacent_pairs:
         processed_pairs += 1
 
-        # Log progress every 10 pairs
         if processed_pairs % 10 == 0 or processed_pairs == len(adjacent_pairs):
             logger.info(
                 f"Progress: {processed_pairs:,}/{len(adjacent_pairs):,} pairs processed"
@@ -162,7 +144,6 @@ def add_corridors(
         # Do not apply max_corridor_distance_km to Euclidean separation.
         # The threshold is enforced below using the actual path length along the graph.
 
-        # Endpoints are the metro nodes themselves
         if metro_a_id not in metro_id_to_node or metro_b_id not in metro_id_to_node:
             logger.warning(
                 f"Skipping {metro_a_id}-{metro_b_id}: metro node(s) missing in mapping"
@@ -171,7 +152,6 @@ def add_corridors(
         node_a = metro_id_to_node[metro_a_id]
         node_b = metro_id_to_node[metro_b_id]
 
-        # Validate endpoints exist in the graph
         if not graph.has_node(node_a) or not graph.has_node(node_b):
             logger.warning(
                 f"Skipping {metro_a_id}-{metro_b_id}: metro node(s) not present in graph"
@@ -182,7 +162,6 @@ def add_corridors(
             f"Finding paths between {metro_a_id} and {metro_b_id} ({pair_distance:.1f}km)"
         )
 
-        # Find k-shortest paths between metros (via anchors/highways)
         try:
             import itertools
             import time
@@ -217,7 +196,6 @@ def add_corridors(
         added_any_path_for_pair = False
         too_long_paths = 0
         for path_idx, path in enumerate(paths):
-            # Compute path length
             path_length_km = 0.0
             for i in range(len(path) - 1):
                 u, v = path[i], path[i + 1]
@@ -225,7 +203,6 @@ def add_corridors(
                     continue
                 path_length_km += float(graph[u][v].get("length_km", 0.0))
 
-            # Enforce max_corridor_distance_km using actual path length over multi-edge fiber
             if path_length_km > corridors_config.max_corridor_distance_km:
                 too_long_paths += 1
                 logger.debug(
@@ -234,7 +211,6 @@ def add_corridors(
                 )
                 continue
 
-            # Build ordered edge list
             ordered_edges: list[tuple[tuple[float, float], tuple[float, float]]] = []
             for i in range(len(path) - 1):
                 ordered_edges.append((path[i], path[i + 1]))
@@ -287,7 +263,6 @@ def add_corridors(
                     else:
                         merged_geometry.extend(coords)
 
-            # Create registry entry
             m_sorted = (
                 (metro_a_id, metro_b_id)
                 if metro_a_id < metro_b_id
@@ -317,12 +292,11 @@ def add_corridors(
             )
             graph.graph["corridor_paths"][path_id] = cp
 
-            # Tag each path edge with edge-scoped metadata for migration + path ids
+            # Record corridor metadata and path IDs on each edge.
             for u, v in ordered_edges:
                 if not graph.has_edge(u, v):
                     continue
                 edge_data = graph[u][v]
-                # Tag retained for migration visibility
                 if "corridor" not in edge_data:
                     edge_data["corridor"] = []
                 edge_data["corridor"].append(
@@ -333,7 +307,7 @@ def add_corridors(
                         "distance_km": path_length_km,
                     }
                 )
-                # New explicit path membership set for risk aggregation
+                # Track path membership for risk aggregation.
                 if "corridor_path_ids" not in edge_data:
                     edge_data["corridor_path_ids"] = set()
                 try:
@@ -356,7 +330,6 @@ def add_corridors(
                     f"Skipping {metro_a_id}-{metro_b_id}: all {too_long_paths} candidate paths exceed max_corridor_distance_km"
                 )
 
-    # Final summary
     failed_pairs = processed_pairs - skipped_pairs - successful_pairs
     logger.info(
         "Corridor discovery complete: "
@@ -374,10 +347,10 @@ def add_corridors(
 def assign_risk_groups(
     graph: nx.Graph, metros: list[MetroCluster], corridors_config: CorridorsConfig
 ) -> None:
-    """Assign risk groups to corridor edges, avoiding shared metro radius segments.
+    """Tag edges with a risk group for each corridor path they carry.
 
-    Creates unique risk groups for each corridor while excluding highway segments
-    within a metro radius to avoid shared risk.
+    When metro-radius exclusion is enabled, skip edges with either endpoint
+    inside any metro circle.
     """
     if not corridors_config.risk_groups.enabled:
         logger.info("Risk group assignment disabled - skipping")
@@ -385,7 +358,6 @@ def assign_risk_groups(
 
     logger.info("Assigning risk groups to corridor edges")
 
-    # Build spatial index for metro areas and ID-to-name mapping
     metro_points = {}
     metro_id_to_name = {}
     for metro in metros:
@@ -405,7 +377,7 @@ def assign_risk_groups(
 
         corridor_counter += 1
 
-        # Exclude edges within any metro radius if configured
+        # Exclude edges with either endpoint in a metro circle.
         if corridors_config.risk_groups.exclude_metro_radius_shared:
             u_point = Point(u)
             v_point = Point(v)
@@ -424,7 +396,6 @@ def assign_risk_groups(
                 logger.debug(f"Excluding corridor edge {u}-{v} - within metro radius")
                 continue
 
-        # Assign risk groups to this corridor edge
         for corridor_info in edge_data["corridor"]:
             metro_a_id = corridor_info["metro_a"]
             metro_b_id = corridor_info["metro_b"]
@@ -456,9 +427,9 @@ def assign_risk_groups(
 def extract_corridor_graph(
     full_graph: nx.Graph, metros: list[MetroCluster]
 ) -> nx.Graph:
-    """Extract corridor-level graph from registry of concrete paths.
+    """Build a metro graph from ``full_graph.graph["corridor_paths"]``.
 
-    Uses ``full_graph.graph["corridor_paths"]`` as the single source of truth.
+    Keep the shortest registered path for each metro pair and its risk groups.
     """
     logger.info("Extracting corridor-level graph from corridor path registry")
 
@@ -468,7 +439,6 @@ def extract_corridor_graph(
             "Corridor path registry missing: graph.graph['corridor_paths'] not found"
         )
 
-    # Normalize registry iteration
     items = registry.items() if isinstance(registry, dict) else []
 
     # Choose shortest path per metro pair
@@ -486,7 +456,6 @@ def extract_corridor_graph(
 
     corridor_graph = nx.Graph()
 
-    # Add metro nodes
     for metro in metros:
         corridor_graph.add_node(
             metro.node_key,
@@ -512,7 +481,6 @@ def extract_corridor_graph(
             pids = ed.get("corridor_path_ids")
             if not pids:
                 continue
-            # Normalize set/list
             if isinstance(pids, set):
                 has = pid in pids
             else:
@@ -525,7 +493,6 @@ def extract_corridor_graph(
                     risks.add(str(rg))
         risks_by_pair[key] = risks
 
-    # Emit edges
     edges_added = 0
     for (metro_a_id, metro_b_id), (_pid, cp) in best.items():
         if metro_a_id not in metro_id_to_coords or metro_b_id not in metro_id_to_coords:

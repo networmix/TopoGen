@@ -35,7 +35,7 @@ def _make_stub_net():
 
 
 def test_export_blueprint_diagram_smoke(tmp_path: Path) -> None:
-    # Minimal blueprint with one intra-site adjacency and one external
+    # One intra-group mesh and one inter-group link.
     bp = {
         "nodes": {
             "G1": {"count": 2},

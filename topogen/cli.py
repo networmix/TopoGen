@@ -16,14 +16,7 @@ logger = get_logger(__name__)
 
 @contextmanager
 def Timer(description: str):
-    """Context manager for timing operations with both print and log output.
-
-    Args:
-        description: Operation description for timing messages.
-
-    Yields:
-        None: Context manager yields nothing.
-    """
+    """Print and log elapsed time on completion or failure."""
     print(f"🔄 {description}...")
     logger.info(f"Starting {description}")
     start = time.time()
@@ -40,24 +33,14 @@ def Timer(description: str):
 
 
 def _load_config(config_path: Path) -> TopologyConfig:
-    """Load and validate configuration.
-
-    Args:
-        config_path: Path to YAML configuration file.
-
-    Returns:
-        Loaded and validated configuration object.
-
-    Raises:
-        SystemExit: If configuration loading or validation fails.
-    """
+    """Load and validate a YAML config, exiting with code 2 on failure."""
     try:
         config = TopologyConfig.from_yaml(config_path)
         logger.info(f"Loaded configuration from {config_path}")
         return config
     except FileNotFoundError:
         print(f"❌ Configuration file not found: {config_path}")
-        print(f"💡 Create one with: cp config.yml {config_path}")
+        print(f"💡 Create one with: cp examples/small_baseline.yml {config_path}")
         logger.error(f"Configuration file not found: {config_path}")
         sys.exit(2)  # Config problem
     except Exception as e:
@@ -68,11 +51,7 @@ def _load_config(config_path: Path) -> TopologyConfig:
 
 
 def build_command(args: argparse.Namespace) -> None:
-    """Build continental US backbone topology.
-
-    Args:
-        args: Parsed command line arguments containing config and output paths.
-    """
+    """Build and validate a NetGraph scenario from a saved graph."""
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
@@ -114,7 +93,6 @@ def build_command(args: argparse.Namespace) -> None:
                 # Non-fatal: continue without debug directory
                 pass
 
-        # Run the pipeline with timing
         with Timer("Topology generation pipeline"):
             scenario_yaml = _run_pipeline(
                 config_obj, output_path, print_yaml=args.print
@@ -146,20 +124,11 @@ def build_command(args: argparse.Namespace) -> None:
 def _run_pipeline(
     config: TopologyConfig, output_path: Path, print_yaml: bool = False
 ) -> str:
-    """Execute topology generation from integrated graph.
+    """Build and write scenario YAML from the saved corridor graph.
 
-    Args:
-        config: Topology configuration object.
-        output_path: Path for output scenario file.
-        print_yaml: Whether to print YAML to stdout instead of validation.
-
-    Returns:
-        Generated scenario YAML string.
-
-    Notes:
-        Terminates the process via sys.exit(1) when the integrated graph is
-        missing. When validation is enabled and finds issues, raises a
-        ValueError (caller maps to exit code 3) after printing issue details.
+    With ``print_yaml``, also print the YAML and skip validation. Otherwise,
+    validate the scenario and raise ValueError on issues (CLI exit code 3).
+    A missing graph exits with code 1.
     """
     from topogen import load_from_json
     from topogen.scenario_builder import build_scenario
@@ -178,13 +147,11 @@ def _run_pipeline(
     print("Topology Generation Pipeline")
     print("=" * 50)
 
-    # Load integrated graph
     print("🔄 Loading integrated graph...")
     graph, crs = load_from_json(graph_path)
 
     print(f"📊 Graph loaded: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
 
-    # Count metro and highway nodes
     metro_nodes = [
         n
         for n, d in graph.nodes(data=True)
@@ -194,26 +161,21 @@ def _run_pipeline(
     print(f"   Metro nodes: {len(metro_nodes)}")
     print(f"   Highway nodes: {len(highway_nodes)}")
 
-    # Ensure output directory exists
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Build NetGraph scenario
     with Timer("Generate NetGraph scenario"):
         scenario_yaml = build_scenario(graph, config)
 
-    # Write scenario to file
     with Timer(f"Write scenario to {output_path}"):
         with open(output_path, "w") as f:
             f.write(scenario_yaml)
 
     print(f"\n📄 Scenario written to: {output_path}")
 
-    # Validate the generated scenario (unless just printing)
     if not print_yaml:
         from topogen.validation import validate_scenario_yaml
 
         print("🔄 Validating generated scenario...")
-        # Pass streamlined component mappings from configuration into validation
         comp_obj = getattr(config, "components", None)
         hw_map = (
             getattr(comp_obj, "hw_component", None) if comp_obj is not None else None
@@ -238,7 +200,6 @@ def _run_pipeline(
             for s in issues:
                 print(f"   - {s}")
             print("   Scenario file generated but has issues")
-            # Fail the pipeline with a validation error
             raise ValueError("Scenario validation failed")
         else:
             print("✅ Scenario validation passed")
@@ -247,11 +208,7 @@ def _run_pipeline(
 
 
 def _run_generation(config: TopologyConfig) -> None:
-    """Execute integrated graph generation pipeline.
-
-    Args:
-        config: Topology configuration object.
-    """
+    """Generate and save the corridor graph in the configured output directory."""
     from topogen import build_integrated_graph, save_to_json
 
     print("Integrated Graph Generation Pipeline")
@@ -261,7 +218,6 @@ def _run_generation(config: TopologyConfig) -> None:
     cfg_out = getattr(config, "_output_dir", None)
     output_dir = Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
 
-    # Output path for integrated graph
     source_path = getattr(config, "_source_path", None)
     prefix = Path(source_path).stem if isinstance(source_path, Path) else "scenario"
     graph_output = output_dir / f"{prefix}_integrated_graph.json"
@@ -270,11 +226,9 @@ def _run_generation(config: TopologyConfig) -> None:
     print(f"   UAC data: {config.data_sources.uac_polygons}")
     print(f"   Highway data: {config.data_sources.tiger_roads}")
 
-    # Build integrated graph with timing
-    with Timer("Build integrated metro + highway graph"):
+    with Timer("Generate a metro-to-metro corridor graph"):
         graph = build_integrated_graph(config)
 
-    # Save integrated graph to JSON with timing
     with Timer("Save integrated graph"):
         save_to_json(
             graph, graph_output, config.projection.target_crs, config.output.formatting
@@ -291,11 +245,7 @@ def _run_generation(config: TopologyConfig) -> None:
 
 
 def generate_command(args: argparse.Namespace) -> None:
-    """Generate integrated graph from raw datasets.
-
-    Args:
-        args: Parsed command line arguments containing config file path.
-    """
+    """Generate a corridor graph from the configured geographic datasets."""
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
@@ -308,7 +258,6 @@ def generate_command(args: argparse.Namespace) -> None:
             except Exception:
                 pass
 
-        # Run generation pipeline
         _run_generation(config_obj)
 
     except Exception as e:
@@ -317,11 +266,7 @@ def generate_command(args: argparse.Namespace) -> None:
 
 
 def info_command(args: argparse.Namespace) -> None:
-    """Show configuration and data source information.
-
-    Args:
-        args: Parsed command line arguments containing config file path.
-    """
+    """Print the configuration summary and data file availability."""
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
@@ -336,7 +281,6 @@ def info_command(args: argparse.Namespace) -> None:
         print(f"UAC polygons: {config_obj.data_sources.uac_polygons}")
         print(f"TIGER roads: {config_obj.data_sources.tiger_roads}")
 
-        # Check data source availability
         print("\nData Availability")
         print("=" * 20)
 
@@ -358,11 +302,7 @@ def info_command(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    """Parse command line arguments and execute the appropriate subcommand.
-
-    Configures logging, parses CLI arguments, and dispatches to the correct
-    command function (build, generate, or info).
-    """
+    """Parse arguments, configure logging, and dispatch the selected command."""
     parser = argparse.ArgumentParser(
         prog="topogen",
         description="Generate continental US backbone topologies from highway infrastructure and urban area data.",
@@ -386,7 +326,7 @@ def main() -> None:
 
     # Build command
     build_parser = subparsers.add_parser(
-        "build", help="Build continental US backbone topology"
+        "build", help="Build a NetGraph scenario from a saved corridor graph"
     )
     build_parser.add_argument(
         "config",
@@ -398,12 +338,12 @@ def main() -> None:
         "-o",
         "--output",
         default=None,
-        help="Output YAML scenario file. Defaults to '<config_stem>_scenario.yml' in CWD.",
+        help="Output directory or YAML file (default: '<config_stem>_scenario.yml' in CWD).",
     )
     build_parser.add_argument(
         "--print",
         action="store_true",
-        help="Print generated YAML to stdout for debugging",
+        help="Also print YAML to stdout and skip scenario validation",
     )
     build_parser.add_argument(
         "--debug-dir",
@@ -418,7 +358,7 @@ def main() -> None:
 
     # Generate command
     generate_parser = subparsers.add_parser(
-        "generate", help="Build integrated metro + highway graph"
+        "generate", help="Generate a metro-to-metro corridor graph"
     )
     generate_parser.add_argument(
         "config",
@@ -450,15 +390,12 @@ def main() -> None:
     )
     info_parser.set_defaults(func=info_command)
 
-    # Parse arguments and dispatch
     args = parser.parse_args()
 
-    # Configure logging based on arguments
     import logging
 
     from topogen.log_config import set_global_log_level
 
-    # Determine log level from flags
     if args.verbose:
         log_level = logging.DEBUG
     else:

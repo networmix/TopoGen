@@ -1,1 +1,1 @@
-"""Test suite for TopologyGenerator."""
+"""TopoGen tests."""

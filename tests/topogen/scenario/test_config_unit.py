@@ -8,7 +8,6 @@ from topogen.scenario.config import _determine_metro_settings
 
 
 def _build_cfg() -> SimpleNamespace:
-    # Build a minimal TopologyConfig-like object for testing
     def link(
         cap,
         cost,
@@ -89,7 +88,6 @@ def _build_cfg() -> SimpleNamespace:
 def test_override_key_validation_errors_on_unknown_slug():
     cfg = _build_cfg()
     metros = [{"name": "A", "name_orig": "A"}]
-    # Add an unknown override key
     cfg.build.build_overrides["unknown"] = {}
     with pytest.raises(ValueError):
         _determine_metro_settings(metros, cfg)
@@ -99,7 +97,6 @@ def test_defaults_and_overrides_application_and_validation():
     cfg = _build_cfg()
     metros = [{"name": "Denver", "name_orig": "Denver"}, {"name": "B"}]
     settings = _determine_metro_settings(metros, cfg)
-    # Denver overridden
     den = settings["Denver"]
     assert den["pop_per_metro"] == 3
     assert den["site_blueprint"] == "FullMesh4"
@@ -111,7 +108,6 @@ def test_defaults_and_overrides_application_and_validation():
     b = settings["B"]
     assert b["pop_per_metro"] == 2
     assert b["dc_regions_per_metro"] == 1
-    # Validate raises on invalid values
     cfg.build.build_overrides = {"denver": {"pop_per_metro": 0}}
     with pytest.raises(ValueError):
         _determine_metro_settings(metros, cfg)

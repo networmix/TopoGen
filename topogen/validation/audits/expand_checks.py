@@ -1,4 +1,4 @@
-"""Strict DSL expansion checks: nodes & links yield something, blueprint edges exist."""
+"""Check that network node and link rules and blueprint links expand to entities."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def check_groups_adjacency_blueprints(
     """
     issues: list[str] = []
 
-    # --- Groups -> nodes ---
+    # Network node expansion
     groups_orig = (
         _deepcopy((dsl.get("network") or {}).get("nodes", {}))
         if isinstance((dsl.get("network") or {}).get("nodes", {}), dict)
@@ -61,7 +61,7 @@ def check_groups_adjacency_blueprints(
                     pass
                 issues.append(f"group '{gpath}' expands to 0 nodes")
 
-    # --- Scenario links -> links ---
+    # Network link expansion
     adj_list = (dsl.get("network") or {}).get("links", [])
     if isinstance(adj_list, list) and adj_list:
         tagged_adj: list[dict[str, Any]] = []
@@ -96,7 +96,6 @@ def check_groups_adjacency_blueprints(
         for idx, _rule in enumerate(adj_list):
             tag = f"adj_{idx}"
             if adj_counts_by_tag.get(tag, 0) <= 0:
-                # Include a brief rule summary
                 try:
                     src = _rule.get("source") if isinstance(_rule, dict) else None
                     dst = _rule.get("target") if isinstance(_rule, dict) else None
@@ -120,7 +119,7 @@ def check_groups_adjacency_blueprints(
                     f"adjacency[{idx}] expands to 0 links (source={src}, target={dst}, pattern={patt})"
                 )
 
-    # --- Blueprint links -> links ---
+    # Blueprint link expansion
     blueprints = dsl.get("blueprints") or {}
     if isinstance(blueprints, dict) and blueprints:
         for bp_name, bp_def in blueprints.items():

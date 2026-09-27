@@ -28,7 +28,7 @@ repos:
             "networkx",
             "contextily",
             "pandas-stubs",
-            "ngraph>=0.12.0",
+            "ngraph>=0.23.1",
           ]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks

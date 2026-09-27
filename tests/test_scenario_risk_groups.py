@@ -15,11 +15,7 @@ from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestScenarioRiskGroups:
-    """Test risk group functionality in scenario generation."""
-
     def test_risk_groups_section_generation(self):
-        """Test that risk groups section is properly generated."""
-        # Create test graph with metro nodes and risk groups
         graph = nx.Graph()
         metro1 = (100.0, 200.0)
         metro2 = (200.0, 300.0)
@@ -39,7 +35,6 @@ class TestScenarioRiskGroups:
             radius_km=25.0,
         )
 
-        # Add corridor edge with risk groups
         graph.add_edge(
             metro1,
             metro2,
@@ -62,8 +57,6 @@ class TestScenarioRiskGroups:
         assert rg["attrs"]["distance_km"] == 500
 
     def test_risk_groups_in_scenario_yaml(self):
-        """Test that risk groups appear in generated scenario YAML."""
-        # Create test graph
         graph = nx.Graph()
         metro1 = (100.0, 200.0)
         metro2 = (200.0, 300.0)
@@ -89,7 +82,6 @@ class TestScenarioRiskGroups:
             radius_km=30.0,
         )
 
-        # Add corridor edge with risk groups
         graph.add_edge(
             metro1,
             metro2,
@@ -101,7 +93,6 @@ class TestScenarioRiskGroups:
             risk_groups=["corridor_risk_denver-aurora_kansas-city"],
         )
 
-        # Configure scenario
         config = TopologyConfig()
         config.build = BuildConfig(
             build_defaults=BuildDefaults(pop_per_metro=2, site_blueprint="SingleRouter")
@@ -109,22 +100,18 @@ class TestScenarioRiskGroups:
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
 
-        # Generate scenario
-        # Ensure a current default workflow is selected to keep scenario building stable
         config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Check risk groups section exists
         assert "risk_groups" in scenario_data
         risk_groups = scenario_data["risk_groups"]
         assert len(risk_groups) == 1
         assert risk_groups[0]["name"] == "corridor_risk_denver-aurora_kansas-city"
         assert risk_groups[0]["attrs"]["distance_km"] == 500
 
-        # Check risk groups are assigned to links
         adjacency = scenario_data["network"]["links"]
         corridor_links = [
             adj
@@ -138,7 +125,6 @@ class TestScenarioRiskGroups:
         assert "corridor_risk_denver-aurora_kansas-city" in corridor_link["risk_groups"]
 
     def test_multiple_risk_groups_per_link(self):
-        """Test that links can have multiple risk groups assigned."""
         graph = nx.Graph()
         metro1 = (100.0, 200.0)
         metro2 = (200.0, 300.0)
@@ -189,7 +175,6 @@ class TestScenarioRiskGroups:
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Should have all 3 risk groups defined
         assert len(scenario_data["risk_groups"]) == 3
         risk_group_names = {rg["name"] for rg in scenario_data["risk_groups"]}
         assert "corridor_risk_metro1_metro2" in risk_group_names
@@ -199,7 +184,6 @@ class TestScenarioRiskGroups:
         for rg in scenario_data["risk_groups"]:
             assert rg["attrs"]["distance_km"] == 150
 
-        # Link should have all 3 risk groups assigned
         corridor_links = [
             adj
             for adj in scenario_data["network"]["links"]
@@ -211,7 +195,6 @@ class TestScenarioRiskGroups:
         assert set(link_risk_groups) == risk_group_names
 
     def test_risk_groups_disabled(self):
-        """Test that no risk groups are generated when disabled."""
         graph = nx.Graph()
         metro1 = (100.0, 200.0)
         metro2 = (200.0, 300.0)
@@ -229,7 +212,7 @@ class TestScenarioRiskGroups:
             build_defaults=BuildDefaults(pop_per_metro=1, site_blueprint="SingleRouter")
         )
         config.corridors = CorridorsConfig()
-        config.corridors.risk_groups = RiskGroupsConfig(enabled=False)  # Disabled
+        config.corridors.risk_groups = RiskGroupsConfig(enabled=False)
 
         config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
@@ -237,16 +220,13 @@ class TestScenarioRiskGroups:
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Should not have risk groups section
         assert "risk_groups" not in scenario_data
 
-        # Links should not have risk groups
         adjacency = scenario_data["network"]["links"]
         for adj in adjacency:
             assert "risk_groups" not in adj
 
     def test_risk_groups_only_on_corridor_edges(self):
-        """Test that risk groups are only collected from metro-to-metro edges."""
         graph = nx.Graph()
         metro1 = (100.0, 200.0)
         metro2 = (200.0, 300.0)
@@ -279,20 +259,18 @@ class TestScenarioRiskGroups:
 
         risk_groups = _build_risk_groups_section(graph, config)
 
-        # Should only find the metro-to-metro risk group
         assert len(risk_groups) == 1
         assert risk_groups[0]["name"] == "corridor_risk_metro1_metro2"
 
     def test_metro_name_attributes_in_scenario(self):
-        """Test that both sanitized and original metro names appear in scenario."""
         graph = nx.Graph()
         metro1 = (100.0, 200.0)
 
         graph.add_node(
             metro1,
             node_type="metro",
-            name="denver-aurora",  # Sanitized
-            name_orig="Denver--Aurora, CO",  # Original
+            name="denver-aurora",
+            name_orig="Denver--Aurora, CO",
             metro_id="23527",
             x=100.0,
             y=200.0,
@@ -310,11 +288,9 @@ class TestScenarioRiskGroups:
         yaml_str = build_scenario(graph, config)
         scenario_data = yaml.safe_load(yaml_str)
 
-        # Find the metro group
         groups = scenario_data["network"]["nodes"]
         metro_group = list(groups.values())[0]
 
-        # Should have both sanitized and original names
         attrs = metro_group["attrs"]
         assert attrs["metro_name"] == "denver-aurora"  # Sanitized (primary)
         assert attrs["metro_name_orig"] == "Denver--Aurora, CO"  # Original (display)

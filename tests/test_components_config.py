@@ -10,24 +10,19 @@ from topogen.config import ComponentAssignment, ComponentsConfig, TopologyConfig
 
 
 class TestComponentsConfig:
-    """Test component configuration parsing and validation."""
-
     def test_component_assignment_defaults(self):
-        """Test ComponentAssignment with default values."""
         assignment = ComponentAssignment()
 
         assert assignment.hw_component == ""
         assert assignment.optics == ""
 
     def test_component_assignment_with_values(self):
-        """Test ComponentAssignment with specified values."""
         assignment = ComponentAssignment(hw_component="SpineChassis", optics="400G-LR4")
 
         assert assignment.hw_component == "SpineChassis"
         assert assignment.optics == "400G-LR4"
 
     def test_components_config_defaults(self):
-        """Test ComponentsConfig with default values."""
         config = ComponentsConfig()
 
         assert isinstance(config.assignments.spine, ComponentAssignment)
@@ -35,7 +30,6 @@ class TestComponentsConfig:
         assert isinstance(config.assignments.core, ComponentAssignment)
 
     def test_parse_empty_components_config(self):
-        """Test parsing configuration with empty components section."""
         config_data = {
             "data_sources": {
                 "uac_polygons": "test.zip",
@@ -62,7 +56,6 @@ class TestComponentsConfig:
             config_path.unlink()
 
     def test_parse_components_ignores_library(self):
-        """Test that inline component library is ignored by parser."""
         config_data = {
             "data_sources": {
                 "uac_polygons": "test.zip",
@@ -84,13 +77,11 @@ class TestComponentsConfig:
 
         try:
             config = TopologyConfig.from_yaml(config_path)
-            # No inline library retained in config
             assert hasattr(config.components, "assignments")
         finally:
             config_path.unlink()
 
     def test_parse_components_with_assignments(self):
-        """Test parsing configuration with component assignments."""
         config_data = {
             "data_sources": {
                 "uac_polygons": "test.zip",
@@ -128,39 +119,7 @@ class TestComponentsConfig:
         finally:
             config_path.unlink()
 
-    # Blueprint overrides removed
-
-    def test_parse_components_invalid_library_type(self):
-        """Inline library is ignored; parser should not raise."""
-        config_data = {
-            "data_sources": {
-                "uac_polygons": "test.zip",
-                "tiger_roads": "test.zip",
-                "conus_boundary": "test.zip",
-            },
-            "projection": {"target_crs": "EPSG:5070"},
-            "clustering": {"metro_clusters": 25},
-            "highway_processing": {},
-            "corridors": {},
-            "validation": {},
-            "output": {"scenario_metadata": {}, "formatting": {}},
-            "components": {
-                "library": "invalid_type"  # Should be dict
-            },
-        }
-
-        with NamedTemporaryFile(mode="w", suffix=".yml", delete=False) as f:
-            yaml.safe_dump(config_data, f)
-            config_path = Path(f.name)
-
-        try:
-            cfg = TopologyConfig.from_yaml(config_path)
-            assert isinstance(cfg.components, ComponentsConfig)
-        finally:
-            config_path.unlink()
-
     def test_parse_components_invalid_assignments_type(self):
-        """Test parsing configuration with invalid assignments type."""
         config_data = {
             "data_sources": {
                 "uac_polygons": "test.zip",
@@ -191,7 +150,6 @@ class TestComponentsConfig:
             config_path.unlink()
 
     def test_parse_components_none_library(self):
-        """Test parsing configuration with None library (empty YAML section)."""
         config_yaml = """
 data_sources:
   uac_polygons: test.zip
@@ -219,7 +177,6 @@ components:
 
         try:
             config = TopologyConfig.from_yaml(config_path)
-            # Presence of assignments struct is sufficient
             assert hasattr(config.components, "assignments")
         finally:
             config_path.unlink()

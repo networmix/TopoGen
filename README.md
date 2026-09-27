@@ -1,81 +1,71 @@
 # TopoGen
 
-[![Python-test](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
+[![CI](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
 
-Topology generator for US backbone networks with [NetGraph](https://github.com/networmix/NetGraph) scenario output.
+TopoGen builds US backbone topologies from Census urban-area polygons and
+TIGER/Line roads. It selects metros by land area and explicit overrides, finds
+highway corridors, and emits [NetGraph](https://github.com/networmix/NetGraph)
+scenarios with site blueprints, hardware, risk groups, traffic, and workflows.
 
-## Overview
+## Install
 
-Generates backbone network topologies from US Census Urban Areas (UAC) and TIGER/Line highway data. Outputs NetGraph scenario YAML with blueprints, components, risk groups, failure policies, and traffic matrices.
-
-## Features
-
-### Graph Generation
-
-- Metro selection from UAC data with size filtering and hub overrides
-- Equal-area projection, coordinate snapping, geometry pruning
-- Corridor discovery via k-nearest metro adjacency and k-shortest paths
-- Corridor risk groups with distance validation
-
-### Scenario Output
-
-- NetGraph scenario YAML with blueprints, components, failure policies, workflows
-- Traffic matrix generation with seed metadata
-- Schema validation and `ngraph` workflow execution checks
-
-## Installation
-
-### From PyPI
+Requires Python 3.11+. Dependencies include `ngraph>=0.23.1` and
+`netgraph-core>=0.10.0`.
 
 ```bash
 pip install topogen
 ```
 
-### From Source
+For a source checkout:
 
 ```bash
 git clone https://github.com/networmix/TopoGen
 cd TopoGen
-make dev    # Install in editable mode with dev dependencies
-make check  # Run full test suite
+make dev
+source venv/bin/activate
 ```
 
-## Usage
+`make dev` installs development dependencies and Git hooks. For Superset
+workspaces, use the setup command below instead.
 
-### CLI
+## Generate and run a scenario
+
+Copy an [example config](examples/) to `config.yml` and set its `data_sources`
+paths to local Census urban areas, TIGER/Line primary roads, and state boundaries.
+Paths are resolved from the working directory. State boundaries are used to
+filter to the contiguous US and to draw maps.
 
 ```bash
-# Show help
-topogen --help
-
-# Inspect configuration and data availability
 topogen info config.yml
-
-# Generate integrated metro + highway graph
-topogen generate config.yml -o out_dir
-
-# Build NetGraph scenario from integrated graph (requires previous generate)
-topogen build config.yml -o out_dir
-
-# Print scenario YAML to stdout without validation
-topogen build config.yml --print
+topogen generate config.yml -o output
+topogen build config.yml -o output
+ngraph inspect output/config_scenario.yml
+ngraph run output/config_scenario.yml
 ```
 
-### Python API
+`generate` writes `output/config_integrated_graph.json`, a metro-to-metro corridor
+graph. `build` reads it and writes `output/config_scenario.yml`. File prefixes
+come from the config filename.
+
+`build` checks the schema, NetGraph Scenario construction, topology, and hardware.
+`ngraph run` executes the workflows. Add `--print` to `topogen build` to also print
+the YAML and skip scenario validation.
+
+To process a folder of configs, use `./build.sh examples output`. It reuses saved
+graphs; pass `--force` to regenerate them or `--build-only` to rebuild scenarios.
+See `./build.sh --help` for filename filters.
+
+### Python
 
 ```python
+from pathlib import Path
 from topogen import TopologyConfig, build_integrated_graph, save_to_json
 
-# Load configuration
-config = TopologyConfig.from_yaml("config.yml")
-
-# Build integrated graph
+config = TopologyConfig.from_yaml(Path("config.yml"))
 graph = build_integrated_graph(config)
-
-# Save to JSON
 save_to_json(
     graph,
-    "output/integrated_graph.json",
+    Path("output/config_integrated_graph.json"),
     config.projection.target_crs,
     config.output.formatting,
 )
@@ -83,59 +73,67 @@ save_to_json(
 
 ## Configuration
 
-YAML config validated by JSON schema (`topogen/schemas/topogen_config.json`). Example configs in `examples/`. Run `make validate` to check.
+Configs are checked against [the JSON schema](topogen/schemas/topogen_config.json).
+`make validate` checks all configs in `examples/`.
 
-### Override Libraries
+Files in `lib/` under the working directory override built-in definitions by name.
+Each file is a direct mapping from names to definitions:
 
-Place files in `./lib/` to override built-in libraries:
+| File | Contents |
+|------|----------|
+| `blueprints.yml` | Site topology templates |
+| `components.yml` | Routers and optics |
+| `failure_policies.yml` | Failure modes and rules |
+| `workflows.yml` | Lists of NetGraph workflow steps |
 
-| File | Purpose |
-|------|---------|
-| `blueprints.yml` | Topology templates (e.g., Clos fabrics) |
-| `components.yml` | Hardware definitions (routers, optics) |
-| `failure_policies.yml` | Failure mode definitions |
-| `workflows.yml` | Analysis workflow steps |
+Set the demand-set name with `traffic.matrix_name` and routing preset names with
+`traffic.flow_policy_config`. The built-in workflow follows the configured
+demand-set name; custom workflows keep their explicit names. NetGraph validates
+workflow arguments when the library is loaded.
 
-User entries override built-ins by name.
-
-## Repository Structure
-
-```
-topogen/                # Python package
-  cli.py                # Command-line interface
-  config.py             # Configuration loading/validation
-  integrated_graph.py   # Graph construction
-  scenario_builder.py   # NetGraph scenario generation
-  scenario/             # Scenario assembly modules
-  schemas/              # JSON schemas
-  validation/           # Validation audits
-  *_lib.py              # Built-in libraries
-examples/               # Example configurations
-lib/                    # Optional user library overrides
-tests/                  # Pytest suite
-```
+Traffic models are `uniform`, `gravity`, and `hose`. With `build.tm_sizing.enabled`,
+TopoGen routes traffic on a collapsed metro graph and sizes corridors for the
+larger directional load, then applies headroom and capacity increments. Uniform
+traffic includes same-metro DC pairs in the total split. Sizing models one demand
+node per DC region and rejects unsupported endpoint patterns.
 
 ## Development
 
 ```bash
-make dev        # Setup environment
-make check      # Run pre-commit + validation + tests + lint
-make check-ci   # Run lint + validation + tests (CI mode)
-make test       # Run tests with coverage
-make lint       # Run linting only (ruff + pyright)
-make validate   # Validate config YAMLs against schema
+make check-ci   # Format checks, lint, types, config schemas, and tests with coverage
+make check      # Also run pre-commit hooks; hooks may modify files
+make test       # Tests with coverage
+make lint       # Formatting, Ruff, and Pyright checks
+make validate   # Example config schemas
 ```
 
-## Requirements
+### Superset workspaces
 
-- **Python**: 3.11+
-- **ngraph**: >= 0.12.0 (runtime dependency)
-- **Geo stack**: geopandas, rasterio, pyproj, shapely (via dependencies)
-- **Data inputs** (paths configured in YAML):
-  - UAC polygons (Census Urban Areas)
-  - TIGER/Line primary roads
-  - CONUS boundary (optional, for visualization)
+[`.superset/config.json`](.superset/config.json) defines three commands:
+
+- **Setup** creates a local `venv`, installs `.[dev]`, and checks dependencies and
+  imports. It selects Python 3.11–3.13, using `uv` to install 3.13 if needed.
+  Set `SUPERSET_PYTHON` to choose an interpreter explicitly.
+- **Run** executes `make check-ci`. TopoGen has no dev server and opens no ports.
+- **Teardown** has nothing to stop: setup starts no background services.
+
+Setup copies untracked root-level `.env` and `.env.*` files from
+`$SUPERSET_ROOT_PATH`, preserving existing workspace files and skipping
+`.example`, `.sample`, and `.template` files. It does not source these files,
+copy datasets, or install shared Git hooks. Set dataset paths in your YAML.
+
+For an existing workspace:
+
+```bash
+bash .superset/workspace.sh setup
+source venv/bin/activate
+bash .superset/workspace.sh check
+```
+
+Keep the root checkout's Superset configuration updated so new workspaces
+receive it. Personal lifecycle commands go in the gitignored
+`.superset/config.local.json`; see [Superset lifecycle scripts](https://docs.superset.sh/setup-teardown-scripts).
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE)
+[MIT](LICENSE)

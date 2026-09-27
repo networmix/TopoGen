@@ -23,10 +23,6 @@ import pandas as pd
 
 from topogen.integrated_graph import load_from_json
 
-# -----------------------------
-# Data structures
-# -----------------------------
-
 
 @dataclass(frozen=True, slots=True)
 class MetroInfo:
@@ -45,11 +41,6 @@ class MetroInfo:
     degree: int
 
 
-# -----------------------------
-# Utilities
-# -----------------------------
-
-
 def _format_int(x: int) -> str:
     return f"{x:,}"
 
@@ -59,15 +50,7 @@ def _format_float(x: float, decimals: int = 2) -> str:
 
 
 def _is_disconnected_after_removal(graph: nx.Graph, nodes_to_remove: Iterable) -> bool:
-    """Return True if removing nodes disconnects the graph.
-
-    Args:
-        graph: Input graph assumed connected initially.
-        nodes_to_remove: Nodes to remove and test connectivity.
-
-    Returns:
-        True if the remaining graph has more than one connected component.
-    """
+    """Return whether removing nodes empties or disconnects the graph."""
 
     remaining = graph.copy()
     remaining.remove_nodes_from(nodes_to_remove)
@@ -81,29 +64,15 @@ def _find_high_degree_cut(
     k: int,
     search_pool_size: int = 20,
 ) -> list[tuple[float, float]]:
-    """Find a size-k vertex cut among high-degree nodes if one exists.
+    """Try k-node cuts from the highest-degree ``search_pool_size`` nodes.
 
-    Strategy:
-        - Sort nodes by degree (desc) and take the top `search_pool_size`.
-        - Try all k-combinations in that pool (lexicographic order) and
-          return the first that disconnects the graph.
-
-    Complexity:
-        O(C(pool, k)) connectivity checks; works well for small k (<= 5).
-
-    Args:
-        graph: Connected corridor-level graph.
-        k: Target cut cardinality (global node connectivity).
-        search_pool_size: Number of highest-degree nodes to consider.
-
-    Returns:
-        A list of nodes if found, otherwise an empty list.
+    Return the first cut found, or [] if none. Requires up to C(pool, k)
+    connectivity checks.
     """
 
     if k <= 0:
         return []
 
-    # Prepare candidate pool
     degree_pairs: list[tuple[tuple[float, float], int]] = [
         (n, d)
         for n, d in list(graph.degree())  # type: ignore[misc]
@@ -112,7 +81,6 @@ def _find_high_degree_cut(
     pool_limit = min(search_pool_size, len(degree_pairs_sorted))
     pool_nodes = [n for n, _d in degree_pairs_sorted[:pool_limit]]
 
-    # Brute-force combinations within the pool
     for combo in combinations(pool_nodes, k):
         if _is_disconnected_after_removal(graph, combo):
             return list(combo)
@@ -122,11 +90,7 @@ def _find_high_degree_cut(
 def _greedy_disconnect(
     graph: nx.Graph, order: list[tuple[float, float]]
 ) -> list[tuple[float, float]]:
-    """Greedy removal by given order until the graph disconnects.
-
-    Useful as a fallback when a size-k high-degree cut is not found.
-    Attempts a simple post-shrink step to reduce the set.
-    """
+    """Remove nodes in order until disconnected, then discard redundant removals."""
 
     removed: list[tuple[float, float]] = []
     for node in order:
@@ -147,11 +111,7 @@ def _greedy_disconnect(
 
 
 def _collect_metros(graph: nx.Graph) -> list[MetroInfo]:
-    """Convert graph nodes to MetroInfo records.
-
-    Expects nodes to have `metro_id` and `name` attributes. Falls back to
-    coordinate string if attributes are missing.
-    """
+    """Build metro records, using metro ID or coordinates when the name is absent."""
 
     infos: list[MetroInfo] = []
     for node, data in graph.nodes(data=True):
@@ -190,18 +150,8 @@ def _build_degree_frame(metros: list[MetroInfo]) -> pd.DataFrame:
     return df
 
 
-# -----------------------------
-# Main analysis routine
-# -----------------------------
-
-
 def analyze_graph(json_path: Path, top_n: int | None = None) -> None:
-    """Run analysis and print findings.
-
-    Args:
-        json_path: Path to integrated graph JSON (corridor-level).
-        top_n: Optional limit when printing rankings.
-    """
+    """Print corridor connectivity, node rankings, and candidate vertex cuts."""
 
     graph, crs = load_from_json(json_path)
 
@@ -233,12 +183,10 @@ def analyze_graph(json_path: Path, top_n: int | None = None) -> None:
     # Minimum vertex cut (size k)
     min_cut_nodes: list[tuple[float, float]] = []
     if kconn > 0:
-        # Using exact minimum node cut
         from networkx.algorithms.connectivity import cuts as nx_cuts
 
         min_cut_set = nx_cuts.minimum_node_cut(graph)  # global min cut
         min_cut_nodes = list(min_cut_set)
-        # Order by degree desc for readability
         deg_map: dict[tuple[float, float], int] = {
             n: graph.degree(n)
             for n in graph.nodes  # type: ignore[dict-item]

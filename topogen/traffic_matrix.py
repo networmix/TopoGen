@@ -1,22 +1,11 @@
-"""Traffic matrix generation algorithms.
+"""Generate DC-to-DC traffic using uniform, gravity, or hose models.
 
-Provides functions to generate DC-to-DC traffic matrices for scenarios.
+Uniform emits a pairwise selector demand. Gravity allocates traffic by DC power
+and Euclidean distance, with optional jitter, pruning, and rounding. Hose uses
+iterative proportional fitting to target per-DC totals, then emits symmetric
+pairs. Rounding can change the final totals.
 
-The primary entrypoint is ``generate_traffic_matrix`` which implements three
-models:
-
-- "uniform": emit a class-level pairwise demand across all DC nodes using
-  regex paths.
-- "gravity": compute per-pair allocations proportional to a gravity-like
-  kernel over Euclidean metro distances in kilometers with optional jitter,
-  top-K pruning, and rounding with conservation via largest remainders.
-- "hose": sample one or more randomized matrices that satisfy per-DC ingress
-  and egress totals via iterative proportional fitting (IPF), then emit
-  symmetric directed demands split equally per pair.
-
-Time complexity is dominated by pair enumeration between DC nodes which is
-O(N_dc^2). Memory usage is O(N_dc^2) for intermediate weights in the gravity
-model.
+Gravity and hose enumerate DC pairs and use O(N_dc^2) intermediate storage.
 """
 
 from __future__ import annotations
@@ -27,36 +16,21 @@ import random as _random
 from pathlib import Path
 from typing import Any
 
-from topogen.config import TopologyConfig
+from topogen.config import TopologyConfig, _validate_flow_policy_names
 from topogen.log_config import get_logger
 
 logger = get_logger(__name__)
 
 
 def _fmt(value: float, *, decimals: int = 2) -> str:
-    """Return a string with thousands separators for logging.
-
-    Args:
-        value: Number to format.
-        decimals: Number of fractional digits.
-
-    Returns:
-        Formatted number as a string with thousands separators.
-    """
+    """Format a number with thousands separators and the requested precision."""
 
     fmt = f"{{:,.{decimals}f}}"
     return fmt.format(float(value))
 
 
 def _safe_metro_to_path(metro_name: str) -> str:
-    """Return a stable, sanitized slug from a metro display name.
-
-    Args:
-        metro_name: Human-readable metro name (e.g., "Salt Lake City").
-
-    Returns:
-        Lowercase slug with spaces replaced by hyphens (e.g., "salt-lake-city").
-    """
+    """Normalize a metro name for use in a DC path, such as ``salt-lake-city/dc1``."""
 
     return metro_name.lower().replace(" ", "-")
 
@@ -66,7 +40,7 @@ def generate_traffic_matrix(
     metro_settings: dict[str, dict[str, Any]],
     config: TopologyConfig,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Generate traffic_matrix_set mapping from configuration and metros.
+    """Generate traffic matrices from configuration and metros.
 
     Builds DC inventory from ``metro_settings``, computes the offered load, and
     emits traffic matrices according to the configured model. When the gravity
@@ -80,7 +54,9 @@ def generate_traffic_matrix(
 
     Returns:
         Mapping from matrix name to list of demand dicts. Returns empty dict
-        when traffic generation is disabled or no DCs exist.
+        when traffic generation is disabled or no DCs exist. Demand fields are
+        ``source_path``, ``sink_path``, ``demand``, and optional
+        ``flow_policy_config``; scenario assembly maps these to NetGraph fields.
 
     Raises:
         ValueError: If the gravity model yields zero total weight or if top-K
@@ -92,7 +68,10 @@ def generate_traffic_matrix(
         logger.debug("Traffic generation disabled or no traffic configuration present")
         return {}
 
-    # Build DC inventory
+    # Configs can also be constructed or mutated through the Python API.
+    fpc = traffic_cfg.flow_policy_config
+    _validate_flow_policy_names(fpc)
+
     dc_nodes: list[tuple[str, int]] = []  # (metro_name, dc_index)
     for metro_name, settings in metro_settings.items():
         dc_count = int(settings.get("dc_regions_per_metro", 0))
@@ -103,7 +82,6 @@ def generate_traffic_matrix(
         logger.debug("No DC regions configured; skipping traffic matrix generation")
         return {}
 
-    # Offered traffic in Gbps
     model = str(getattr(traffic_cfg, "model", "uniform")).strip()
 
     def _power_for_dc(metro_name: str, dc_path: str) -> float:
@@ -115,7 +93,6 @@ def generate_traffic_matrix(
             return float(overrides[metro_name])
         return float(traffic_cfg.mw_per_dc_region)
 
-    # Compute per-DC masses and total power
     dc_mass: dict[tuple[str, int], float] = {}
     total_power_mw = 0.0
     for metro_name, dc_idx in dc_nodes:
@@ -126,7 +103,6 @@ def generate_traffic_matrix(
 
     offered_gbps = float(traffic_cfg.gbps_per_mw) * float(total_power_mw)
 
-    # Summary of inputs
     try:
         logger.debug(
             "Traffic model=%s matrix_name=%s gbps_per_mw=%s mw_per_dc_region=%s",
@@ -145,7 +121,6 @@ def generate_traffic_matrix(
         )
         logger.debug("Offered traffic (Gbps)=%s", _fmt(offered_gbps))
     except Exception:  # pragma: no cover - logging only
-        # Guard against accidental formatting failures in debug path
         pass
 
     if model == "uniform":
@@ -165,15 +140,9 @@ def generate_traffic_matrix(
                 "priority": int(priority),
                 "demand": float(class_demand),
             }
-            # Optional per-priority flow policy config passthrough
-            try:
-                fpc = getattr(traffic_cfg, "flow_policy_config", {})
-                if isinstance(fpc, dict) and int(priority) in fpc:
-                    entry["flow_policy_config"] = str(fpc[int(priority)])
-            except Exception:  # pragma: no cover - logging only
-                pass
+            if int(priority) in fpc:
+                entry["flow_policy_config"] = fpc[int(priority)]
             demands.append(entry)
-        # Debug summary for uniform model
         try:
             for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
                 logger.debug(
@@ -205,12 +174,11 @@ def generate_traffic_matrix(
         return {traffic_cfg.matrix_name: demands}
 
     if model == "hose":
-        # Hose model: sample one or more randomized matrices satisfying per-DC totals
+        # Fit randomized hose matrices toward the per-DC totals.
         if total_power_mw <= 0.0:
             logger.debug("hose: total_power_mw is zero; skipping traffic generation")
             return {}
 
-        # Directed per-DC totals (egress == ingress for symmetric hose)
         T: dict[tuple[str, int], float] = {
             k: offered_gbps * (float(mw) / float(total_power_mw))
             for k, mw in dc_mass.items()
@@ -234,7 +202,6 @@ def generate_traffic_matrix(
             hose_excl_same = False
             carve_top_k = None
 
-        # Coordinates for Euclidean distance (meters)
         coords_hose: dict[str, tuple[float, float]] = {
             m["name"]: (float(m.get("x", 0.0)), float(m.get("y", 0.0))) for m in metros
         }
@@ -255,9 +222,9 @@ def generate_traffic_matrix(
             base_seed = 42
 
         def _ipf_directed_matrix(rng: _random.Random) -> list[list[float]]:
-            """Return directed matrix D with zero diagonal and row/col sums == T_i.
+            """Fit a zero-diagonal matrix toward per-DC row and column totals.
 
-            Uses iterative proportional fitting on a positive random initialization.
+            Stop at absolute error 1e-6 or after 2,000 iterations; return the last fit.
             """
 
             n = len(dc_nodes)
@@ -271,7 +238,6 @@ def generate_traffic_matrix(
                     (mj, dj) = dc_nodes[j]
                     # Random base > 0
                     base = 1e-9 + rng.random()
-                    # Optional gravity tilt on unordered pair
                     if tilt_exp > 0.0:
                         if hose_excl_same and mi == mj:
                             weight = 0.0
@@ -290,7 +256,6 @@ def generate_traffic_matrix(
             max_iter = 2000
             tol = 1e-6
             for _ in range(max_iter):
-                # Scale rows
                 for i in range(n):
                     row_sum = sum(D[i][j] for j in range(n) if j != i)
                     if row_sum > 0.0:
@@ -299,7 +264,6 @@ def generate_traffic_matrix(
                             for j in range(n):
                                 if i != j:
                                     D[i][j] *= factor
-                # Scale columns and track max deviation
                 max_dev = 0.0
                 for j in range(n):
                     col_sum = sum(D[i][j] for i in range(n) if i != j)
@@ -338,27 +302,23 @@ def generate_traffic_matrix(
             if carve_top_k is not None:
                 k = int(carve_top_k)
                 n = len(dc_nodes)
-                # Build undirected totals
                 und: dict[tuple[int, int], float] = {}
                 for i in range(n):
                     for j in range(i + 1, n):
                         u = float(D[i][j] + D[j][i])
                         if u > 0.0:
                             und[(i, j)] = u
-                # Partners per node
                 partner_map: dict[int, list[tuple[int, float]]] = {}
                 for (i, j), u in und.items():
                     partner_map.setdefault(i, []).append((j, u))
                     partner_map.setdefault(j, []).append((i, u))
-                # Build keep set
                 keep_pairs: set[tuple[int, int]] = set()
                 for i, lst in partner_map.items():
                     lst_sorted = sorted(lst, key=lambda t: t[1], reverse=True)[:k]
                     for j, _ in lst_sorted:
                         a, b = (i, j) if i < j else (j, i)
                         keep_pairs.add((a, b))
-                # Zero out non-kept pairs in the initialization and rerun IPF to restore T_i
-                # Start from a fresh initialization using the same tilt to avoid drift
+                # Reinitialize retained pairs and refit toward the per-DC totals.
                 D = [[0.0 for _ in range(n)] for _ in range(n)]
                 for i in range(n):
                     (mi, di) = dc_nodes[i]
@@ -382,8 +342,6 @@ def generate_traffic_matrix(
                             D[i][j] = base * tilt
                         else:
                             D[i][j] = base
-                # Run IPF again to satisfy row/col sums
-                # Reuse inner scaling loop
                 max_iter = 2000
                 tol = 1e-6
                 for _ in range(max_iter):
@@ -411,7 +369,6 @@ def generate_traffic_matrix(
                         max_dev = max(max_dev, abs(row_sum2 - T[dc_nodes[i]]))
                     if max_dev <= tol:
                         break
-            # Build undirected totals for i<j
             n = len(dc_nodes)
             undirected: list[tuple[tuple[int, int], float]] = []
             for i in range(n):
@@ -421,12 +378,11 @@ def generate_traffic_matrix(
                         undirected.append(((i, j), total_ij))
 
             demands: list[dict[str, Any]] = []
-            # Emit per class
             for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
                 D_c = offered_gbps * float(ratio)
                 allocs_hose = [((i, j), u * float(ratio)) for ((i, j), u) in undirected]
 
-                # Optional rounding with conservation via largest remainders (undirected)
+                # Round undirected totals and distribute positive residual by largest remainder.
                 if rounding > 0.0:
                     floored_hose: list[tuple[tuple[int, int], float, float]] = []
                     total_floor = 0.0
@@ -462,7 +418,6 @@ def generate_traffic_matrix(
                     i2 = metro_idx_map_hose[m2]
                     src = f"^metro{i1}/dc{d1}/.*"
                     dst = f"^metro{i2}/dc{d2}/.*"
-                    # Euclidean km for attrs parity with gravity model
                     dist_km = _hose_distance_km(m1, m2)
                     demand_each_raw = float(v) / 2.0
                     if dir_step > 0.0:
@@ -487,17 +442,15 @@ def generate_traffic_matrix(
                         "demand": float(demand_each),
                         "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
                     }
-                    fpc = getattr(traffic_cfg, "flow_policy_config", {})
-                    if isinstance(fpc, dict) and int(priority) in fpc:
-                        entry_fwd["flow_policy_config"] = str(fpc[int(priority)])
-                        entry_rev["flow_policy_config"] = str(fpc[int(priority)])
+                    if int(priority) in fpc:
+                        entry_fwd["flow_policy_config"] = fpc[int(priority)]
+                        entry_rev["flow_policy_config"] = fpc[int(priority)]
                     demands.append(entry_fwd)
                     demands.append(entry_rev)
 
             matrix_name = base_name if num_samples == 1 else f"{base_name}_{s_idx}"
             result_hose[matrix_name] = demands
 
-        # Pretty-print the first sample for visibility
         try:
             first = next(iter(result_hose.keys())) if result_hose else base_name
             pretty = {
@@ -523,8 +476,6 @@ def generate_traffic_matrix(
 
         return result_hose
 
-    # Early return for hose handled above; remaining branch is gravity
-    # Gravity model configuration
     gcfg = traffic_cfg.gravity
 
     # Metro coordinates (EPSG:5070 meters); convert to km for distance
@@ -541,7 +492,6 @@ def generate_traffic_matrix(
         dy = y1 - y2
         return max(math.hypot(dx, dy) / 1000.0, float(gcfg.min_distance_km))
 
-    # Build undirected weights for pairs of DC nodes
     weights: dict[tuple[tuple[str, int], tuple[str, int]], float] = {}
     total_w = 0.0
     logger.debug(
@@ -574,7 +524,6 @@ def generate_traffic_matrix(
             "Gravity traffic model produced zero total weight across DC pairs"
         )
 
-    # Log gravity parameters and a brief weight summary
     try:
         logger.debug(
             (
@@ -595,7 +544,6 @@ def generate_traffic_matrix(
                 else int(gcfg.max_partners_per_dc)
             ),
         )
-        # Show a few top-weight pairs for orientation
         top_pairs = sorted(weights.items(), key=lambda kv: kv[1], reverse=True)[:10]
         for (m1, d1), (m2, d2) in [p[0] for p in top_pairs]:
             w = weights[((m1, d1), (m2, d2))]
@@ -623,7 +571,7 @@ def generate_traffic_matrix(
         for node, lst in partners.items():
             lst_sorted = sorted(lst, key=lambda t: t[1], reverse=True)[:k]
             for other, _w in lst_sorted:
-                pair = tuple(sorted([node, other]))  # undirected key
+                pair = tuple(sorted([node, other]))
                 keep.add((pair[0], pair[1]))
         weights = {pair: w for pair, w in weights.items() if pair in keep}
         total_w = sum(weights.values())
@@ -651,12 +599,11 @@ def generate_traffic_matrix(
     except Exception:  # pragma: no cover - logging only
         pass
 
-    # Emit explicit per-pair demands; apply jitter and rounding per class with conservation
+    # Emit per-pair demands with class-specific jitter and rounding.
     demands: list[dict[str, Any]] = []
     debug_entries: list[dict[str, Any]] = []
     for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
         D_c = offered_gbps * float(ratio)
-        # Raw allocations
         allocs: list[tuple[tuple[tuple[str, int], tuple[str, int]], float]] = []
         for pair, w in weights.items():
             alloc = D_c * (w / total_w)
@@ -685,7 +632,7 @@ def generate_traffic_matrix(
             _fmt(D_c),
         )
 
-        # Apply rounding if requested and repair to conserve totals via largest remainders
+        # Round pair totals and distribute positive residual by largest remainder.
         rounding = float(gcfg.rounding_gbps)
         if rounding > 0.0:
             floored: list[
@@ -693,13 +640,11 @@ def generate_traffic_matrix(
             ] = []
             total_floor = 0.0
             for pair, v in allocs:
-                # Quantize according to policy
                 if getattr(gcfg, "rounding_policy", "nearest") == "ceil":
                     q = math.ceil(v / rounding) * rounding
                 elif getattr(gcfg, "rounding_policy", "nearest") == "floor":
                     q = math.floor(v / rounding) * rounding
                 else:
-                    # nearest
                     q = round(v / rounding) * rounding
                 rem = v - q
                 floored.append((pair, q, rem))
@@ -738,7 +683,6 @@ def generate_traffic_matrix(
                 _fmt(rounding, decimals=3),
             )
 
-        # Emit entries for each pair in both directions using explicit paths
         class_directed_sum = 0.0
         dir_step = max(float(gcfg.rounding_gbps) / 2.0, 0.0)
         for pair, v in allocs:
@@ -755,15 +699,12 @@ def generate_traffic_matrix(
                 demand_each = round(demand_each_raw, 2)
             if demand_each <= 0.0:
                 continue
-            # Precompute Euclidean distance in km for attrs and logging
             dist_km = _distance_km(m1, m2)
-            # Pair-specific debug lines (both directions) with key parameters
             try:
                 w = weights[pair]
                 frac = w / total_w if total_w > 0 else 0.0
                 m_i = dc_mass[(m1, d1)]
                 m_j = dc_mass[(m2, d2)]
-                # Forward
                 logger.debug(
                     (
                         "entry: prio=%d src=%s dst=%s demand_gbps=%s "
@@ -804,7 +745,6 @@ def generate_traffic_matrix(
                         "jitter_stddev": float(gcfg.jitter_stddev),
                     }
                 )
-                # Reverse
                 logger.debug(
                     (
                         "entry: prio=%d src=%s dst=%s demand_gbps=%s "
@@ -857,11 +797,8 @@ def generate_traffic_matrix(
                     "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
                 }
             )
-            # Optional per-priority flow policy config passthrough
-            if isinstance(getattr(traffic_cfg, "flow_policy_config", {}), dict):
-                fpc = getattr(traffic_cfg, "flow_policy_config", {})
-                if int(priority) in fpc:
-                    demands[-1]["flow_policy_config"] = str(fpc[int(priority)])
+            if int(priority) in fpc:
+                demands[-1]["flow_policy_config"] = fpc[int(priority)]
             demands.append(
                 {
                     "source_path": dst,
@@ -872,11 +809,8 @@ def generate_traffic_matrix(
                     "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
                 }
             )
-            if isinstance(getattr(traffic_cfg, "flow_policy_config", {}), dict):
-                fpc = getattr(traffic_cfg, "flow_policy_config", {})
-                if int(priority) in fpc:
-                    demands[-1]["flow_policy_config"] = str(fpc[int(priority)])
-            # Track post-split rounded directed sum for delta diagnostics
+            if int(priority) in fpc:
+                demands[-1]["flow_policy_config"] = fpc[int(priority)]
             class_directed_sum += 2.0 * demand_each
 
         # Post-split rounding delta relative to class exact total (using directional rounding quanta)
@@ -892,7 +826,6 @@ def generate_traffic_matrix(
 
     result = {traffic_cfg.matrix_name: demands}
     try:
-        # Summary counts and distribution statistics
         logger.debug(
             "traffic: counts dc_regions=%d undirected_pairs=%d directed_entries=%d",
             len(dc_nodes),
@@ -940,7 +873,6 @@ def generate_traffic_matrix(
                     _fmt(mean_c),
                     _fmt(lst[-1]),
                 )
-        # Optional export of detailed entries and weights
         debug_dir = getattr(config, "_debug_dir", None)
         if debug_dir is not None:
             export: dict[str, Any] = {
@@ -991,7 +923,6 @@ def generate_traffic_matrix(
                 logger.debug("traffic: failed to write debug JSON to %s", str(out_path))
     except Exception:  # pragma: no cover - logging only
         pass
-    # Pretty-print the final matrix for visibility in verbose mode (single emission)
     try:
         pretty = {
             str(traffic_cfg.matrix_name): [

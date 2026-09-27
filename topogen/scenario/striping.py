@@ -12,10 +12,9 @@ from typing import Any, Dict, List, Tuple
 
 
 def _natural_key(name: str) -> Tuple[str, int]:
-    """Return a key for natural ordering by alpha prefix and numeric suffix.
+    """Return the non-digit characters and concatenated digits as a sort key.
 
-    Example: "leaf12" -> ("leaf", 12)
-    Fallback numeric part is 0 if none present.
+    For example, ``leaf12`` becomes ``("leaf", 12)``. No digits gives 0.
     """
 
     prefix_chars: List[str] = []
@@ -39,7 +38,7 @@ def eligible_device_names_from_blueprint(
     """List eligible device names from a blueprint filtered by roles.
 
     Args:
-        blueprint: Blueprint definition with ``groups``.
+        blueprint: Blueprint definition with a ``nodes`` mapping.
         roles: Allowed roles or None for all roles.
 
     Returns:
@@ -112,7 +111,6 @@ def group_by_attr(
         for i in range(1, n + 1):
             namestr = template.replace("{n}", str(i))
             labels.setdefault(label_str, []).append(namestr)
-    # Sort each bucket
     for lab in list(labels.keys()):
         labels[lab].sort(key=_natural_key)
     return labels

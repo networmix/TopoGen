@@ -21,13 +21,10 @@ def _build_components_section(
 
     Uses merged component library (built-ins + lib/components.yml) and includes
     only component definitions that are actually referenced by the configuration
-    (platforms from ``hw_component`` and optics from ``optics``). Assignment
-    mappings themselves are not emitted into the scenario to keep it
-    NetGraph-compatible.
+    (platforms from ``hw_component`` and optics from ``optics``).
     """
     components = get_builtin_components()
     referenced_components: set[str] = set()
-    # Streamlined: include platforms from hw_component mapping and optics from role-pair mapping
     role_to_platform = getattr(config.components, "hw_component", {}) or {}
     optics_map = getattr(config.components, "optics", {}) or {}
     if isinstance(role_to_platform, dict):
@@ -57,7 +54,6 @@ def _build_blueprints_section(
     from copy import deepcopy
 
     builtin_blueprints = get_builtin_blueprints()
-    # Streamlined: use only role->platform mapping
     role_to_platform = getattr(config.components, "hw_component", {}) or {}
     if not isinstance(role_to_platform, dict):
         role_to_platform = {}
@@ -82,7 +78,6 @@ def _build_blueprints_section(
                 groups_with_role += 1
                 hw_name = role_to_platform.get(role, "")
                 if hw_name:
-                    # Emit ngraph-compatible node hardware mapping
                     group_def["attrs"]["hardware"] = {
                         "component": hw_name,
                         "count": 1,

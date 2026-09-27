@@ -1,8 +1,6 @@
-"""Built-in blueprint library.
+"""Built-in blueprints with overrides from ``cwd/lib/blueprints.yml``.
 
-Provides built-in blueprints referenced by the scenario pipeline and merges
-overrides from ``cwd/lib/blueprints.yml`` when present. The user file must be
-direct mapping: name -> definition. User entries override built-ins.
+The YAML file maps names to definitions; each entry replaces the matching built-in.
 """
 
 from __future__ import annotations
@@ -13,7 +11,6 @@ from typing import Any
 
 import yaml
 
-# Built-in blueprints used by the scenario pipeline
 _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
     "DCRegion": {
         "nodes": {
@@ -177,8 +174,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             # Inter-group (reduced): ring-of-cliques, one_to_one, 1×800G per pair ≈ 0.8 Tb/s
             # A<->B and A<->D
             {
-                "source": "leafA/leafA{idx}",
-                "target": "leafB/leafB{idx}",
+                "source": "leafA/leafA${idx}",
+                "target": "leafB/leafB${idx}",
                 "pattern": "one_to_one",
                 "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
                 "capacity": 800,
@@ -192,8 +189,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafA/leafA{idx}",
-                "target": "leafD/leafD{idx}",
+                "source": "leafA/leafA${idx}",
+                "target": "leafD/leafD${idx}",
                 "pattern": "one_to_one",
                 "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
                 "capacity": 800,
@@ -208,8 +205,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             },
             # B<->C and C<->D
             {
-                "source": "leafB/leafB{idx}",
-                "target": "leafC/leafC{idx}",
+                "source": "leafB/leafB${idx}",
+                "target": "leafC/leafC${idx}",
                 "pattern": "one_to_one",
                 "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
                 "capacity": 800,
@@ -223,8 +220,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
                 },
             },
             {
-                "source": "leafC/leafC{idx}",
-                "target": "leafD/leafD{idx}",
+                "source": "leafC/leafC${idx}",
+                "target": "leafD/leafD${idx}",
                 "pattern": "one_to_one",
                 "expand": {"vars": {"idx": [1, 2, 3, 4]}, "mode": "zip"},
                 "capacity": 800,
@@ -280,8 +277,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
         "links": [
             # Intra-group: fully meshed clique, 1×800G per pair
             {
-                "source": "/G{g}",
-                "target": "/G{g}",
+                "source": "/G${g}",
+                "target": "/G${g}",
                 "pattern": "mesh",
                 "expand": {"vars": {"g": [1, 2, 3, 4, 5, 6, 7]}},
                 "capacity": 800,
@@ -298,8 +295,8 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
             # Exactly one 800G link per unordered group pair.
             # Mapping ensures each router has h=2 global links.
             {
-                "source": "G{gu}/G{gu}_r{ru}",
-                "target": "G{gv}/G{gv}_r{rv}",
+                "source": "G${gu}/G${gu}_r${ru}",
+                "target": "G${gv}/G${gv}_r${rv}",
                 "pattern": "one_to_one",
                 "expand": {
                     "vars": {
@@ -414,14 +411,7 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
 
 
 def _load_user_library(file_name: str) -> dict[str, Any]:
-    """Load user blueprint library from ``lib/<file_name>`` if present.
-
-    Args:
-        file_name: YAML file name inside ``lib``.
-
-    Returns:
-        Mapping parsed from YAML, or empty dict if the file is missing.
-    """
+    """Read a name-to-definition mapping from ``cwd/lib/<file_name>`` if present."""
     lib_path = Path.cwd() / "lib" / file_name
     if not lib_path.exists():
         return {}
@@ -439,13 +429,8 @@ def _load_user_library(file_name: str) -> dict[str, Any]:
 
 
 def get_builtin_blueprints() -> dict[str, dict[str, Any]]:
-    """Return blueprint library merged with user overrides.
-
-    Returns:
-        Dictionary mapping blueprint names to their definitions.
-    """
+    """Return built-in blueprints with user overrides applied."""
     blueprints = deepcopy(_BUILTIN_BLUEPRINTS)
     user_blueprints = _load_user_library("blueprints.yml")
-    # Support only direct mapping: name -> definition
     blueprints.update(user_blueprints)
     return blueprints

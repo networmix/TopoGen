@@ -1,7 +1,7 @@
-"""Metropolitan cluster processing for topology generation.
+"""Select Census urban areas and represent them as points with circular radii.
 
-Converts Census Urban Area Centroids (UAC20) data into standardized metro clusters
-using point-radius representation for downstream topology algorithms.
+Selection uses land area and explicit overrides. Points come from polygon
+interiors; radii come from land area and are capped by config.
 """
 
 from __future__ import annotations
@@ -26,11 +26,7 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class MetroCluster:
-    """Metropolitan cluster with standardized point-radius representation.
-
-    Represents a metro area as a centroid point with equivalent circular radius,
-    providing consistent spatial representation for topology generation algorithms.
-    """
+    """Urban area represented by an interior point and a circular radius."""
 
     metro_id: str
     name: str
@@ -43,32 +39,17 @@ class MetroCluster:
 
     @staticmethod
     def _sanitize_metro_name(name: str) -> str:
-        """Convert metro name to clean identifier for machine use.
-
-        Removes state suffixes and special characters, creating a clean
-        identifier suitable for use in configuration keys and risk groups.
-
-        Args:
-            name: Original metro name from Census data.
-
-        Returns:
-            Sanitized name with hyphens and alphanumeric characters only.
-        """
+        """Remove state suffixes and normalize a metro name to a 30-character slug."""
         import re
 
-        # Remove everything after first comma (removes states)
         base = name.split(",")[0]
 
-        # Convert to lowercase and replace separators with hyphens
         clean = re.sub(r"[\s\-]+", "-", base.lower())
 
-        # Remove any remaining non-alphanumeric except hyphens
         clean = re.sub(r"[^a-z0-9-]", "", clean)
 
-        # Remove duplicate hyphens and trim
         clean = re.sub(r"-+", "-", clean).strip("-")
 
-        # Limit length for practical use
         return clean[:30]
 
     @property
@@ -87,27 +68,13 @@ class MetroCluster:
         return np.array([self.centroid_x, self.centroid_y])
 
     def distance_to(self, other: MetroCluster) -> float:
-        """Calculate Euclidean distance to another metro cluster.
-
-        Args:
-            other: Target metro cluster.
-
-        Returns:
-            Distance in meters (for EPSG:5070 projected coordinates).
-        """
+        """Return Euclidean distance in projected units (meters for EPSG:5070)."""
         dx = self.centroid_x - other.centroid_x
         dy = self.centroid_y - other.centroid_y
         return math.sqrt(dx * dx + dy * dy)
 
     def overlaps_with(self, other: MetroCluster) -> bool:
-        """Check if this metro cluster overlaps with another.
-
-        Args:
-            other: Target metro cluster.
-
-        Returns:
-            True if circular areas overlap.
-        """
+        """Return whether the two metro circles overlap."""
         distance_m = self.distance_to(other)
         combined_radius_m = (self.radius_km + other.radius_km) * 1000  # km to meters
         return distance_m < combined_radius_m
@@ -121,14 +88,14 @@ def load_metro_clusters(
     formatting_config: FormattingConfig,
     conus_boundary_path: Path | None = None,
 ) -> list[MetroCluster]:
-    """Load metropolitan clusters from Census Urban Area Centroids data.
+    """Select metropolitan clusters from Census urban-area polygons.
 
     Args:
         uac_path: Path to Census 2020 Urban Areas ZIP file.
         k: Number of top urban areas to select by land area.
         target_crs: Target coordinate reference system.
         clustering_config: Configuration for clustering parameters.
-        formatting_config: Configuration for formatting and precision.
+        formatting_config: Output formatting settings; unused by this loader.
         conus_boundary_path: Path to CONUS boundary file for territory filtering.
 
     Returns:
@@ -146,16 +113,14 @@ def load_metro_clusters(
     if not uac_path.exists():
         raise FileNotFoundError(f"UAC file not found: {uac_path}")
 
-    # Load UAC data and reproject to target CRS
     gdf_raw = gpd.read_file(f"zip://{uac_path}")
     logger.info(f"Loaded {len(gdf_raw):,} urban areas from UAC20 data")
     logger.info(f"UAC source CRS: {gdf_raw.crs}")
 
-    # Validate and reproject CRS
     if gdf_raw.crs is None:
         raise ValueError("UAC data has no CRS information")
 
-    # Filter to CONUS BEFORE reprojection to avoid coordinate issues with Alaska/Hawaii
+    # Exclude Alaska and Hawaii before projecting to the CONUS CRS.
     if conus_boundary_path is not None:
         from topogen.geo_utils import create_conus_mask
 
@@ -173,25 +138,21 @@ def load_metro_clusters(
 
         gdf_raw = gdf_filtered
 
-    # Now reproject the CONUS-only data
     gdf = gdf_raw.to_crs(target_crs)
     logger.info(f"Reprojected UAC data from {gdf_raw.crs} to {target_crs}")
 
-    # Log coordinate range after reprojection to verify fix
     if len(gdf) > 0:
         bounds = gdf.total_bounds  # [minx, miny, maxx, maxy]
         logger.info(
             f"Coordinate bounds after reprojection: X: [{bounds[0]:.0f}, {bounds[2]:.0f}], Y: [{bounds[1]:.0f}, {bounds[3]:.0f}]"
         )
 
-    # Validate sufficient areas available
     if len(gdf) < k:
         conus_note = " after CONUS filtering" if conus_boundary_path else ""
         raise ValueError(
             f"Only {len(gdf)} urban areas available{conus_note}, but {k} requested"
         )
 
-    # Handle override metro clusters
     gdf["ALAND20"] = pd.to_numeric(gdf["ALAND20"], errors="coerce")
 
     override_areas = pd.DataFrame()
@@ -216,13 +177,12 @@ def load_metro_clusters(
                 continue
             elif len(matches) > 1:
                 # Multiple matches - take the largest
-                largest_match = matches.loc[matches["ALAND20"].idxmax()]
+                largest_match = matches.nlargest(1, "ALAND20").iloc[0]
                 logger.info(
                     f"Override pattern '{override_pattern}' matched {len(matches)} metros, selecting largest: {largest_match['NAME20']}"
                 )
                 override_indices.append(largest_match.name)
             else:
-                # Single match
                 match = matches.iloc[0]
                 logger.info(
                     f"Override pattern '{override_pattern}' matched: {match['NAME20']}"
@@ -230,12 +190,10 @@ def load_metro_clusters(
                 override_indices.append(match.name)
 
         if override_indices:
-            # Get override areas and remove from main pool
             override_areas = gdf.loc[override_indices].copy().reset_index(drop=True)
             gdf_remaining = gdf.drop(override_indices).copy()
             remaining_k = k - len(override_areas)
 
-            # Log each override metro that was actually selected
             logger.info(
                 f"Successfully selected {len(override_areas):,} override metros:"
             )
@@ -253,7 +211,6 @@ def load_metro_clusters(
     else:
         gdf_remaining = gdf.copy()
 
-    # Select remaining metros by land area
     if remaining_k > 0:
         if len(gdf_remaining) < remaining_k:
             raise ValueError(
@@ -268,7 +225,6 @@ def load_metro_clusters(
             .reset_index(drop=True)
         )
 
-        # Log each dynamically selected metro for consistency with override logging
         if len(size_selected) > 0:
             logger.info(
                 f"Successfully selected {len(size_selected)} metros by size ranking:"
@@ -278,16 +234,13 @@ def load_metro_clusters(
                     f"  ✓ Dynamic: {row['NAME20']} (UAC: {row['UACE20']}, Area: {row['ALAND20']:,.0f} sq m)"
                 )
 
-        # Combine override and size-selected metros
         if len(override_areas) > 0:
             top_areas = pd.concat([override_areas, size_selected], ignore_index=True)
         else:
             top_areas = size_selected
     else:
-        # Only override metros
         top_areas = override_areas
 
-    # Enhanced final logging with breakdown
     override_count = len(override_areas) if len(override_areas) > 0 else 0
     size_selected_count = remaining_k if remaining_k > 0 else 0
 
@@ -300,7 +253,6 @@ def load_metro_clusters(
             f"  • {len(top_areas)} metros selected by size ranking (no overrides)"
         )
 
-    # Validate that we have the expected data structure after sorting/filtering
     if len(top_areas) != k:
         raise ValueError(f"Expected {k} areas after selection, got {len(top_areas)}")
     if not top_areas.index.equals(pd.RangeIndex(k)):
@@ -309,7 +261,6 @@ def load_metro_clusters(
             f"Got index: {top_areas.index.tolist()}"
         )
 
-    # Validate required columns exist
     required_cols = ["UACE20", "NAME20", "ALAND20"]
     missing_cols = [col for col in required_cols if col not in top_areas.columns]
     if missing_cols:
@@ -324,7 +275,6 @@ def load_metro_clusters(
     )
     logger.info(f"Calculated centroids for {len(centroids)} urban areas")
 
-    # Log sample coordinates for debugging
     if len(centroids) > 0:
         sample_idx = 0
         sample_name = (
@@ -338,7 +288,6 @@ def load_metro_clusters(
         )
 
     # Calculate equivalent circular radius from land area
-    # This standardizes differently-shaped metro areas for fair comparison
     land_areas_km2 = top_areas["ALAND20"] / 1_000_000  # Convert m² to km²
     radii_km = np.clip(
         np.sqrt(land_areas_km2 / math.pi),
@@ -352,7 +301,6 @@ def load_metro_clusters(
     )
     logger.debug("Using equivalent circular radius: r = sqrt(area/π)")
 
-    # Validate data consistency before creating MetroCluster objects
     if len(centroids) != len(top_areas):
         raise ValueError(
             f"Data length mismatch: {len(centroids)} centroids vs {len(top_areas)} areas"
@@ -370,10 +318,8 @@ def load_metro_clusters(
     metro_clusters = []
     for i in range(len(centroids)):
         try:
-            # Use UACE20 code directly as metro_id for stability and clarity
             uace_code = top_areas["UACE20"].iloc[i]
 
-            # Validate UACE20 code
             if pd.isna(uace_code) or not str(uace_code).strip():
                 raise ValueError(f"Invalid UACE20 code at index {i}: {uace_code}")
 
@@ -405,18 +351,15 @@ def load_metro_clusters(
 
     logger.info(f"Created {len(metro_clusters)} metro cluster objects")
 
-    # Validate no duplicate metro IDs
     metro_ids = [cluster.metro_id for cluster in metro_clusters]
     if len(metro_ids) != len(set(metro_ids)):
         duplicates = [id for id in metro_ids if metro_ids.count(id) > 1]
-        # Find metro names for the duplicate IDs
         duplicate_info = []
         for cluster in metro_clusters:
             if cluster.metro_id in duplicates:
                 duplicate_info.append(f"{cluster.name} ({cluster.metro_id})")
         raise ValueError(f"Duplicate metro IDs found: {', '.join(duplicate_info)}")
 
-    # Export visualization files if requested
     if clustering_config.export_clusters:
         _export_cluster_files(metro_clusters, target_crs)
 
@@ -433,7 +376,6 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
     output_dir = Path.cwd()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Export metro centroids as GeoJSON
     metro_data = []
     for cluster in metro_clusters:
         metro_data.append(
@@ -450,7 +392,6 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
         )
 
     if metro_data:
-        # Create GeoDataFrame from metro data
         import pandas as pd
 
         df = pd.DataFrame(metro_data)
@@ -464,7 +405,6 @@ def _export_cluster_files(metro_clusters: list[MetroCluster], target_crs: str) -
             f"Exported metro centroids: {metro_path} ({len(metro_data)} clusters)"
         )
 
-    # Export visualization map
     from topogen.visualization import export_cluster_map
 
     centroids = np.array([c.coordinates for c in metro_clusters])

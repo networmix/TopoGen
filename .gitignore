@@ -1,6 +1,4 @@
-# -----------------------------------------------------------------------------
 # Python
-# -----------------------------------------------------------------------------
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -30,9 +28,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# -----------------------------------------------------------------------------
 # Testing & Coverage
-# -----------------------------------------------------------------------------
 htmlcov/
 .coverage
 .coverage.*
@@ -45,11 +41,16 @@ coverage.xml
 .pytest_cache/
 tests/*no_publish*
 
-# -----------------------------------------------------------------------------
 # Development Environments & Tools
-# -----------------------------------------------------------------------------
 # Virtual environments
 .env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+!.env.template
+!.env.*.template
 .venv
 env/
 venv/
@@ -57,6 +58,9 @@ ENV/
 env.bak/
 venv.bak/
 ngraph-venv/
+
+# Personal Superset lifecycle overrides
+.superset/config.local.json
 
 # Python version management
 .python-version
@@ -67,9 +71,7 @@ __pypackages__/
 # Type checkers & linters
 .ruff_cache/
 
-# -----------------------------------------------------------------------------
 # IDEs & Editors
-# -----------------------------------------------------------------------------
 # VSCode
 **/.vscode
 
@@ -84,21 +86,15 @@ __pypackages__/
 # Cursor
 .cursorrules
 
-# -----------------------------------------------------------------------------
 # Jupyter Notebooks
-# -----------------------------------------------------------------------------
 .ipynb_checkpoints
 .virtual_documents/
 
-# -----------------------------------------------------------------------------
 # Documentation
-# -----------------------------------------------------------------------------
 # MkDocs
 /site
 
-# -----------------------------------------------------------------------------
 # OS Specific
-# -----------------------------------------------------------------------------
 # macOS
 .DS_Store
 
@@ -107,15 +103,13 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# -----------------------------------------------------------------------------
 # Private content
-# -----------------------------------------------------------------------------
 private/
 notebooks/private/
 *_private/
 *.private.*
 
-# Data files (to be on the safe side)
+# Local datasets and outputs
 data/
 datasets/
 output/
@@ -143,9 +137,7 @@ analysis*.html
 dev/perf_results/
 dev/perf_plots/
 
-# -----------------------------------------------------------------------------
 # Repo root file ignores
-# -----------------------------------------------------------------------------
 # Ignore certain file types only at the repository root
 /*.jpg
 /*.yaml
@@ -156,9 +148,7 @@ dev/perf_plots/
 !/mkdocs.yml
 !/.pre-commit-config.yaml
 
-# -----------------------------------------------------------------------------
 # Project directories to ignore at the repository root
-# -----------------------------------------------------------------------------
 /papers/
 /ngraph/
 /scenarios/

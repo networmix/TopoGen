@@ -1,24 +1,8 @@
-"""Integrated metro and highway graph construction and management.
+"""Build metro-to-metro corridor graphs from urban areas and highways.
 
-This module assembles a highway network and metropolitan clusters into two
-graphs used by downstream steps:
-
-1. A full integrated graph (internal) containing the highway backbone, metro
-   nodes, and metro anchor edges. Highway edges along k-shortest inter-metro
-   paths are tagged with corridor metadata.
-2. A corridor-level graph (returned) where nodes are metros and edges are
-   metro-to-metro corridors. Edge attributes include `length_km` (sum of
-   highway edge lengths along the chosen path), `euclidean_km` (straight-line
-   centroid separation), and `detour_ratio` (length_km / euclidean_km).
-
-Note:
-- The public ``build_integrated_graph`` function returns the corridor-level
-  graph by design because the scenario builder consumes metro-to-metro
-  corridors directly. If callers need the full integrated graph, they should
-  modify the pipeline to capture it before corridor extraction or call
-  ``extract_corridor_graph`` themselves.
-
-Saves to JSON with tuple encoding/decoding via ``save_to_json`` / ``load_from_json``.
+The intermediate graph contains highway segments, metros, and anchor edges.
+The returned graph has metro nodes and corridor edges with path length,
+Euclidean separation, and detour ratio. JSON helpers preserve coordinate keys.
 """
 
 from __future__ import annotations
@@ -33,7 +17,7 @@ from scipy.spatial import KDTree  # type: ignore[import-untyped]
 from shapely.geometry import Point
 
 from topogen.corridors import (
-    CorridorPath,  # for JSON (type hints only)
+    CorridorPath,
     add_corridors,
     assign_risk_groups,
     extract_corridor_graph,
@@ -56,19 +40,10 @@ logger = get_logger(__name__)
 def _contract_degree2_chains(
     G: nx.Graph, protected_nodes: set[tuple[float, float]] | None = None
 ) -> nx.Graph:
-    """Contract maximal degree-2 chains while preserving protected nodes.
+    """Collapse degree-2 chains, preserving junctions, dead ends, and protected nodes.
 
-    Keeps every junction (deg != 2), any end-points of dangling chains,
-    and all protected nodes (such as metro anchors).
-    Aggregates edge length into 'length_km' and stores the traversed
-    coordinate list in 'geometry'.
-
-    Args:
-        G: Input graph with intersection-level detail.
-        protected_nodes: Set of node coordinates that must never be removed.
-
-    Returns:
-        Contracted graph with only junctions and protected nodes as vertices.
+    Sum lengths into ``length_km`` and retain traversed coordinates in ``geometry``.
+    Isolated cycles become one edge between two of their nodes.
     """
     logger.info("Contracting degree-2 chains")
 
@@ -80,7 +55,6 @@ def _contract_degree2_chains(
             f"Protecting {len(protected_nodes)} nodes from contraction (metro anchors)"
         )
 
-    # Enhanced logging: analyze input graph structure
     components_before = list(nx.connected_components(G))
     logger.debug(
         f"Input graph: {len(G.nodes)} nodes, {len(G.edges)} edges, {len(components_before)} components"
@@ -89,7 +63,6 @@ def _contract_degree2_chains(
         component_sizes = sorted([len(c) for c in components_before], reverse=True)
         logger.debug(f"Component sizes before contraction: {component_sizes[:10]}")
 
-    # Degree analysis
     degree_counts = {}
     for node in G.nodes():
         deg = len(list(G.neighbors(node)))
@@ -98,7 +71,7 @@ def _contract_degree2_chains(
 
     contracted = nx.Graph()
     visited = set()
-    processed_nodes = set()  # Track all nodes that were part of contracted paths
+    processed_nodes = set()
 
     def _segment_id(u: tuple[float, float], v: tuple[float, float]) -> str:
         """Return deterministic segment id based on sorted integerized endpoints.
@@ -125,12 +98,11 @@ def _contract_degree2_chains(
                 if key in visited:
                     continue
 
-                path = [node]  # Start with just the starting junction/protected node
+                path = [node]
                 length = G.edges[node, nbr]["length_km"]
                 visited.add(key)
 
                 prev, curr = node, nbr
-                # Add intermediate nodes including nbr
                 path.append(curr)
 
                 while is_contractible(curr):
@@ -140,7 +112,6 @@ def _contract_degree2_chains(
                     path.append(nxt)
                     prev, curr = curr, nxt
 
-                # path now contains [start_junction, intermediate_nodes..., end_junction] without duplication
                 contracted.add_edge(
                     path[0],
                     path[-1],
@@ -148,11 +119,9 @@ def _contract_degree2_chains(
                     geometry=path,
                     segment_id=_segment_id(path[0], path[-1]),
                 )
-                # Track all nodes in this path as processed
                 processed_nodes.update(path)
                 chains_contracted += 1
 
-                # Log very long chains that might span critical connections
                 if len(path) > 100:
                     logger.debug(
                         f"Long chain contracted: {len(path)} nodes, {length:.1f}km from {path[0]} to {path[-1]}"
@@ -163,7 +132,6 @@ def _contract_degree2_chains(
     )
 
     # Second pass: handle isolated degree-2 cycles (rings)
-    # Find all nodes that weren't included in any contracted path
     remaining_nodes = set(G.nodes()) - processed_nodes
 
     processed_cycles = set()
@@ -171,8 +139,6 @@ def _contract_degree2_chains(
         if node in processed_cycles or len(list(G.neighbors(node))) != 2:
             continue
 
-        # This node is part of an isolated degree-2 cycle
-        # Walk around the entire cycle to collect all nodes and total length
         cycle_nodes = []
         cycle_length = 0.0
         current = node
@@ -182,32 +148,25 @@ def _contract_degree2_chains(
             cycle_nodes.append(current)
             processed_cycles.add(current)
 
-            # Find next node in the cycle
             neighbors = list(G.neighbors(current))
             if len(neighbors) != 2:
                 # Node no longer has exactly 2 neighbors, break to avoid infinite loop
                 break
             next_node = neighbors[0] if neighbors[0] != prev else neighbors[1]
 
-            # Add edge length
             cycle_length += G.edges[current, next_node]["length_km"]
 
-            # Move to next node
             prev = current
             current = next_node
 
-            # Stop when we complete the cycle
             if current == node:
                 break
 
-        # Contract the entire cycle into a single edge
         if len(cycle_nodes) >= 3:  # Only contract cycles with 3+ nodes
-            # Create a single edge representing the cycle
             # Use first and "middle" node as endpoints to avoid self-loops
             start_node = cycle_nodes[0]
             mid_node = cycle_nodes[len(cycle_nodes) // 2]
 
-            # Avoid duplicate edge insertion when start_node equals mid_node
             if start_node != mid_node:
                 contracted.add_edge(
                     start_node,
@@ -215,12 +174,11 @@ def _contract_degree2_chains(
                     length_km=cycle_length,
                     geometry=cycle_nodes + [cycle_nodes[0]],
                     segment_id=_segment_id(start_node, mid_node),
-                )  # Close the loop
+                )
 
     if contracted.number_of_edges() == 0:
         raise ValueError("Graph contraction produced empty result")
 
-    # Enhanced logging: analyze output graph structure
     components_after = list(nx.connected_components(contracted))
     logger.debug(
         f"Output graph: {len(contracted.nodes)} nodes, {len(contracted.edges)} edges, {len(components_after)} components"
@@ -230,13 +188,11 @@ def _contract_degree2_chains(
         component_sizes_after = sorted([len(c) for c in components_after], reverse=True)
         logger.debug(f"Component sizes after contraction: {component_sizes_after[:10]}")
 
-        # Check if number of components changed
         if len(components_after) != len(components_before):
             logger.warning(
                 f"Component count changed during contraction: {len(components_before)} → {len(components_after)}"
             )
 
-    # Summary
     nodes_removed = G.number_of_nodes() - contracted.number_of_nodes()
     original_nodes_count = G.number_of_nodes()
     if original_nodes_count > 0:
@@ -256,24 +212,15 @@ def _contract_degree2_chains(
 def _remove_slivers(
     G: nx.Graph, min_length_km: float, validation_config: ValidationConfig
 ) -> nx.Graph:
-    """Remove edges shorter than minimum length threshold.
+    """Copy the graph without edges below ``min_length_km`` or isolated nodes.
 
-    Args:
-        G: Input graph.
-        min_length_km: Minimum edge length to keep.
-        validation_config: Validation parameters for fragmentation checks.
-
-    Returns:
-        Graph with short edges removed.
-
-    Raises:
-        ValueError: If sliver removal fragments the network excessively.
+    Reject an empty result or a disconnected result whose largest component
+    falls below the configured fraction of the original node count.
     """
     logger.info(
         f"Removing edges shorter than {min_length_km}km (sliver removal threshold)"
     )
 
-    # Check initial connectivity
     initial_connected = nx.is_connected(G)
     initial_nodes = len(G.nodes)
     initial_edges = len(G.edges)
@@ -290,7 +237,6 @@ def _remove_slivers(
     G_clean = G.copy()
     G_clean.remove_edges_from(edges_to_remove)
 
-    # Remove isolated nodes
     isolated_nodes = [
         node for node in G_clean.nodes() if len(list(G_clean.neighbors(node))) == 0
     ]
@@ -310,7 +256,6 @@ def _remove_slivers(
     if G_clean.number_of_nodes() == 0:
         raise ValueError("No nodes remain after sliver removal")
 
-    # Critical validation: Check for network fragmentation
     components = list(nx.connected_components(G_clean))
     num_components = len(components)
 
@@ -328,11 +273,8 @@ def _remove_slivers(
                 f"Lost {nodes_lost_to_fragmentation:,} nodes to disconnected fragments."
             )
 
-            # Log component sizes for visibility
             if len(component_sizes) > 1:
-                other_components = component_sizes[
-                    1:6
-                ]  # Show up to 5 smaller components
+                other_components = component_sizes[1:6]
                 logger.warning(f"Other component sizes: {other_components}")
         else:
             logger.info(
@@ -340,7 +282,6 @@ def _remove_slivers(
                 f"Largest: {largest_component_size:,} nodes ({largest_component_fraction:.1%} of original)"
             )
 
-        # Error if we lose more than configured fraction of the network to fragmentation
         if (
             largest_component_fraction
             < validation_config.min_largest_component_fraction
@@ -352,7 +293,6 @@ def _remove_slivers(
             )
 
     else:
-        # Log success case for connected networks
         if initial_connected:
             logger.info("Sliver removal preserved network connectivity")
         else:
@@ -366,17 +306,10 @@ def _remove_slivers(
 def _keep_largest_component(
     G: nx.Graph, validation_config: ValidationConfig
 ) -> nx.Graph:
-    """Keep only the largest connected component.
+    """Return G if connected, otherwise a copy of its largest component.
 
-    Args:
-        G: Input graph potentially with multiple components.
-        validation_config: Validation parameters for component size checks.
-
-    Returns:
-        Subgraph containing only the largest connected component.
-
-    Raises:
-        ValueError: If graph has no connected components or largest component is too small.
+    Log discarded nodes. ``validation_config`` is unused; component size is
+    not a rejection criterion here.
     """
     if nx.is_connected(G):
         logger.info("Graph is already connected")
@@ -395,7 +328,6 @@ def _keep_largest_component(
         f"Graph has {len(components)} components, sizes: {component_sizes[:5]}"
     )
 
-    # Warn about significant data loss
     nodes_lost = total_nodes - largest_size
     if nodes_lost > 0:
         logger.warning(
@@ -403,8 +335,7 @@ def _keep_largest_component(
             f"({(nodes_lost / total_nodes):.1%} of network)"
         )
 
-    # Log warning if largest component is suspiciously small
-    if largest_fraction < 0.1:  # Fixed threshold - if largest component < 10%
+    if largest_fraction < 0.1:
         logger.warning(
             f"Largest component only {largest_fraction:.1%} of network "
             f"({largest_size:,}/{total_nodes:,} nodes). "
@@ -436,12 +367,10 @@ def anchor_metros(
     Raises:
         ValueError: If any metro is farther than max allowed distance from highway network.
     """
-    # Build KDTree from highway node coordinates
     highway_coords = np.array([list(node) for node in highway_graph.nodes()])
     highway_nodes = list(highway_graph.nodes())
     tree = KDTree(highway_coords)
 
-    # Log spatial debugging info
     highway_x_range = (highway_coords[:, 0].min(), highway_coords[:, 0].max())
     highway_y_range = (highway_coords[:, 1].min(), highway_coords[:, 1].max())
     logger.info(
@@ -451,14 +380,13 @@ def anchor_metros(
     )
 
     anchors = {}
-    metro_distances = []  # Track all distances for analysis
+    metro_distances = []
 
     for metro in metros:
         metro_coords = np.array([metro.centroid_x, metro.centroid_y])
 
-        # Find nearest highway node
         distance, idx = tree.query(metro_coords)
-        distance_km = distance / 1000.0  # Convert meters to km
+        distance_km = distance / 1000.0
         metro_distances.append((metro.name, distance_km))
 
         if distance_km > validation_config.max_metro_highway_distance_km:
@@ -470,10 +398,9 @@ def anchor_metros(
                 f"Distance: {distance_km:.1f}km (max: {validation_config.max_metro_highway_distance_km}km)"
             )
 
-            # Log distance statistics before failing
             sorted_distances = sorted(metro_distances, key=lambda x: x[1])
             logger.info("Metro-highway distances so far:")
-            for name, dist in sorted_distances[:10]:  # Show first 10
+            for name, dist in sorted_distances[:10]:
                 logger.info(f"  {name}: {dist:.1f}km")
             if len(sorted_distances) > 10:
                 logger.info(f"  ... and {len(sorted_distances) - 10} more metros")
@@ -491,7 +418,6 @@ def anchor_metros(
             f"at {distance_km:.2f}km"
         )
 
-    # Log final distance summary
     sorted_distances = sorted(metro_distances, key=lambda x: x[1])
     avg_distance = sum(dist for _, dist in sorted_distances) / len(sorted_distances)
     max_distance = max(dist for _, dist in sorted_distances)
@@ -501,7 +427,6 @@ def anchor_metros(
         f"Anchoring distances - Avg: {avg_distance:.1f}km, Max: {max_distance:.1f}km"
     )
 
-    # Detailed distances at DEBUG level
     logger.debug("Metro-highway anchoring distances:")
     for name, dist in sorted_distances:
         logger.debug(f"  {name}: {dist:.1f}km")
@@ -509,27 +434,13 @@ def anchor_metros(
 
 
 def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
-    """Build integrated metro and highway graph and return corridor graph.
+    """Build and return the metro-to-metro corridor graph for scenario assembly.
 
-    Args:
-        config: Complete topology configuration object.
-
-    Returns:
-        Corridor-level NetworkX graph whose nodes are metros and whose edges
-        represent metro-to-metro corridors. This is the graph expected by the
-        scenario builder.
-
-    Raises:
-        ValueError: If integration fails at any step.
-
-    Notes:
-        The full integrated highway + metro graph is an intermediate product.
-        If you need that graph, capture it prior to calling
-        ``extract_corridor_graph`` or adapt this function to return both.
+    The highway graph, metro anchors, and tagged corridor paths are intermediate
+    products. Raises ValueError when graph validation fails.
     """
     logger.info("Building integrated metro and highway graph")
 
-    # Step 1: Load metro clusters
     metros = load_metro_clusters(
         uac_path=config.data_sources.uac_polygons,
         k=config.clustering.metro_clusters,
@@ -540,7 +451,6 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
     )
     logger.info(f"Loaded {len(metros)} metro clusters")
 
-    # Step 2: Build highway graph
     highway_graph = build_highway_graph(
         tiger_zip=config.data_sources.tiger_roads,
         target_crs=config.projection.target_crs,
@@ -551,10 +461,8 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
         f"Built highway graph: {len(highway_graph.nodes):,} nodes, {len(highway_graph.edges):,} edges"
     )
 
-    # Step 3: Anchor metros to highway network
     anchors = anchor_metros(metros, highway_graph, config.validation)
 
-    # Step 4: Contract highway graph (now that metros are anchored)
     logger.info("Contracting highway graph")
     # Protect metro anchor nodes from being removed during contraction
     anchor_nodes = set(anchors.values())
@@ -562,24 +470,20 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
         highway_graph, protected_nodes=anchor_nodes
     )
 
-    # Step 5: Remove slivers (after contraction for better accuracy)
     highway_clean = _remove_slivers(
         highway_contracted,
         config.highway_processing.min_edge_length_km,
         config.validation,
     )
 
-    # Step 5.5: Optional component filtering
     if config.highway_processing.filter_largest_component:
         highway_final = _keep_largest_component(highway_clean, config.validation)
     else:
         highway_final = highway_clean
         logger.info("Component filtering disabled - keeping all highway components")
 
-    # Step 6: Verify metro anchors still exist in contracted graph
     logger.info("Verifying metro anchors after contraction")
 
-    # With protected nodes, all anchors should be preserved
     missing_anchors = []
     for metro in metros:
         anchor = anchors[metro.metro_id]
@@ -597,16 +501,13 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
 
     logger.info(f"All {len(metros)} metro anchors preserved during contraction")
 
-    # Step 7: Build integrated graph
     logger.info("Building integrated graph")
     G = highway_final.copy()
 
-    # Add metro nodes and anchor edges
     for metro in metros:
         key = metro.node_key  # (x, y) tuple
         anchor = anchors[metro.metro_id]
 
-        # Add metro node (merge if collision)
         if G.has_node(key):
             # Merge full metro attributes into existing highway node
             G.nodes[key]["node_type"] = "metro+highway"
@@ -632,7 +533,6 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
                 land_area_km2=metro.land_area_km2,
             )
 
-        # Add anchor edge
         dist_km = Point(metro.coordinates).distance(Point(anchor)) / 1000.0
         G.add_edge(
             key,
@@ -644,23 +544,17 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
 
     logger.info(f"Added {len(metros)} metro nodes with anchor connections")
 
-    # Step 8: Add corridor tags (paths from metro to metro via anchors and highways)
     logger.info("Discovering corridors")
     add_corridors(G, metros, config.corridors)
 
-    # Step 8.5: Assign risk groups to corridor edges
     assign_risk_groups(G, metros, config.corridors)
 
-    # Step 9: Validate integration
     validate_integrated_graph(G, metros, config.validation)
 
-    # Step 10: Extract corridor-level graph
     corridor_graph = extract_corridor_graph(G, metros)
 
-    # Step 11: Validate corridor connectivity
     validate_corridor_graph(corridor_graph, metros, config.validation)
 
-    # Step 12: Export visualization if requested
     if config.clustering.export_integrated_graph:
         cfg_out = getattr(config, "_output_dir", None)
         if cfg_out is not None and isinstance(cfg_out, (str, Path)):
@@ -668,16 +562,14 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
             try:
                 from topogen.visualization import export_integrated_graph_map
 
-                # Use config-derived prefix and configured output directory
                 output_dir = Path(cfg_out)
                 prefix = getattr(config, "_source_path", None)
                 stem = Path(prefix).stem if isinstance(prefix, Path) else "scenario"
                 visualization_path = output_dir / f"{stem}_integrated_graph.jpg"
 
-                # Visualize the corridor graph instead of the full highway graph
                 export_integrated_graph_map(
                     metros=metros,
-                    graph=corridor_graph,  # Use corridor graph for cleaner visualization
+                    graph=corridor_graph,
                     output_path=visualization_path,
                     conus_boundary_path=config.data_sources.conus_boundary,
                     target_crs=config.projection.target_crs,
@@ -701,7 +593,6 @@ def build_integrated_graph(config: TopologyConfig) -> nx.Graph:
         f"Corridor graph: {len(corridor_graph.nodes):,} metros, {len(corridor_graph.edges):,} corridors"
     )
 
-    # Return the corridor graph as the final result
     return corridor_graph
 
 
@@ -731,12 +622,10 @@ def validate_integrated_graph(
     else:
         logger.info("Integrated graph is fully connected")
 
-    # Check metro anchor connections
     metro_anchor_count = 0
     for metro in metros:
         key = metro.node_key
 
-        # Count anchor edges for this metro
         anchor_edges = [
             (u, v)
             for u, v, d in graph.edges(data=True)
@@ -749,7 +638,6 @@ def validate_integrated_graph(
             )
         metro_anchor_count += 1
 
-    # Check node degree sanity
     node_count = graph.number_of_nodes()
     if node_count > 0:
         node_degrees = list(graph.degree())  # type: ignore[arg-type]
@@ -771,7 +659,6 @@ def validate_integrated_graph(
             f"Found {len(high_degree_nodes)} nodes with degree > {validation_config.high_degree_warning}"
         )
 
-    # Count corridor tags
     corridor_edges = sum(
         1 for _, _, data in graph.edges(data=True) if "corridor" in data
     )
@@ -816,16 +703,14 @@ def save_to_json(
 
     out: dict[str, Any] = {"target_crs": crs, "nodes": [], "edges": []}
 
-    # Serialize nodes
     for node, data in graph.nodes(data=True):
-        x, y = node  # Unpack tuple
+        x, y = node
         node_data = {
             "id": [float(x), float(y)],
             **{k: _to_python(v) for k, v in data.items()},
         }
         out["nodes"].append(node_data)
 
-    # Serialize edges
     for u, v, data in graph.edges(data=True):
         edge_data = {
             "source": [float(u[0]), float(u[1])],
@@ -834,7 +719,6 @@ def save_to_json(
         }
         out["edges"].append(edge_data)
 
-    # Serialize corridor path registry if present
     registry = graph.graph.get("corridor_paths")
     if registry:
         serialized_paths: list[dict[str, Any]] = []
@@ -849,7 +733,6 @@ def save_to_json(
         for _key, cp in items:  # type: ignore[misc]
             # cp may be a CorridorPath dataclass or a plain dict
             if hasattr(cp, "metros") and hasattr(cp, "geometry"):
-                # Likely a CorridorPath
                 metros_tuple = cp.metros
                 path_index = int(cp.path_index)
                 length_km = float(cp.length_km)
@@ -870,7 +753,6 @@ def save_to_json(
                 serialized_paths.append(cp)
         out["corridor_paths"] = serialized_paths
 
-    # Save to file
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
         json.dump(out, f, indent=formatting_config.json_indent)
@@ -895,12 +777,10 @@ def load_from_json(path: Path) -> tuple[nx.Graph, str]:
 
     graph = nx.Graph()
 
-    # Rebuild nodes
     for node_data in data["nodes"]:
-        key = tuple(node_data.pop("id"))  # Convert list back to tuple
+        key = tuple(node_data.pop("id"))
         graph.add_node(key, **node_data)
 
-    # Rebuild edges
     for edge_data in data["edges"]:
         u = tuple(edge_data.pop("source"))
         v = tuple(edge_data.pop("target"))
@@ -908,7 +788,6 @@ def load_from_json(path: Path) -> tuple[nx.Graph, str]:
 
     crs = data["target_crs"]
 
-    # Rebuild corridor path registry if present
     try:
         raw_paths = data.get("corridor_paths")
     except Exception:  # pragma: no cover - defensive

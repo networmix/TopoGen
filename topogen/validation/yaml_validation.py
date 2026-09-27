@@ -31,8 +31,8 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
         scenario_yaml: Complete scenario YAML string.
         integrated_graph_path: Optional path to integrated graph JSON for
             cross-check of metro coordinates.
-        run_ngraph: If True, attempt to instantiate
-            ``ngraph.scenario.Scenario`` and run additional audits.
+        run_ngraph: Check the NetGraph schema, construct a Scenario, and run
+            topology and hardware audits. False runs dictionary checks only.
         hw_component_map: Optional override for role->platform mapping sourced
             from configuration. When provided, audits use this instead of any
             mapping present in the scenario.
@@ -47,10 +47,9 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
 
     try:
         data = yaml.safe_load(scenario_yaml) or {}
-    except Exception as e:  # YAML parse error
+    except Exception as e:
         return [f"YAML parse error: {e}"]
 
-    # Strict JSON Schema validation using embedded ngraph schema
     if run_ngraph:
         try:
             import jsonschema  # type: ignore[import-not-found]
@@ -81,10 +80,8 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
         except Exception as e:
             issues.append(f"Failed to read integrated graph: {e}")
 
-    # Intra-scenario validation (pure dict checks)
     issues.extend(_validate_scenario_dict(data, ig_coords))
 
-    # Optional ngraph validation and topology checks
     if run_ngraph:
         issues.extend(
             _run_ngraph_audits(
@@ -94,7 +91,6 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
             )
         )
 
-    # Log all issues at ERROR level for consistency
     try:
         for _msg in issues:
             logger.error(_msg)

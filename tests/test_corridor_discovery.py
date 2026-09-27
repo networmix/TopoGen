@@ -13,18 +13,13 @@ from topogen.metro_clusters import MetroCluster
 
 
 class TestCorridorDiscovery:
-    """Test corridor discovery functionality."""
-
     def test_basic_corridor_discovery(self):
-        """Test basic corridor discovery between metros."""
-        # Create simple highway network
         graph = nx.Graph()
 
         # Highway path: A --- B --- C
         graph.add_edge((0.0, 0.0), (500.0, 0.0), length_km=500.0)
         graph.add_edge((500.0, 0.0), (1000.0, 0.0), length_km=500.0)
 
-        # Create metros at endpoints
         metros = [
             MetroCluster("metro1", "metro-a", "Metro A", "001", 100.0, 0.0, 0.0, 25.0),
             MetroCluster(
@@ -34,7 +29,6 @@ class TestCorridorDiscovery:
 
         # Add metro nodes and anchor edges (metro-to-anchor Euclidean edges)
         for metro in metros:
-            # Add/merge metro node
             graph.add_node(
                 metro.node_key,
                 node_type="metro",
@@ -55,33 +49,27 @@ class TestCorridorDiscovery:
                 length_km=0.0,
             )
 
-        # Configure corridors
         config = CorridorsConfig()
         config.k_paths = 1
         config.k_nearest = 5
         config.max_edge_km = 2000.0
         config.max_corridor_distance_km = 2000.0
 
-        # Run corridor discovery (metro-to-metro paths via anchors/highways)
         add_corridors(graph, metros, config)
 
-        # Verify corridor tags were added
         corridor_edges = 0
         for _u, _v, data in graph.edges(data=True):
             if "corridor" in data and data["corridor"]:
                 corridor_edges += 1
-                # Check corridor info structure
                 corridor_info = data["corridor"][0]
                 assert "metro_a" in corridor_info
                 assert "metro_b" in corridor_info
                 assert "path_index" in corridor_info
                 assert "distance_km" in corridor_info
 
-        assert corridor_edges == 2  # Both highway edges should be tagged
+        assert corridor_edges == 2
 
     def test_corridor_discovery_no_path(self):
-        """Test corridor discovery when no path exists between metros."""
-        # Create disconnected graph
         graph = nx.Graph()
         graph.add_edge((0.0, 0.0), (100.0, 0.0), length_km=100.0)
         graph.add_edge((2000.0, 0.0), (2100.0, 0.0), length_km=100.0)  # Disconnected
@@ -93,7 +81,6 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        # Add metro nodes and anchor edges
         for metro in metros:
             graph.add_node(
                 metro.node_key,
@@ -119,15 +106,12 @@ class TestCorridorDiscovery:
         config.max_edge_km = 3000.0
         config.max_corridor_distance_km = 3000.0
 
-        # Should raise exception when no paths exist between metros
         with pytest.raises(
             ValueError, match="No corridors found - corridor discovery failed"
         ):
             add_corridors(graph, metros, config)
 
     def test_corridor_distance_limiting(self):
-        """Test that corridors beyond max distance are skipped."""
-        # Create long highway network
         graph = nx.Graph()
 
         # Very long path: 5000km total
@@ -143,7 +127,6 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        # Add metro nodes and anchor edges
         for metro in metros:
             graph.add_node(
                 metro.node_key,
@@ -167,15 +150,12 @@ class TestCorridorDiscovery:
         config.k_paths = 1
         config.max_corridor_distance_km = 3000.0  # Shorter than actual distance
 
-        # Should raise exception when metros are beyond max_edge_km distance limit
         with pytest.raises(
             ValueError, match="No adjacent metro pairs found for corridor discovery"
         ):
             add_corridors(graph, metros, config)
 
     def test_multiple_paths_discovery(self):
-        """Test discovery of multiple paths between metro pairs."""
-        # Create diamond network with two paths
         graph = nx.Graph()
 
         # Path 1: A --- B --- D
@@ -193,7 +173,6 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        # Add metro nodes and anchor edges
         for metro in metros:
             graph.add_node(
                 metro.node_key,
@@ -214,21 +193,19 @@ class TestCorridorDiscovery:
             )
 
         config = CorridorsConfig()
-        config.k_paths = 2  # Request 2 paths
+        config.k_paths = 2
         config.k_nearest = 5
         config.max_edge_km = 2000.0
         config.max_corridor_distance_km = 2000.0
 
         add_corridors(graph, metros, config)
 
-        # Check that multiple paths were found
         path_indices = set()
         for _u, _v, data in graph.edges(data=True):
             if "corridor" in data and data["corridor"]:
                 for corridor_info in data["corridor"]:
                     path_indices.add(corridor_info["path_index"])
 
-        # Should have found both path 0 and path 1
         assert 0 in path_indices
         assert 1 in path_indices
 
@@ -255,7 +232,6 @@ class TestCorridorDiscovery:
             ),
         ]
 
-        # Add metro nodes and anchor edges
         for metro in metros:
             graph.add_node(
                 metro.node_key,
@@ -282,10 +258,8 @@ class TestCorridorDiscovery:
         config.max_edge_km = 1000.0
         config.max_corridor_distance_km = 1000.0
 
-        # Run corridor discovery
         add_corridors(graph, metros, config)
 
-        # Compute expected distances
         euclidean_km = 100.0  # straight-line between A and C (100km)
         # Sum of edge lengths along the shortest path (A->B->C)
         path = nx.shortest_path(graph, A, C, weight="length_km")
@@ -293,7 +267,7 @@ class TestCorridorDiscovery:
             graph[path[i]][path[i + 1]]["length_km"] for i in range(len(path) - 1)
         )
 
-        assert path_km == 200.0  # sanity check for constructed graph
+        assert path_km == 200.0
 
         # Verify corridor tags recorded the path length, not the euclidean distance
         tagged = 0
@@ -304,7 +278,6 @@ class TestCorridorDiscovery:
                 assert info["distance_km"] == path_km
                 assert info["distance_km"] != euclidean_km
 
-        # Both highway edges should be tagged
         assert tagged == 2
 
     def test_path_length_filtering_over_euclidean(self):
@@ -362,14 +335,9 @@ class TestCorridorDiscovery:
 
 
 class TestCorridorGraphExtraction:
-    """Test corridor graph extraction functionality."""
-
     def test_basic_corridor_graph_extraction(self):
-        """Test extraction of corridor-level graph from highway graph."""
-        # Create highway graph with corridor tags
         full_graph = nx.Graph()
 
-        # Add metro nodes
         metro1_coords = (100.0, 200.0)
         metro2_coords = (200.0, 300.0)
 
@@ -392,7 +360,6 @@ class TestCorridorGraphExtraction:
             radius_km=25.0,
         )
 
-        # Add highway edges with corridor tags
         full_graph.add_edge(
             (150.0, 220.0),
             (180.0, 280.0),
@@ -426,22 +393,17 @@ class TestCorridorGraphExtraction:
                 geometry=[metro1_coords, metro2_coords],
             )
         }
-        # Mark the single edge as part of the chosen path
         e = full_graph[(150.0, 220.0)][(180.0, 280.0)]
         e["corridor_path_ids"] = {path_id}
 
-        # Extract corridor graph
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
-        # Should have 2 metro nodes
         assert len(corridor_graph.nodes) == 2
         assert metro1_coords in corridor_graph.nodes
         assert metro2_coords in corridor_graph.nodes
 
-        # Should have 1 corridor edge
         assert len(corridor_graph.edges) == 1
 
-        # Check edge data
         edge_data = corridor_graph[metro1_coords][metro2_coords]
         assert edge_data["edge_type"] == "corridor"
         assert edge_data["length_km"] == 141.4
@@ -449,7 +411,6 @@ class TestCorridorGraphExtraction:
         assert edge_data["metro_b"] == "002"
         assert "corridor_risk_metro-a_metro-b" in edge_data["risk_groups"]
 
-        # Check euclidean and detour ratio are computed
         # Coordinates are in meters; euclidean distance in km ~ 0.1414
         assert "euclidean_km" in edge_data
         expected_euclid_km = ((100.0**2 + 100.0**2) ** 0.5) / 1000.0
@@ -459,7 +420,6 @@ class TestCorridorGraphExtraction:
         assert 900 < edge_data["detour_ratio"] < 1100
 
     def test_corridor_graph_aggregates_shortest_distance(self):
-        """Test that corridor graph uses shortest distance between metro pairs."""
         full_graph = nx.Graph()
 
         metro1_coords = (0.0, 0.0)
@@ -472,7 +432,6 @@ class TestCorridorGraphExtraction:
             metro2_coords, node_type="metro", name="metro2", metro_id="002"
         )
 
-        # Add multiple highway edges with different distances for same metro pair
         full_graph.add_edge(
             (10.0, 10.0),
             (20.0, 20.0),
@@ -503,7 +462,6 @@ class TestCorridorGraphExtraction:
             MetroCluster("002", "metro2", "Metro 2", "002", 100.0, 100.0, 100.0, 25.0),
         ]
 
-        # Build two alternative paths and tag edges accordingly
         reg = {}
         pid_long = ("001", "002", 0)
         pid_short = ("001", "002", 1)
@@ -531,12 +489,10 @@ class TestCorridorGraphExtraction:
 
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
-        # Should use shortest distance
         edge_data = corridor_graph[metro1_coords][metro2_coords]
         assert edge_data["length_km"] == 120.0  # Shorter distance
 
     def test_corridor_graph_preserves_risk_groups(self):
-        """Test that risk groups are preserved in corridor graph extraction."""
         full_graph = nx.Graph()
 
         metro1_coords = (0.0, 0.0)
@@ -549,7 +505,6 @@ class TestCorridorGraphExtraction:
             metro2_coords, node_type="metro", name="metro2", metro_id="002"
         )
 
-        # Add edges with different risk groups
         full_graph.add_edge(
             (10.0, 10.0),
             (20.0, 20.0),
@@ -582,7 +537,6 @@ class TestCorridorGraphExtraction:
             MetroCluster("002", "metro2", "Metro 2", "002", 100.0, 100.0, 100.0, 25.0),
         ]
 
-        # Registry and edge tagging for the path
         pid = ("001", "002", 0)
         full_graph.graph["corridor_paths"] = {
             pid: CorridorPath(
@@ -600,7 +554,6 @@ class TestCorridorGraphExtraction:
 
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
-        # Should collect all unique risk groups
         edge_data = corridor_graph[metro1_coords][metro2_coords]
         risk_groups = set(edge_data["risk_groups"])
         expected_risk_groups = {

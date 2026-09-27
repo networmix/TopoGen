@@ -1,6 +1,6 @@
 """Functional tests for traffic matrix generation algorithms.
 
-These tests validate the math of the uniform and gravity models directly by
+These tests validate the math of the uniform, gravity, and hose models directly by
 calling ``topogen.traffic_matrix.generate_traffic_matrix``.
 """
 
@@ -34,8 +34,10 @@ def test_uniform_totals() -> None:
     cfg.traffic.mw_per_dc_region = 10.0
     cfg.traffic.priority_ratios = {0: 0.75, 1: 0.25}
     cfg.traffic.matrix_name = "tm"
-    # Per-priority flow policy mapping
-    cfg.traffic.flow_policy_config = {0: "SHORTEST_PATHS_ECMP", 1: "MIN_HOPS_NO_ECMP"}
+    cfg.traffic.flow_policy_config = {
+        0: "SHORTEST_PATHS_ECMP",
+        1: "SHORTEST_PATHS_WCMP",
+    }
 
     metros = _metros_ab()
     msettings = _metro_settings_two_one_dc()
@@ -52,7 +54,7 @@ def test_uniform_totals() -> None:
     assert abs(float(per_class[0]["demand"]) - offered * 0.75) < 1e-9
     assert abs(float(per_class[1]["demand"]) - offered * 0.25) < 1e-9
     assert per_class[0]["flow_policy_config"] == "SHORTEST_PATHS_ECMP"
-    assert per_class[1]["flow_policy_config"] == "MIN_HOPS_NO_ECMP"
+    assert per_class[1]["flow_policy_config"] == "SHORTEST_PATHS_WCMP"
 
 
 def test_hose_two_dcs_totals_and_symmetry() -> None:
@@ -77,7 +79,6 @@ def test_hose_two_dcs_totals_and_symmetry() -> None:
     total = sum(float(d["demand"]) for d in demands)
     # Offered = 100 * (10+10) = 2000
     assert abs(total - 2000.0) < 1e-6
-    # Symmetric: both entries equal
     assert abs(float(demands[0]["demand"]) - float(demands[1]["demand"])) < 1e-6
 
 
@@ -129,13 +130,11 @@ def test_hose_per_dc_totals_match() -> None:
     offered = cfg.traffic.gbps_per_mw * (3 * cfg.traffic.mw_per_dc_region)
     T = offered / 3.0  # equal MW per DC
 
-    # Sum outgoing per source regex
     out_by_src: dict[str, float] = {}
     for d in demands:
         src = str(d["source_path"]).strip("^")
         out_by_src[src] = out_by_src.get(src, 0.0) + float(d["demand"])
 
-    # All three DCs should have outgoing ~= T
     assert len(out_by_src) == 3
     for total in out_by_src.values():
         assert abs(total - T) < 1e-6
@@ -272,7 +271,6 @@ def test_gravity_top_k_pruning_keeps_best_partners() -> None:
     g.rounding_gbps = 0.0
     g.max_partners_per_dc = 1
 
-    # Three metros: A-B close (1 km), C far (100 km) from B and A
     metros = [
         {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
         {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},  # 1 km from A
@@ -307,7 +305,7 @@ def test_gravity_rounding_conserves_total_with_largest_remainders() -> None:
     g.rounding_gbps = 10.0
     g.max_partners_per_dc = None
 
-    # Three metros equally spaced in a line by 1 km to equalize weights approximately
+    # DCs at 0, 1, and 2 km produce unequal pair weights.
     metros = [
         {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
         {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
@@ -318,7 +316,6 @@ def test_gravity_rounding_conserves_total_with_largest_remainders() -> None:
     tmset = generate_traffic_matrix(metros, msettings, cfg)
     demands = tmset[cfg.traffic.matrix_name]
 
-    # One class; per-pair entries doubled for both directions.
     total = sum(float(d["demand"]) for d in demands)
     assert abs(total - 4500.0) < 1e-6
 
@@ -352,9 +349,7 @@ def test_gravity_dc_power_overrides_affect_offered_and_allocation() -> None:
     # Offered = 100 * (20 + 10) = 3000
     assert abs(total - 3000.0) < 1e-6
 
-    # Now override using full DC path for B
     g.mw_per_dc_region_overrides = {"A": 20.0, "b/dc1": 15.0}
-    # Note: path uses slugified metro name; ensure code lowercases/slugifies consistently
     tmset2 = generate_traffic_matrix(metros, msettings, cfg)
     demands2 = tmset2[cfg.traffic.matrix_name]
     total2 = sum(float(d["demand"]) for d in demands2)

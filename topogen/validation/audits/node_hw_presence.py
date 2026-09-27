@@ -60,7 +60,7 @@ def check_node_hw_presence(
                         f"node hardware: node '{nname}' references unknown component '{comp_name}'"
                     )
                 else:
-                    # Compute capacity once to surface calculation issues (parity with original).
+                    # Surface component capacity calculation errors.
                     _ = float(comp.get("capacity", 0.0)) * float(count)
             except Exception as e2:  # pragma: no cover
                 issues.append(

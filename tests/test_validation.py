@@ -10,7 +10,7 @@ from topogen.validation import validate_scenario_dict, validate_scenario_yaml
 
 
 def _minimal_scenario() -> dict:
-    # Minimal valid-ish structure with one metro pop and dc group
+    # One metro with PoP and DC groups for dictionary-level checks.
     return {
         "network": {
             "nodes": {
@@ -40,15 +40,14 @@ def _minimal_scenario() -> dict:
             "links": [],
         },
         # Provide empty sections to satisfy reference checks by default
-        "failure_policy_set": {},
-        "traffic_matrix_set": {},
+        "failures": {},
+        "demands": {},
         "workflow": [],
     }
 
 
 def test_validate_scenario_dict_attr_mismatch_detected():
     data = _minimal_scenario()
-    # Introduce mismatch
     data["network"]["nodes"]["metro1/dc[1]"]["attrs"]["location_x"] = 11.0
     issues = validate_scenario_dict(data)
     assert any("location_x mismatch" in s for s in issues)
@@ -56,14 +55,12 @@ def test_validate_scenario_dict_attr_mismatch_detected():
 
 def test_validate_scenario_dict_missing_required_dc_attrs():
     data = _minimal_scenario()
-    # Remove required attribute
     del data["network"]["nodes"]["metro1/dc[1]"]["attrs"]["mw_per_dc_region"]
     issues = validate_scenario_dict(data)
     assert any("dc attrs missing required 'mw_per_dc_region'" in s for s in issues)
 
 
 def test_validate_scenario_yaml_workflow_references_checked(tmp_path: Path):
-    # Craft YAML string referencing missing items
     yaml_text = """
 network:
   nodes:
@@ -86,9 +83,9 @@ network:
         mw_per_dc_region: 50.0
         gbps_per_mw: 250.0
 workflow:
-  - step_type: TrafficMatrixPlacementAnalysis
+  - type: TrafficMatrixPlacementAnalysis
     name: tm
-    matrix_name: missing_matrix
+    demand_set: missing_matrix
     failure_policy: missing_policy
 """
     issues = validate_scenario_yaml(
@@ -102,7 +99,6 @@ def test_validate_scenario_dict_does_not_flag_adjacency_strings():
     data = _minimal_scenario()
     data["network"]["links"].append({"source": "missing", "target": "metro1/pop[2]"})
     data["network"]["links"].append({"source": "metro1/dc[1]", "target": "missing2"})
-    # String-level adjacency checks are not performed anymore; rely on ngraph
     issues = validate_scenario_dict(data)
     assert not any("adjacency references missing group" in s for s in issues)
 
@@ -139,7 +135,6 @@ network:
 
 
 def test_dc_capacity_vs_demand_validation():
-    # Build a simple scenario with one DC and a DC->PoP adjacency that has limited capacity
     data = _minimal_scenario()
     # Add one dc_to_pop adjacency with target_capacity 1000
     data["network"]["links"] = [
@@ -158,21 +153,21 @@ def test_dc_capacity_vs_demand_validation():
         }
     ]
     # Traffic matrix with a single class that demands 1200 out of the DC and 800 into the DC
-    data["traffic_matrix_set"] = {
+    data["demands"] = {
         "tm": [
             {
-                "source_path": "^metro1/dc1/.*",
-                "sink_path": "^metro1/dc1/.*",
+                "source": "^metro1/dc1/.*",
+                "target": "^metro1/dc1/.*",
                 "mode": "pairwise",
                 "priority": 0,
-                "demand": 1200.0,
+                "volume": 1200.0,
             },
             {
-                "source_path": "^metro2/dc1/.*",
-                "sink_path": "^metro1/dc1/.*",
+                "source": "^metro2/dc1/.*",
+                "target": "^metro1/dc1/.*",
                 "mode": "pairwise",
                 "priority": 0,
-                "demand": 800.0,
+                "volume": 800.0,
             },
         ]
     }
@@ -240,8 +235,8 @@ def test_groups_that_expand_to_zero_nodes_are_flagged(monkeypatch):
             },
             "links": [],
         },
-        "failure_policy_set": {},
-        "traffic_matrix_set": {},
+        "failures": {},
+        "demands": {},
         "workflow": [],
     }
     issues = validate_scenario_yaml(
@@ -311,8 +306,8 @@ def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
                 }
             ],
         },
-        "failure_policy_set": {},
-        "traffic_matrix_set": {},
+        "failures": {},
+        "demands": {},
         "workflow": [],
     }
     issues = validate_scenario_yaml(
@@ -372,11 +367,7 @@ def test_node_hardware_presence_audited():
 
 
 def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
-    # jsonschema is a required dependency; test assumes availability
-
-    # Build a scenario missing required top-level sections to trigger schema errors
     invalid = {
-        # e.g., missing required 'network' or malformed types
         "network": {
             # wrong type: nodes should be a mapping, make it a list to fail
             "nodes": [
@@ -393,7 +384,6 @@ def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
             # links should be a list of mappings; keep as valid list to isolate the nodes error
             "links": [],
         },
-        # required sets/workflow may be missing; schema should still complain primarily about nodes type
     }
 
     issues = validate_scenario_yaml(
@@ -403,7 +393,6 @@ def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
 
 
 def test_link_optics_presence_audited_unordered_and_directional():
-    # Build a tiny scenario with two roles A and B via a Clos-like blueprint adjacency
     data = {
         "blueprints": {
             "Clos_2_1": {
@@ -539,7 +528,6 @@ def test_port_budget_detects_platform_port_overuse():
     )
     # Expect a port budget violation referencing LeafRouter (64 ports) needing 68
     assert any("hardware ports:" in s and "LeafRouter" in s for s in issues)
-    # And the exact required ports count should appear
     assert any("requires 68 ports" in s for s in issues)
     # Spine has 64 ports and the same need; it should also be flagged
     assert any("SpineRouter" in s for s in issues)

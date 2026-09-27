@@ -12,7 +12,7 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 
 
 def _build_failure_policy_set_section(config: "TopologyConfig") -> dict[str, Any]:
-    """Build the ``failure_policy_set`` section of the scenario."""
+    """Build the ``failures`` section of the scenario."""
     builtin_policies = get_builtin_failure_policies()
     policies: dict[str, Any] = {}
 
@@ -48,7 +48,12 @@ def _build_failure_policy_set_section(config: "TopologyConfig") -> dict[str, Any
 
 def _build_workflow_section(config: "TopologyConfig") -> list[dict[str, Any]]:
     """Build the ``workflow`` section of the scenario."""
-    builtin_workflows = get_builtin_workflows()
+    matrix_name = getattr(getattr(config, "traffic", None), "matrix_name", None)
+    builtin_workflows = get_builtin_workflows(
+        matrix_name=matrix_name
+        if isinstance(matrix_name, str)
+        else "baseline_traffic_matrix"
+    )
     default_workflow_name = config.workflows.assignments.default
     if default_workflow_name in builtin_workflows:
         return builtin_workflows[default_workflow_name]

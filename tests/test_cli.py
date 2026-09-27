@@ -11,20 +11,14 @@ import logging
 from argparse import Namespace
 from io import StringIO
 from pathlib import Path
-from types import SimpleNamespace  # for narrow use in _invoke_main helper
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
 def _invoke_main(argv: list[str], *, stub_subcommand: bool = False):
-    """Invoke topogen.cli.main with patches applied.
+    """Run the CLI and capture exit code, stdout, selected command, and log level.
 
-    Args:
-        argv: Arguments excluding program name.
-        stub_subcommand: If True, replaces subcommands (build/generate/info)
-            with a no-op function that records it was called and prints once.
-
-    Returns:
-        Namespace with: code (int), stdout (str), called (str|None), level (int|None).
+    With ``stub_subcommand``, replace subcommands with a recorder that prints once.
     """
     import topogen.cli as cli
 
@@ -38,7 +32,6 @@ def _invoke_main(argv: list[str], *, stub_subcommand: bool = False):
 
     patchers = []
 
-    # Capture configured log level
     patchers.append(
         patch(
             "topogen.log_config.set_global_log_level",
@@ -114,7 +107,6 @@ def test_default_log_level_is_info():
 
 
 def test_quiet_suppresses_print_output():
-    # With quiet, our stubbed subcommand won't print; stdout should be empty
     res = _invoke_main(["--quiet", "info", "-c", "config.yml"], stub_subcommand=True)
     assert res.stdout == ""
 
@@ -128,14 +120,12 @@ def test_subcommand_dispatch_build_generate_info():
 def test_timer_context_manager_success_and_error():
     from topogen.cli import Timer
 
-    # Success path
     with patch("sys.stdout", new_callable=StringIO) as buf:
         with Timer("Unit test op"):
             pass
         s = buf.getvalue()
         assert "Unit test op" in s
 
-    # Error path (re-raises)
     with patch("sys.stdout", new_callable=StringIO):
         try:
             with Timer("Failing op"):
@@ -150,7 +140,6 @@ def test__load_config_file_not_found_exits_with_code_2(tmp_path):
     with patch("sys.stdout", new_callable=StringIO):
         pass
 
-    # Use a definitely-missing path
     missing = tmp_path / "does_not_exist.yml"
     with patch(
         "sys.exit", side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code))
@@ -182,7 +171,6 @@ def test_build_command_success_print_and_non_print():
 
     importlib.reload(cli)
 
-    # Stub loader and pipeline
     with (
         patch.object(cli, "_load_config", return_value=Namespace()),
         patch.object(cli, "_run_pipeline", return_value="YAML"),
@@ -284,7 +272,6 @@ def test_info_command_prints_status(tmp_path):
 
     importlib.reload(cli)
 
-    # Create one existing and one missing path
     uac = tmp_path / "uac.zip"
     tiger = tmp_path / "tiger.zip"
     uac.write_text("x")

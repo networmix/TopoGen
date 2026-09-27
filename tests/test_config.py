@@ -9,8 +9,6 @@ from topogen.config import TopologyConfig
 
 
 def test_config_from_yaml(tmp_path: Path) -> None:
-    """Test loading configuration from YAML file."""
-    # Create test config file
     config_data = {
         "clustering": {
             "metro_clusters": 25,
@@ -61,10 +59,8 @@ def test_config_from_yaml(tmp_path: Path) -> None:
     with open(config_path, "w") as f:
         yaml.dump(config_data, f)
 
-    # Load configuration
     config = TopologyConfig.from_yaml(config_path)
 
-    # Verify values
     assert config.clustering.metro_clusters == 25
     assert config.clustering.export_clusters is True
     assert config.projection.target_crs == "EPSG:3857"
@@ -72,21 +68,18 @@ def test_config_from_yaml(tmp_path: Path) -> None:
 
 
 def test_config_defaults() -> None:
-    """Test default configuration values."""
     config = TopologyConfig()
 
     assert config.clustering.metro_clusters == 30
-    assert config.clustering.export_clusters is False  # Default should be False
+    assert config.clustering.export_clusters is False
 
 
 def test_export_clusters_config() -> None:
-    """Test that export_clusters configuration works correctly."""
     # Load example config from repo root if present; otherwise construct inline
     example_path = Path("config.yml")
     if example_path.exists():
         config = TopologyConfig.from_yaml(example_path)
     else:
-        # Minimal config dict with export_clusters=True
         config_data = {
             "clustering": {
                 "metro_clusters": 25,
@@ -118,34 +111,27 @@ def test_export_clusters_config() -> None:
         finally:
             tmp_path.unlink()
 
-    # The current config has export_clusters set to true
     assert config.clustering.export_clusters is True
 
 
 def test_dc_regions_config_defaults() -> None:
-    """Test DC Region configuration defaults."""
     config = TopologyConfig()
 
-    # Test build defaults
     assert config.build.build_defaults.dc_regions_per_metro == 2
     assert config.build.build_defaults.dc_region_blueprint == "DCRegion"
 
-    # Test dc_to_pop_link defaults
     assert config.build.build_defaults.dc_to_pop_link.capacity == 400
     assert config.build.build_defaults.dc_to_pop_link.cost == 1
     assert config.build.build_defaults.dc_to_pop_link.attrs["link_type"] == "dc_to_pop"
 
-    # Test component assignments
     assert hasattr(config.components.assignments, "dc")
     assert config.components.assignments.dc.hw_component == ""
     assert config.components.assignments.dc.optics == ""
 
 
 def test_config_validation_missing_files() -> None:
-    """Test configuration validation with missing data files."""
     from topogen.config import DataSources
 
-    # Create config with missing UAC file
     config = TopologyConfig()
     config.data_sources = DataSources(
         uac_polygons=Path("data/nonexistent_uac.zip"),
@@ -153,16 +139,13 @@ def test_config_validation_missing_files() -> None:
         conus_boundary=config.data_sources.conus_boundary,
     )
 
-    # Should raise ValueError for missing files
     with pytest.raises(ValueError, match="UAC polygons file not found"):
         config.validate()
 
 
 def test_config_validation_invalid_params() -> None:
-    """Test configuration validation with invalid parameters."""
     from topogen.config import ClusteringConfig
 
-    # Test negative metro_clusters
     config = TopologyConfig()
     config.clustering = ClusteringConfig(metro_clusters=0)
     with pytest.raises(ValueError, match="metro_clusters must be positive"):
@@ -170,7 +153,6 @@ def test_config_validation_invalid_params() -> None:
 
 
 def test_config_summary() -> None:
-    """Test configuration summary generation."""
     config = TopologyConfig()
     summary = config.summary()
 
@@ -179,7 +161,6 @@ def test_config_summary() -> None:
 
 
 def test_config_file_not_found() -> None:
-    """Test handling of missing configuration file."""
     non_existent_path = Path("non_existent_config.yml")
 
     with pytest.raises(FileNotFoundError):
@@ -187,10 +168,8 @@ def test_config_file_not_found() -> None:
 
 
 def test_config_invalid_yaml(tmp_path: Path) -> None:
-    """Test handling of invalid YAML."""
     config_path = tmp_path / "invalid_config.yml"
 
-    # Write invalid YAML
     with open(config_path, "w") as f:
         f.write("invalid: yaml: content: [unclosed")
 

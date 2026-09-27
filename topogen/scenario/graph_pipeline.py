@@ -1,13 +1,11 @@
-"""Graph-based scenario generation pipeline.
-
-Builds a site-level MultiGraph, assigns capacities, and serializes to YAML.
-"""
+"""Build a site-level MultiGraph, size its links, and emit NetGraph network sections."""
 
 from __future__ import annotations
 
 import itertools
 import json
 import math
+from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -45,9 +43,6 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
 logger = get_logger(__name__)
 
 
-# Per-node component assignments removed from the pipeline.
-
-
 def _metro_index_maps(
     metros: list[dict[str, Any]],
 ) -> tuple[dict[str, int], dict[Any, dict[str, Any]]]:
@@ -78,16 +73,13 @@ def _assign_site_positions(
         metros: List of metro dicts as produced by ``_extract_metros_from_graph``.
         metro_idx_map: Mapping from metro name to metro index used in node ids.
     """
-    # Build reverse map: idx -> metro record
     idx_to_metro: dict[int, dict[str, Any]] = {}
     for name, idx in metro_idx_map.items():
-        # ``metros`` is enumerated 1-based in _metro_index_maps; reconstruct by name
         for m in metros:
             if m.get("name") == name:
                 idx_to_metro[idx] = m
                 break
 
-    # Group nodes by metro index and site kind
     by_idx_pop: dict[int, list[tuple[str, int]]] = {}
     by_idx_dc: dict[int, list[tuple[str, int]]] = {}
     for node_id, data in G.nodes(data=True):
@@ -96,14 +88,12 @@ def _assign_site_positions(
             kind = str(data.get("site_kind", ""))
             ordn = int(data.get("site_ordinal", 0))
         except Exception:
-            # Skip nodes without expected metadata
             continue
         if kind == "pop":
             by_idx_pop.setdefault(idx, []).append((str(node_id), ordn))
         elif kind == "dc":
             by_idx_dc.setdefault(idx, []).append((str(node_id), ordn))
 
-    # Assign positions per metro
     import math as _m
 
     for idx, metro in idx_to_metro.items():
@@ -113,15 +103,12 @@ def _assign_site_positions(
         r_m = max(0.0, 1000.0 * r_km)
 
         # POP ring radius and DC ring radius as fractions of metro radius
-        # Keep strictly inside the circle to avoid overlap with outline
         r_pop = 0.70 * r_m if r_m > 0.0 else 0.0
         r_dc = 0.40 * r_m if r_m > 0.0 else 0.0
 
-        # Deterministic angular placement
         pops = sorted(by_idx_pop.get(idx, []), key=lambda t: t[1])
         dcs = sorted(by_idx_dc.get(idx, []), key=lambda t: t[1])
 
-        # Helper to place nodes on a ring
         def place_ring(
             nodes: list[tuple[str, int]],
             radius: float,
@@ -147,7 +134,6 @@ def _assign_site_positions(
                 G.nodes[node_name]["pos_x"] = float(x)
                 G.nodes[node_name]["pos_y"] = float(y)
 
-        # Place POPs and DCs
         place_ring(pops, r_pop, phase=0.0)
         # Phase DC ring by 45 degrees to reduce overlap with POPs when counts match
         place_ring(dcs, r_dc, phase=_m.pi / 4.0)
@@ -171,7 +157,6 @@ def _add_intra_metro_edges(
     for metro in metros:
         metro_name = metro["name"]
         idx = metro_idx_map[metro_name]
-        # Resolve per-metro link config
         link_cfg = metro_settings[metro_name]["intra_metro_link"]
         base_capacity = (
             int(link_cfg["capacity"])
@@ -210,7 +195,6 @@ def _add_intra_metro_edges(
             u = _site_node_id(idx, "pop", i)
             v = _site_node_id(idx, "pop", j)
             cost = arc_ceil(s, i, j)
-            # Build symmetric match if role_pairs provided
             rp = (
                 link_cfg.get("role_pairs", [])
                 if isinstance(link_cfg, dict)
@@ -313,7 +297,6 @@ def _add_dc_to_pop_edges(
             arc = steps * ((2.0 * math.pi * _radius_km) / float(n))
             return int(math.ceil(arc))
 
-        # Build symmetric match if role_pairs provided (fallback when no striping)
         rp = (
             link_cfg.get("role_pairs", [])
             if isinstance(link_cfg, dict)
@@ -354,18 +337,15 @@ def _add_dc_to_pop_edges(
                 else getattr(link_cfg, "match", {})
             ) or {}
 
-        # Optional striping resolution
         striping = (
             link_cfg.get("striping", {})
             if isinstance(link_cfg, dict)
             else getattr(link_cfg, "striping", {})
         ) or {}
 
-        # Precompute stripe groups and attach node_overrides when configured
         stripe_attr: str | None = None
         stripe_labels: list[str] = []
         if striping:
-            # Resolve eligible roles
             role_set: set[str] | None = set()
             for item in rp:
                 if isinstance(item, str):
@@ -416,13 +396,11 @@ def _add_dc_to_pop_edges(
                         f"DC-to-PoP striping by_attr mismatch in {metro_name}: labels pop={sorted(pop_map)} dc={sorted(dc_map)}"
                     )
                 stripe_attr = _stripe_attr_name(f"dc_{idx}")
-                # Stable order
                 label_to_names_pop = {lab: pop_map[lab] for lab in sorted(pop_map)}
                 label_to_names_dc = {lab: dc_map[lab] for lab in sorted(dc_map)}
             else:
                 raise ValueError(f"Unknown striping.mode: {mode}")
 
-            # Build node_overrides for this metro's DC regions and POPs
             G.graph.setdefault("node_overrides", [])
             for p_ord in range(1, s + 1):
                 site = _site_node_id(idx, "pop", p_ord)
@@ -455,7 +433,6 @@ def _add_dc_to_pop_edges(
                 # Enforce strictly positive cost to avoid zero-length links
                 cost_arc = max(1, int(raw_arc))
 
-                # Build match: either role-based (no striping) or stripe-only
                 if not striping:
                     match_payload = match_obj
                 else:
@@ -534,7 +511,6 @@ def _add_inter_metro_edges(
         euclid_km = edge.get("euclidean_km")
         detour_ratio = edge.get("detour_ratio")
         adj_id = f"inter_metro:{min(s_idx, t_idx)}-{max(s_idx, t_idx)}"
-        # Optional striping
         striping = (
             src_cfg.get("striping", {})
             if isinstance(src_cfg, dict)
@@ -586,7 +562,6 @@ def _add_inter_metro_edges(
         )
 
         if not striping:
-            # Determine adjacency mode: mesh (default) or one_to_one
             mode_val = (
                 src_cfg.get("mode", "mesh")
                 if isinstance(src_cfg, dict)
@@ -649,7 +624,6 @@ def _add_inter_metro_edges(
                         )
             continue
 
-        # With striping configured, compute stripe labels and node_overrides per site
         bps = _get_builtins()
         roles: set[str] | None = set()
         for item in (
@@ -704,7 +678,6 @@ def _add_inter_metro_edges(
 
         stripe_attr = _stripe_attr_name(f"im_{min(s_idx, t_idx)}_{max(s_idx, t_idx)}")
         G.graph.setdefault("node_overrides", [])
-        # Emit overrides for each site in both metros
         for p_ord in range(1, s_sites + 1):
             site = _site_node_id(s_idx, "pop", p_ord)
             G.graph["node_overrides"].extend(
@@ -767,7 +740,7 @@ def build_site_graph(
 
     Nodes are created for sites: ``metro{n}/pop{i}`` and ``metro{n}/dc{j}`` with
     their blueprints attached as node attributes. Edges are added for three
-    adjacency families with clear semantics:
+    adjacency families:
 
     - intra_metro: PoP↔PoP within a metro on a ring with arc-length-based cost.
     - dc_to_pop: DC region↔PoP within a metro, optionally striped.
@@ -782,7 +755,6 @@ def build_site_graph(
     G = nx.MultiGraph()
     metro_idx_map, metro_by_node = _metro_index_maps(metros)
 
-    # Early validation: ring radius must be positive when ring-based adjacencies are needed
     for metro in metros:
         name = metro["name"]
         s = int(metro_settings[name]["pop_per_metro"])  # type: ignore[index]
@@ -798,7 +770,6 @@ def build_site_graph(
                 f"Metro '{name}' has radius_km={metro.get('radius_km', 0.0)}; expected > 0 for ring-based adjacency"
             )
 
-    # Nodes with per-site blueprint and component assignments
     for metro in metros:
         name = metro["name"]
         idx = metro_idx_map[name]
@@ -827,10 +798,8 @@ def build_site_graph(
                 site_blueprint=dc_blueprint,
             )
 
-    # Assign deterministic positions for visualization/export consumers
     _assign_site_positions(G, metros, metro_idx_map)
 
-    # Edges by category
     _add_intra_metro_edges(G, metros, metro_settings, config, metro_idx_map)
     _add_dc_to_pop_edges(G, metros, metro_settings, config, metro_idx_map)
     _add_inter_metro_edges(
@@ -860,14 +829,13 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
     endpoint site blueprints, match filters, and the ``one_to_one`` pattern),
     then set per-link capacity to ``base_capacity / num_links``.
 
-    This logic is adjacency-agnostic and uses the same expansion rules as
-    NetGraph by calling its DSL expander on a minimal network containing only
-    the two endpoints and the single adjacency under evaluation.
+    Link counts come from NetGraph expansion of the two endpoint sites and
+    the adjacency under evaluation.
 
     Args:
         G: Site-level MultiGraph with edges carrying ``base_capacity`` and node
             attributes ``site_blueprint``.
-        config: Topology configuration (unused; present for interface stability).
+        config: Topology configuration; unused by this stage.
 
     Raises:
         ValueError: If an edge lacks ``base_capacity`` or the expansion yields
@@ -885,7 +853,6 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
 
         # Build a minimal DSL using only the two endpoints and one adjacency.
         # Tag links from our adjacency so we can count them precisely.
-        # Ensure match is a plain dict; tests may inject mocks
         raw_match = edge_data.get("match", {})
         match_dict: dict[str, Any] = raw_match if isinstance(raw_match, dict) else {}
 
@@ -908,7 +875,6 @@ def assign_per_link_capacity(G: nx.MultiGraph, config: TopologyConfig) -> None:
                 ],
             },
         }
-        # Inject node_rules (e.g., striping attributes) if present on graph
         try:
             overrides = G.graph.get("node_overrides", [])
             if isinstance(overrides, list) and overrides:
@@ -978,28 +944,53 @@ def _resolve_flow_placement(flow_placement: str) -> FlowPlacement:
     return FlowPlacement.PROPORTIONAL
 
 
+def _tm_metro_demands(
+    demands: list[dict[str, Any]], dc_counts: dict[int, int]
+) -> Iterator[tuple[int, int, float]]:
+    """Collapse the generator's concrete and uniform demands to metro pairs."""
+    uniform_selector = "(metro[0-9]+/dc[0-9]+)"
+    for demand in demands:
+        volume = float(demand.get("demand", 0.0))
+        if volume <= 0.0:
+            continue
+        source = str(demand.get("source_path", ""))
+        target = str(demand.get("sink_path", ""))
+        if source == target == uniform_selector and demand.get("mode") == "pairwise":
+            total_dc = sum(dc_counts.values())
+            if total_dc < 2:
+                raise ValueError(
+                    "TM sizing: pairwise traffic requires at least two DCs"
+                )
+            # NetGraph splits volume over all ordered, distinct DC node pairs.
+            # Same-metro pairs remain in the denominator but use no corridors.
+            per_pair = volume / (total_dc * (total_dc - 1))
+            for src, src_count in dc_counts.items():
+                for dst, dst_count in dc_counts.items():
+                    if src != dst and src_count > 0 and dst_count > 0:
+                        yield src, dst, per_pair * src_count * dst_count
+            continue
+        src = _parse_tm_endpoint_to_metro_idx(source)
+        dst = _parse_tm_endpoint_to_metro_idx(target)
+        if src is None or dst is None:
+            raise ValueError(
+                f"TM sizing: unsupported demand endpoint ({source!r} -> {target!r})"
+            )
+        if src != dst:
+            yield src, dst, volume
+
+
 def tm_based_size_capacities(
     G: nx.MultiGraph,
     metros: list[dict[str, Any]],
     metro_settings: dict[str, dict[str, Any]],
     config: TopologyConfig,
 ) -> None:
-    """Adjust base capacities using an early TM and ECMP on collapsed graph.
+    """Size links from generated traffic routed on a collapsed metro graph.
 
-    Pipeline:
-    - Generate TM using traffic_matrix.generate_traffic_matrix (in-memory).
-    - Build a metro-level NetworkX MultiDiGraph with explicit forward and reverse
-      edges for each inter-metro corridor in G. This allows traffic to flow in
-      both directions while keeping per-direction loads separate.
-    - Convert to netgraph_core StrictMultiDiGraph via from_networkx().
-    - For each directed TM demand in the matrix, compute shortest-path ECMP
-      fractions and accumulate load on inter-metro corridor edges.
-    - Track forward and reverse flows separately using different edge refs.
-      Since G is undirected, both refs point to the same G edge, but respect_min
-      ensures final capacity = max(sized_forward, sized_reverse).
-    - Quantize inter-metro base capacities with headroom.
-    - Derive DC->PoP and intra-metro PoP<->PoP base capacities from metro/PoP
-      egress with configurable multipliers and quantization.
+    Preserve parallel corridors and route each demand with the configured flow
+    split. Size each corridor for its peak directional load, then apply headroom
+    and round up to capacity increments. Derive DC-to-PoP and intra-metro
+    capacities from PoP egress, respecting configured minimums when enabled.
     """
     sizing_cfg = getattr(getattr(config, "build", None), "tm_sizing", None)
     if getattr(sizing_cfg, "enabled", False) is not True:
@@ -1009,27 +1000,25 @@ def tm_based_size_capacities(
 
     logger.info("TM sizing: generating early traffic matrix")
 
-    # Pre-flight checks
     traffic_cfg = getattr(config, "traffic", None)
     if not getattr(traffic_cfg, "enabled", False):
         raise ValueError(
             "TM sizing is enabled but traffic generation is disabled in configuration"
         )
 
-    # Generate TM (in-memory)
     tm_map = generate_traffic_matrix(metros, metro_settings, config)
     matrix_name = getattr(sizing_cfg, "matrix_name", None) or getattr(
         getattr(config, "traffic", object()), "matrix_name", "default"
     )
     demands = list(tm_map.get(matrix_name, []))
-    # Ensure DC inventory exists when TM sizing is requested
-    total_dc = 0
     try:
-        for settings in metro_settings.values():
-            total_dc += int(settings.get("dc_regions_per_metro", 0))
+        dc_counts = {
+            idx: int(metro_settings[metro["name"]].get("dc_regions_per_metro", 0))
+            for idx, metro in enumerate(metros, 1)
+        }
     except Exception as exc:
         raise ValueError("TM sizing: failed to determine DC region count") from exc
-    if total_dc <= 0:
+    if sum(dc_counts.values()) <= 0:
         raise ValueError(
             "TM sizing is enabled but no DC regions are configured (dc_regions_per_metro == 0)"
         )
@@ -1038,7 +1027,6 @@ def tm_based_size_capacities(
             f"TM sizing: traffic matrix '{matrix_name}' is empty despite enabled traffic"
         )
 
-    # Build metro-level NetworkX graph from G inter-metro corridors
     metro_idx_map = {m["name"]: idx for idx, m in enumerate(metros, 1)}
     for idx, _ in enumerate(metros, 1):
         metro_idx_map.setdefault(f"metro{idx}", idx)
@@ -1052,9 +1040,8 @@ def tm_based_size_capacities(
 
     # Map to track correspondence between H edges and G edges.
     # Key is (src_metro_idx, dst_metro_idx, h_edge_key) to handle parallel edges.
-    # For each undirected G edge, we create two directed H edges (forward and reverse)
-    # with DIFFERENT refs so that flows in each direction are tracked separately.
-    g_edge_refs: dict[tuple[int, int, Any], tuple[str, str, str]] = {}
+    # Both directions reference the same physical edge, sized once for peak load.
+    g_edge_refs: dict[tuple[int, int, Any], tuple[Any, Any, Any]] = {}
 
     for u_g, v_g, k_g, data in G.edges(keys=True, data=True):
         if str(data.get("link_type")) != "inter_metro_corridor":
@@ -1074,16 +1061,13 @@ def tm_based_size_capacities(
             )
 
         cost = int(data.get("cost", 1))
-        # Add forward edge: source_metro -> target_metro
-        h_key_fwd = H.add_edge(s_idx, t_idx, key=f"{k_g}:fwd", capacity=1e15, cost=cost)
-        g_edge_refs[(s_idx, t_idx, h_key_fwd)] = (str(u_g), str(v_g), str(k_g))
+        # Let H allocate keys: G keys can repeat across different PoP pairs
+        # that collapse to the same metro pair.
+        h_key_fwd = H.add_edge(s_idx, t_idx, capacity=1e15, cost=cost)
+        g_edge_refs[(s_idx, t_idx, h_key_fwd)] = (u_g, v_g, k_g)
 
-        # Add reverse edge: target_metro -> source_metro
-        # Use DIFFERENT ref (v_g, u_g, k_g) so reverse flows are tracked separately.
-        # When applied to undirected G, both refs point to the same edge but are
-        # processed separately, resulting in max(sized_forward, sized_reverse).
-        h_key_rev = H.add_edge(t_idx, s_idx, key=f"{k_g}:rev", capacity=1e15, cost=cost)
-        g_edge_refs[(t_idx, s_idx, h_key_rev)] = (str(v_g), str(u_g), str(k_g))
+        h_key_rev = H.add_edge(t_idx, s_idx, capacity=1e15, cost=cost)
+        g_edge_refs[(t_idx, s_idx, h_key_rev)] = (u_g, v_g, k_g)
 
     if H.number_of_edges() == 0:
         raise ValueError(
@@ -1095,12 +1079,10 @@ def tm_based_size_capacities(
     multidigraph, node_map, edge_map = _from_networkx(H, bidirectional=False)
     num_nodes = multidigraph.num_nodes()
 
-    # Build Core graph handle
     backend = netgraph_core.Backend.cpu()
     algorithms = netgraph_core.Algorithms(backend)
     handle = algorithms.build_graph(multidigraph)
 
-    # Create FlowState for accumulating flows
     flow_state = netgraph_core.FlowState(multidigraph)
 
     fp_enum = _resolve_flow_placement(
@@ -1112,25 +1094,13 @@ def tm_based_size_capacities(
         else netgraph_core.FlowPlacement.PROPORTIONAL
     )
 
-    # Build edge selection
     edge_selection = netgraph_core.EdgeSelection(
         multi_edge=True,
         require_capacity=False,  # IP-style routing based on cost only
         tie_break=netgraph_core.EdgeTieBreak.DETERMINISTIC,
     )
 
-    # Iterate demands and accumulate flows
-    for d in demands:
-        src = str(d.get("source_path", ""))
-        dst = str(d.get("sink_path", ""))
-        demand_val = float(d.get("demand", 0.0))
-        if demand_val <= 0.0:
-            continue
-        s_metro = _parse_tm_endpoint_to_metro_idx(src)
-        t_metro = _parse_tm_endpoint_to_metro_idx(dst)
-        if s_metro is None or t_metro is None or s_metro == t_metro:
-            continue
-        # Convert 1-based metro indices to 0-based netgraph node indices
+    for s_metro, t_metro, demand_val in _tm_metro_demands(demands, dc_counts):
         s_idx = node_map.to_index.get(s_metro)
         t_idx = node_map.to_index.get(t_metro)
         if s_idx is None or t_idx is None:
@@ -1138,7 +1108,6 @@ def tm_based_size_capacities(
                 f"TM sizing: metro index out of range (src={s_metro}, dst={t_metro}, num_nodes={num_nodes})"
             )
 
-        # Compute SPF
         try:
             dists, pred_dag = algorithms.spf(
                 handle,
@@ -1152,7 +1121,6 @@ def tm_based_size_capacities(
                 f"TM sizing: SPF failed for metro {s_metro}->{t_metro}: {exc}"
             ) from exc
 
-        # Place flow on DAG
         placed = flow_state.place_on_dag(
             src=s_idx,
             dst=t_idx,
@@ -1173,31 +1141,25 @@ def tm_based_size_capacities(
         except Exception:
             pass
 
-    # Extract edge flows and map back to G edges
     edge_flows_arr = flow_state.edge_flow_view()
     ext_edge_ids_view = multidigraph.ext_edge_ids_view()
-    edge_loads: dict[tuple[str, str, str], float] = {}
+    edge_loads: dict[tuple[Any, Any, Any], float] = {}
     for edge_idx in range(len(edge_flows_arr)):
         flow_val = float(edge_flows_arr[edge_idx])
         if flow_val <= 0.0:
             continue
         ext_id = int(ext_edge_ids_view[edge_idx])
-        # Map ext_id -> H edge reference (src_idx, dst_idx, key)
         h_edge_ref = edge_map.to_ref.get(ext_id)
         if h_edge_ref:
             src_idx, dst_idx, h_key = h_edge_ref
-            # H nodes are int (metro indices), so cast is safe
             if isinstance(src_idx, int) and isinstance(dst_idx, int):
-                # Look up G edge using full (src, dst, key) tuple.
-                # Forward and reverse H edges have different refs:
-                # - Forward: (u_g, v_g, k_g)
-                # - Reverse: (v_g, u_g, k_g)
-                # This keeps flows in each direction separate. Since G is undirected,
-                # both refs point to the same physical edge, but respect_min logic
-                # below ensures capacity = max(sized_forward, sized_reverse).
+                # FlowState has already summed demands in each direction. A
+                # full-duplex corridor must cover the larger directional load.
                 g_edge_ref = g_edge_refs.get((src_idx, dst_idx, h_key))
                 if g_edge_ref:
-                    edge_loads[g_edge_ref] = edge_loads.get(g_edge_ref, 0.0) + flow_val
+                    edge_loads[g_edge_ref] = max(
+                        edge_loads.get(g_edge_ref, 0.0), flow_val
+                    )
 
     Q = float(getattr(sizing_cfg, "quantum_gbps", 3200.0))
     h_factor = float(getattr(sizing_cfg, "headroom", 1.3))
@@ -1216,7 +1178,6 @@ def tm_based_size_capacities(
         key = (src_name, tgt_name)
         prev_corridor_caps[key] = prev_corridor_caps.get(key, 0.0) + prev_cap
 
-    # Apply sized capacities to inter-metro edges in G
     for (u_g, v_g, k_g), L in edge_loads.items():
         try:
             data = G.edges[(u_g, v_g, k_g)]
@@ -1234,7 +1195,6 @@ def tm_based_size_capacities(
         prev = float(data.get("base_capacity", 0.0))
         new_base = max(prev, sized) if respect_min else sized
         G.edges[u_g, v_g, k_g]["base_capacity"] = new_base
-        # Keep target_capacity aligned with total intended capacity for the adjacency
         G.edges[u_g, v_g, k_g]["target_capacity"] = new_base
 
     # Aggregate post-adjustment capacities per directed metro corridor
@@ -1250,7 +1210,6 @@ def tm_based_size_capacities(
         key = (src_name, tgt_name)
         post_corridor_caps[key] = post_corridor_caps.get(key, 0.0) + cap
 
-    # Log corridor capacity deltas (per directed pair)
     if post_corridor_caps:
         try:
             total_before = sum(
@@ -1263,7 +1222,6 @@ def tm_based_size_capacities(
                 f"{total_after:,.1f}",
                 f"{(total_after - total_before):,.1f}",
             )
-            # Only emit lines for pairs that changed
             for pair in sorted(post_corridor_caps):
                 before = float(prev_corridor_caps.get(pair, 0.0))
                 after = float(post_corridor_caps[pair])
@@ -1281,10 +1239,8 @@ def tm_based_size_capacities(
                     "inf" if not (factor < float("inf")) else f"{factor:.2f}",
                 )
         except Exception:
-            # Logging must not affect sizing; swallow any formatting errors
             pass
 
-    # Compute PoP egress based on sized corridor capacities
     pop_egress: dict[str, float] = {}
     for u_g, v_g, data in G.edges(data=True):
         if str(data.get("link_type")) != "inter_metro_corridor":
@@ -1296,7 +1252,6 @@ def tm_based_size_capacities(
     alpha = float(getattr(sizing_cfg, "alpha_dc_to_pop", 1.2))
     beta = float(getattr(sizing_cfg, "beta_intra_pop", 0.8))
 
-    # Derive DC->PoP base capacities
     for u_g, v_g, k_g, data in G.edges(keys=True, data=True):
         if str(data.get("link_type")) != "dc_to_pop":
             continue
@@ -1326,7 +1281,6 @@ def tm_based_size_capacities(
         G.edges[u_g, v_g, k_g]["base_capacity"] = new_base
         G.edges[u_g, v_g, k_g]["target_capacity"] = new_base
 
-    # Derive PoP<->PoP (intra-metro) base capacities
     for u_g, v_g, k_g, data in G.edges(keys=True, data=True):
         if str(data.get("link_type")) != "intra_metro":
             continue
@@ -1358,9 +1312,7 @@ def to_network_sections(
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Serialize MultiGraph to NetGraph 'nodes' and 'links' sections."""
     logger.info("Serializing MultiGraph to scenario network sections")
-    # Groups
     groups: dict[str, Any] = {}
-    # Determine max counts
     metro_idx_map = {m["name"]: idx for idx, m in enumerate(metros, 1)}
     for metro in metros:
         name = metro["name"]
@@ -1424,10 +1376,8 @@ def to_network_sections(
             except Exception:
                 pass
 
-    # Adjacency as explicit per-pair entries from graph edges
     adjacency: list[dict[str, Any]] = []
     for u, v, k, data in G.edges(keys=True, data=True):
-        # Only serialize if capacity assigned
         cap = data.get("capacity", data.get("base_capacity", 1))
         cost = int(data.get("cost", 1))
         attrs = {
@@ -1457,7 +1407,6 @@ def to_network_sections(
             attrs["detour_ratio"] = float(
                 data["detour_ratio"]
             )  # corridor length / euclidean
-        # Include computed per-end hardware, if present on this edge
         hw = data.get("hardware")
         if isinstance(hw, dict) and hw:
             attrs["hardware"] = hw
@@ -1480,7 +1429,6 @@ def to_network_sections(
             "cost": cost,
             "attrs": attrs,
         }
-        # Risk groups belong at link level
         if "risk_groups" in data and data["risk_groups"]:
             link_entry["risk_groups"] = data["risk_groups"]
 
@@ -1516,16 +1464,9 @@ def to_network_sections(
 
 
 def save_site_graph_json(G: nx.MultiGraph, path: Path, *, json_indent: int = 2) -> None:
-    """Save site-level MultiGraph to JSON using string node ids.
+    """Save site nodes and edges as JSON.
 
-    The format mirrors the integrated graph JSON structure but uses string
-    identifiers for nodes and includes the MultiGraph edge key to
-    disambiguate parallel edges.
-
-    Args:
-        G: Site-level MultiGraph.
-        path: Output JSON file path.
-        json_indent: Indentation for JSON pretty-printing.
+    String node IDs and edge keys preserve parallel links.
     """
     logger.info(f"Saving site-level network graph to JSON: {path}")
 

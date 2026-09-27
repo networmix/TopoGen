@@ -1,9 +1,6 @@
-"""Built-in component library.
+"""Built-in hardware with overrides from ``cwd/lib/components.yml``.
 
-Provides a minimal collection of standard hardware components referenced by
-the scenario pipeline and merges overrides from ``cwd/lib/components.yml``
-when present. The user file must be direct mapping: name -> definition.
-User entries override built-ins.
+The YAML file maps names to definitions; each entry replaces the matching built-in.
 """
 
 from __future__ import annotations
@@ -14,7 +11,6 @@ from typing import Any
 
 import yaml
 
-# Built-in component library
 _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
     "CoreRouter": {
@@ -81,17 +77,9 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
 
 
 def _load_user_library(file_name: str) -> dict[str, Any]:
-    """Load a user library YAML mapping from ``lib/<file_name>`` if present.
+    """Read a mapping from ``cwd/lib/<file_name>``, or return {} if absent.
 
-    Args:
-        file_name: YAML file name inside the ``lib`` directory.
-
-    Returns:
-        A dictionary parsed from the YAML file, or an empty dict when the file
-        does not exist.
-
-    Raises:
-        ValueError: If the YAML exists but is invalid or not a mapping.
+    Raises ValueError for invalid YAML or a non-mapping value.
     """
     lib_path = Path.cwd() / "lib" / file_name
     if not lib_path.exists():
@@ -110,33 +98,15 @@ def _load_user_library(file_name: str) -> dict[str, Any]:
 
 
 def get_builtin_components() -> dict[str, dict[str, Any]]:
-    """Return the component library merged with user overrides.
-
-    The result is a deep copy of built-ins, updated with entries from
-    ``lib/components.yml`` in the current working directory if present.
-
-    Returns:
-        Dictionary mapping component names to their definitions.
-    """
+    """Return a copy of built-in components with user overrides applied."""
     components = deepcopy(_BUILTIN_COMPONENTS)
     user_components = _load_user_library("components.yml")
-    # Support only direct mapping: name -> definition
     components.update(user_components)
     return components
 
 
 def get_builtin_component(name: str) -> dict[str, Any]:
-    """Get a specific built-in component by name.
-
-    Args:
-        name: Name of the component to retrieve.
-
-    Returns:
-        Component definition dictionary.
-
-    Raises:
-        KeyError: If the component name is not found.
-    """
+    """Return a component from the merged library; raise KeyError if absent."""
     if name not in _BUILTIN_COMPONENTS:
         available = list(_BUILTIN_COMPONENTS.keys())
         raise KeyError(f"Component '{name}' not found. Available: {available}")
@@ -145,23 +115,12 @@ def get_builtin_component(name: str) -> dict[str, Any]:
 
 
 def list_builtin_component_names() -> list[str]:
-    """Get a list of all built-in component names.
-
-    Returns:
-        List of component names.
-    """
+    """List component names from the merged library."""
     return sorted(_BUILTIN_COMPONENTS.keys())
 
 
 def get_components_by_type(component_type: str) -> dict[str, dict[str, Any]]:
-    """Get all components of a specific type.
-
-    Args:
-        component_type: Type of components to retrieve (e.g., "chassis", "optic").
-
-    Returns:
-        Dictionary of components matching the specified type.
-    """
+    """Filter the merged library by component type, such as chassis or optic."""
     return {
         name: deepcopy(comp)
         for name, comp in _BUILTIN_COMPONENTS.items()
@@ -170,14 +129,7 @@ def get_components_by_type(component_type: str) -> dict[str, dict[str, Any]]:
 
 
 def get_components_by_role(role: str) -> dict[str, dict[str, Any]]:
-    """Get all components that support a specific role.
-
-    Args:
-        role: Role to match (e.g., "spine", "leaf", "core").
-
-    Returns:
-        Dictionary of components that can fulfill the specified role.
-    """
+    """Filter the merged library by supported role."""
     return {
         name: deepcopy(comp)
         for name, comp in _BUILTIN_COMPONENTS.items()

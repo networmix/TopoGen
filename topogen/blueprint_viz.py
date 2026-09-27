@@ -1,15 +1,8 @@
-"""Blueprint visualization helpers.
+"""Build abstract blueprint views and concrete site layouts for rendering.
 
-This module provides small, focused helpers to construct visualization-ready
-data for abstract (group-level) topologies and to extract a concrete view for a
-single site from the expanded network graph. Keeping this logic separate from
-map rendering makes it easier to maintain and test.
-
-The abstract builder expands group selectors that use variable placeholders
-like ``G{gu}/G{gu}_r{ru}`` using the adjacency ``expand_vars`` and
-``expansion_mode`` fields from the blueprint. Edges are aggregated at the
-group level. Intra-group meshes are summarized into per-node labels instead of
-rendering self-loops that are often not visible in standard layouts.
+Abstract views use blueprint ``nodes``, ``links``, and ``expand.vars``/``expand.mode``
+fields. They aggregate links by group and record intra-group links as labels
+and optional self-loop markers.
 """
 
 from __future__ import annotations
@@ -64,12 +57,10 @@ def _iter_assignments(
     var_names: list[str],
     expansion_mode: str | None,
 ) -> list[dict[str, Any]]:
-    """Create a list of variable assignments.
+    """Expand variable values by index (default ``zip``) or Cartesian product.
 
-    For ``zip`` mode, align by index across the specified ``var_names``.
-    For ``product`` (or anything else), produce the cartesian product.
-
-    Empty ``var_names`` yields a single empty assignment.
+    Zip stops at the shortest input. No variables, or a variable without values,
+    returns one empty assignment.
     """
 
     if not var_names:
@@ -91,7 +82,6 @@ def _iter_assignments(
             result.append({name: ev[name][i] for name in var_names})
         return result
 
-    # Cartesian product
     from itertools import product
 
     keys = list(var_names)
@@ -100,11 +90,7 @@ def _iter_assignments(
 
 
 def _subst(template: str, values: dict[str, Any]) -> str:
-    """Substitute ``{var}`` placeholders in ``template`` with ``values``.
-
-    Unknown variables are left untouched to avoid accidental collapsing to
-    empty strings.
-    """
+    """Replace known ``{var}`` placeholders, leaving unknown variables intact."""
 
     out = template
     for name in _extract_vars(template):
@@ -117,20 +103,11 @@ def _subst(template: str, values: dict[str, Any]) -> str:
 def build_abstract_view(
     blueprint_def: dict[str, Any], *, include_self_loops: bool = True
 ) -> AbstractView:
-    """Construct the abstract group-level view from a blueprint definition.
+    """Build a group-level view from blueprint ``nodes`` and ``links``.
 
-    The returned graph contains a node for each group in ``groups`` and an
-    inter-group edge for every adjacency expansion. Intra-group 'mesh' entries
-    are summarized into node labels to avoid invisible self-loops.
-
-    Args:
-        blueprint_def: Mapping with ``groups`` and ``adjacency``.
-
-    Returns:
-        AbstractView with graph and labels ready for drawing.
-
-    Raises:
-        ValueError: If the input mapping is missing required keys.
+    Within each link rule, inter-group edges are deduplicated by unordered pair.
+    Same-group rules become node notes and, if requested, self-loop markers.
+    Raises ValueError when ``nodes`` is missing or is not a mapping.
     """
 
     if not isinstance(blueprint_def, dict):
@@ -141,7 +118,6 @@ def build_abstract_view(
 
     abstract = nx.MultiDiGraph()
 
-    # Create nodes with base labels
     node_labels: dict[str, str] = {}
     for gname, gdef in groups.items():
         count = int((gdef or {}).get("count", 0))
@@ -150,7 +126,6 @@ def build_abstract_view(
         abstract.add_node(gname)
         node_labels[gname] = lbl
 
-    # Helper to attach a small extra line under node label
     def _append_node_note(group_name: str, text: str) -> None:
         base = node_labels.get(group_name, group_name)
         if text and text not in base:
@@ -188,15 +163,12 @@ def build_abstract_view(
 
         assignments = _iter_assignments(expand_vars, involved_vars, expansion_mode)
 
-        # If there are no variables, a single assignment will be produced
-        # producing a single (possibly identical) group pair.
         pairs: list[tuple[str, str]] = []
         for assign in assignments:
             su = _subst(src_group_tpl, assign)
             sv = _subst(dst_group_tpl, assign)
             pairs.append((su, sv))
 
-        # If this is a same-group mesh, surface it as a node note
         if all(u == v for u, v in pairs):
             # Intra-group adjacency. Keep label note and optionally emit self-loop.
             for u, _v in pairs:
@@ -209,13 +181,9 @@ def build_abstract_view(
                         self_loops.append((u, edge_label_text))
             continue
 
-        # Add inter-group edges, deduplicated by unordered pair while preserving
-        # a clean label. We still add as MultiDiGraph to keep potential
-        # multiplicity if future blueprints require it.
         seen: set[tuple[str, str]] = set()
         for u, v in pairs:
             if u == v:
-                # Skip self-loops in abstract view
                 continue
             _key_pair = (u, v) if (u, v) not in seen else None
             # For directionality, keep as given. Also add the reverse marker to
@@ -239,22 +207,16 @@ def build_abstract_view(
 def collect_concrete_site(
     net: Any, selected_site_path: str
 ) -> tuple[list[str], dict[str, tuple[float, float]], list[tuple[str, str, float]]]:
-    """Collect concrete intra-site nodes, simple positions, and links.
+    """Return node names, layout positions, and internal links for one site.
 
-    This mirrors existing logic in ``visualization.export_blueprint_diagram`` but
-    is provided as a small re-usable unit for future rendering backends.
-
-    Returns:
-        node_names: List of node names under the site.
-        node_positions: Deterministic circular layout positions in unit circle.
-        internal_links: List of (src, dst, capacity) restricted to the site.
+    Positions cluster nodes by local name prefix around a unit circle, using
+    seeded jitter. Links are ``(source, target, capacity)`` tuples.
     """
 
     def _site_head(name: str) -> str:
         parts = str(name).split("/", 2)
         return "/".join(parts[:2]) if len(parts) >= 2 else str(name)
 
-    # Collect internal nodes strictly under the selected site
     internal_nodes: list[str] = []
     for node in getattr(net, "nodes", {}).values():  # type: ignore[union-attr]
         try:
@@ -301,7 +263,6 @@ def collect_concrete_site(
                 rr = r_node * (0.85 + 0.3 * float(rng.random()))
                 node_pos[nn] = (gx + rr * _m.cos(theta), gy + rr * _m.sin(theta))
 
-    # Collect internal links only (strictly intra-site visualization)
     internal_links: list[tuple[str, str, float]] = []
     for link in getattr(net, "links", {}).values():  # type: ignore[union-attr]
         try:

@@ -9,7 +9,6 @@ from topogen.blueprints_lib import get_builtin_blueprints
 
 
 def test_user_blueprints_merge_overrides(tmp_path: Path, monkeypatch) -> None:
-    # Prepare user library in CWD/lib
     lib_dir = tmp_path / "lib"
     lib_dir.mkdir(parents=True)
     user_bp = {
@@ -28,7 +27,6 @@ def test_user_blueprints_merge_overrides(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
 
     bps = get_builtin_blueprints()
-    # Ensure override took effect
     sr = bps["SingleRouter"]
     assert sr["nodes"]["core"]["count"] == 2
     assert sr["nodes"]["core"]["template"].startswith("core")
@@ -37,7 +35,6 @@ def test_user_blueprints_merge_overrides(tmp_path: Path, monkeypatch) -> None:
 def test_user_blueprints_invalid_yaml_raises(tmp_path: Path, monkeypatch) -> None:
     lib_dir = tmp_path / "lib"
     lib_dir.mkdir(parents=True)
-    # Invalid YAML content
     (lib_dir / "blueprints.yml").write_text("groups: [invalid: :\n")
     monkeypatch.chdir(tmp_path)
 

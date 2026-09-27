@@ -1,15 +1,13 @@
-# TopoGen Development Makefile (aligned with NetGraph / NetGraph-Core / NetLab)
+# TopoGen development commands
 
 .PHONY: help venv clean-venv dev install check check-ci lint format test qt build clean check-dist publish-test publish validate info hooks check-python
 
 .DEFAULT_GOAL := help
 
-# --------------------------------------------------------------------------
 # Python interpreter detection
-# --------------------------------------------------------------------------
 VENV_BIN := $(PWD)/venv/bin
 
-# Supports 3.11-3.13 to match requires-python >=3.11
+# Prefer Python versions covered by CI.
 PY_BEST := $(shell for v in 3.13 3.12 3.11; do command -v python$$v >/dev/null 2>&1 && { echo python$$v; exit 0; }; done; command -v python3 2>/dev/null || command -v python 2>/dev/null)
 PY_PATH := $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
 PYTHON ?= $(if $(wildcard $(VENV_BIN)/python),$(VENV_BIN)/python,$(if $(PY_PATH),$(PY_PATH),$(if $(PY_BEST),$(PY_BEST),python3)))

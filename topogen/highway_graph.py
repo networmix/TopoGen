@@ -1,8 +1,7 @@
-"""Highway graph construction for backbone topology generation.
+"""Build a highway graph from TIGER/Line road vertices snapped to a grid.
 
-Take raw TIGER/Line Primary Roads and return a small, connected, weighted nx.Graph
-whose vertices are only real highway intersections; every edge has an accurate
-length_km; geometry detail below intersection-to-intersection is removed.
+Edges carry lengths in kilometers. Chain contraction and connectivity checks
+are performed later in the integrated graph pipeline.
 """
 
 from __future__ import annotations
@@ -23,22 +22,13 @@ logger = get_logger(__name__)
 
 
 def _load_and_validate_tiger_data(tiger_zip: Path, target_crs: str) -> gpd.GeoDataFrame:
-    """Load TIGER data with schema guard and immediate validation.
+    """Read TIGER roads in WGS84 or NAD83 and project to ``target_crs``.
 
-    Args:
-        tiger_zip: Path to TIGER ZIP file.
-        target_crs: Target coordinate reference system.
-
-    Returns:
-        GeoDataFrame with MTFCC and geometry columns in target CRS.
-
-    Raises:
-        ValueError: If data is missing, empty, or invalid.
-        OSError: If file cannot be read.
+    Raise OSError for unreadable files and ValueError for empty data, missing
+    or unsupported CRS, or a failed projection.
     """
     logger.info(f"Loading TIGER data from {tiger_zip}")
 
-    # Load with column filtering for efficiency
     try:
         gdf = gpd.read_file(f"zip://{tiger_zip}", columns=["MTFCC", "geometry"])
     except Exception as e:
@@ -59,7 +49,6 @@ def _load_and_validate_tiger_data(tiger_zip: Path, target_crs: str) -> gpd.GeoDa
 
     logger.info(f"Source CRS: {gdf.crs} (EPSG:{epsg_code})")
 
-    # Reproject to target CRS
     try:
         gdf = gdf.to_crs(target_crs)
     except Exception as e:
@@ -72,28 +61,15 @@ def _load_and_validate_tiger_data(tiger_zip: Path, target_crs: str) -> gpd.GeoDa
 def _filter_highway_classes(
     gdf: gpd.GeoDataFrame, highway_classes: list[str]
 ) -> gpd.GeoDataFrame:
-    """Keep only classes appropriate for long-haul routing.
-
-    Args:
-        gdf: Input GeoDataFrame with MTFCC column.
-        highway_classes: List of TIGER highway classes to keep.
-
-    Returns:
-        Filtered GeoDataFrame with specified highway classes.
-
-    Raises:
-        ValueError: If no highway segments remain after filtering.
-    """
+    """Keep the configured MTFCC classes; raise ValueError if no rows remain."""
     original_count = len(gdf)
     logger.info(
         f"Filtering to backbone highway classes: {highway_classes} (from {original_count:,} total segments)"
     )
 
-    # Log available MTFCC codes for debugging
     available_codes = gdf["MTFCC"].value_counts()
     logger.info(f"Available MTFCC codes in data: {dict(available_codes.head(10))}")
 
-    # Keep only specified highway classes
     mask = gdf.MTFCC.isin(highway_classes)
     filtered_gdf = gdf[mask].copy()
     assert isinstance(filtered_gdf, gpd.GeoDataFrame)
@@ -113,21 +89,13 @@ def _filter_highway_classes(
 
 
 def _fix_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    """Fix or drop bad geometries.
+    """Drop empty or invalid geometries and split multipart geometries into rows.
 
-    Args:
-        gdf: Input GeoDataFrame.
-
-    Returns:
-        GeoDataFrame with valid geometries only.
-
-    Raises:
-        ValueError: If no valid geometries remain.
+    Raise ValueError if no valid geometries remain.
     """
     initial_count = len(gdf)
     logger.info("Fixing geometries")
 
-    # Drop empty and invalid geometries
     mask = ~gdf.geometry.is_empty & gdf.geometry.is_valid
     filtered_gdf = gdf[mask].copy()
     assert isinstance(filtered_gdf, gpd.GeoDataFrame)
@@ -136,9 +104,7 @@ def _fix_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if gdf.empty:
         raise ValueError("No valid geometries remain after geometry filter")
 
-    # Explode multipart geometries to individual lines
     exploded = gdf.explode(index_parts=False, ignore_index=True)
-    # Ensure result is a GeoDataFrame
     gdf = exploded if isinstance(exploded, gpd.GeoDataFrame) else gdf
 
     final_count = len(gdf)
@@ -155,51 +121,32 @@ def _fix_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
 
 def _iter_snapped_edges(lines: list, snap_m: float):
-    """Iterate through geometries and yield snapped edges with lengths.
+    """Yield snapped segment endpoints and lengths in kilometers.
 
-    Linear-time replacement for O(n²) overlay operation. Snaps coordinates
-    to a grid, automatically creating shared nodes at intersections.
-
-    Args:
-        lines: List of LineString geometries (in EPSG:5070 meters).
-        snap_m: Grid snap precision in meters.
-
-    Yields:
-        Tuples of (start_point, end_point, length_km) for each edge.
-        Edge lengths are converted from meters to kilometers.
+    Input coordinates must be in meters. Vertices on the same grid point merge;
+    intersections without a shared snapped vertex are not added.
     """
     for geom in lines:
         if geom is None or geom.is_empty:
             continue
 
-        # Extract and snap coordinates to grid
         coords = np.array(geom.coords)
         xs = np.round(coords[:, 0] / snap_m) * snap_m
         ys = np.round(coords[:, 1] / snap_m) * snap_m
 
-        # Create edges from consecutive snapped points
         for i in range(len(xs) - 1):
             p = (xs[i], ys[i])
             q = (xs[i + 1], ys[i + 1])
 
-            if p != q:  # Skip degenerate edges
-                # Calculate edge length using numpy hypot for speed
+            if p != q:
                 length_km = np.hypot(p[0] - q[0], p[1] - q[1]) / 1000
                 yield p, q, length_km
 
 
 def _build_intersection_graph(lines: list, snap_precision_m: float) -> nx.Graph:
-    """Build graph from geometries using grid-snap approach.
+    """Build a graph keyed by snapped coordinate pairs, keeping the shortest edge.
 
-    Args:
-        lines: List of LineString geometries.
-        snap_precision_m: Grid snap precision in meters.
-
-    Returns:
-        NetworkX Graph with snapped coordinate tuples as node IDs.
-
-    Raises:
-        ValueError: If no valid edges can be created.
+    Raise ValueError if no edges can be created.
     """
     logger.info(
         f"Building intersection graph with grid-snap approach (snap precision: {snap_precision_m}m)"
@@ -207,7 +154,6 @@ def _build_intersection_graph(lines: list, snap_precision_m: float) -> nx.Graph:
 
     G = nx.Graph()
 
-    # Use the linear-time grid-snap approach
     for p, q, length_km in _iter_snapped_edges(lines, snap_precision_m):
         if length_km <= 0:
             continue
@@ -228,17 +174,9 @@ def _build_intersection_graph(lines: list, snap_precision_m: float) -> nx.Graph:
 
 
 def _validate_final_graph(G: nx.Graph, validation_config: ValidationConfig) -> None:
-    """Validate uncontracted highway graph before returning.
+    """Reject empty graphs, invalid edge lengths, and degrees above the threshold.
 
-    Note: This validates the raw intersection-level graph before chain contraction.
-    Connectivity validation is deferred to the integrated graph pipeline.
-
-    Args:
-        G: Final highway graph to validate.
-        validation_config: Validation parameters for graph quality checks.
-
-    Raises:
-        ValueError: If graph fails validation checks.
+    Connectivity is logged here and checked later by the integrated pipeline.
     """
     logger.info("Validating uncontracted highway graph")
 
@@ -258,7 +196,6 @@ def _validate_final_graph(G: nx.Graph, validation_config: ValidationConfig) -> N
             f"Components will be filtered during contraction in integrated pipeline."
         )
 
-    # Validate all edges have positive length_km
     for u, v, data in G.edges(data=True):
         if "length_km" not in data:
             raise ValueError(f"Edge {u}-{v} missing length_km attribute")
@@ -294,46 +231,27 @@ def build_highway_graph(
     highway_config: HighwayProcessingConfig,
     validation_config: ValidationConfig,
 ) -> nx.Graph:
-    """Build highway graph from TIGER Primary Roads data.
+    """Build an uncontracted graph from TIGER/Line road vertices.
 
-    Take raw TIGER/Line Primary Roads and return a detailed intersection-level
-    nx.Graph whose vertices are highway intersections; every edge has an
-    accurate length_km and preserves geometry detail.
+    Filter by configured highway classes, drop invalid geometries, and snap
+    vertices to the configured grid. Edge lengths are computed from snapped
+    coordinates in meters and stored in kilometers. Chain contraction and
+    connectivity checks run later in the integrated graph pipeline.
 
-    Uses linear-time grid-snap approach instead of O(n²) overlay for efficiency.
-    Snaps coordinates to 10m grid to merge twin carriageways while preserving
-    distinct interchanges.
-
-    Args:
-        tiger_zip: Path to TIGER/Line ZIP file.
-        target_crs: Target coordinate reference system.
-        highway_config: Highway data processing configuration.
-        validation_config: Validation parameters for graph quality checks.
-
-    Returns:
-        NetworkX Graph with highway segments (uncontracted, full detail).
-
-    Raises:
-        ValueError: If data is invalid or processing fails.
-        OSError: If files cannot be accessed.
+    Raises ValueError for invalid data and OSError for unreadable files.
     """
     logger.info(f"Building highway graph from {tiger_zip}")
 
-    # 1. Load once, with schema guard
     gdf = _load_and_validate_tiger_data(tiger_zip, target_crs)
 
-    # 2. Keep only classes appropriate for long-haul routing
     gdf = _filter_highway_classes(gdf, highway_config.highway_classes)
 
-    # 3. Fix or drop bad geometries
     gdf = _fix_geometries(gdf)
 
-    # 4. Build graph using linear grid-snap approach (replaces overlay)
     G = _build_intersection_graph(
         gdf.geometry.tolist(), highway_config.snap_precision_m
     )
 
-    # 5. Validate before returning
     _validate_final_graph(G, validation_config)
 
     logger.info(f"Final highway graph: {len(G.nodes):,} nodes, {len(G.edges):,} edges")

@@ -64,7 +64,6 @@ def _build_optics_map(
                         optics_values[key2] = set()
                     optics_values[key2].add(ov)
 
-        # Conflicts
         for key2, values in optics_values.items():
             if len(values) > 1:
                 mapping_conflicts[key2] = values
@@ -216,7 +215,6 @@ def check_link_optics(
             ):
                 miss_map_tgt_samples[key].append(aid)
 
-    # Emit aggregated issues (message text preserved)
     for (a, b), vals in sorted(mapping_conflicts.items()):
         vstr = ", ".join(sorted(vals))
         issues.append(

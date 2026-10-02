@@ -37,7 +37,7 @@ dependencies = [
     # Strict schema validation at runtime
     "jsonschema",
     # NetGraph ecosystem
-    "ngraph>=0.23.1",
+    "ngraph>=0.24.0",
     "netgraph-core>=0.10.0",
 ]
 

@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: **Workflows**: Reject `placement_rounds`, `acceptance_rule`, `seeds_per_alpha`, `baseline`, `step_type`, `matrix_name`.
 - **BREAKING**: **Traffic**: `traffic.flow_policy_config` requires preset names; replace integer values.
 - **BREAKING**: **TM Sizing**: Reject unsupported demand endpoints instead of silently omitting their traffic.
-- **Dependencies**: Require `ngraph>=0.23.1` and `netgraph-core>=0.10.0`.
+- **Dependencies**: Require `ngraph>=0.24.0` and `netgraph-core>=0.10.0`.
 - **Workflows**: Validate `lib/workflows.yml` with NetGraph before emission; steps use `type` and `demand_set`.
 - **Workflows**: Use `parallelism: auto` in built-in and sample workflows.
 - **Validation**: Construct the full NetGraph scenario to check workflow arguments and failure policies before topology audits.

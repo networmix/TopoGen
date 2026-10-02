@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "topogen"
 version = "0.4.0"
-description = "A network topology generator."
+description = "Generate NetGraph backbone scenarios from US Census urban areas and TIGER/Line roads."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
 license = "MIT"
@@ -27,19 +27,11 @@ dependencies = [
     "numpy",
     "pandas",
     "matplotlib",
-    "seaborn",
-    "rich",
-    "nbformat",
-    "nbconvert",
-    "ipykernel",
-    "itables",
     # Geographic processing
-    "rasterio",
     "pyproj",
     "geopandas",
     "shapely",
     "scipy",
-    "scikit-learn",
     "networkx",
     "contextily",
     # Strict schema validation at runtime
@@ -55,11 +47,7 @@ dev = [
     # testing
     "pytest>=8",
     "pytest-cov",
-    "pytest-benchmark",
-    "pytest-mock",
     "pytest-timeout",
-    # json schema validation for scenarios
-    "jsonschema",
     # style + type checking
     "ruff==0.11.13",
     "pyright==1.1.401",
@@ -67,22 +55,25 @@ dev = [
     "pandas-stubs",
     # pre-commit hooks
     "pre-commit",
-    # build
+    # build and metadata checks
     "build",
-    # publishing
     "twine",
 ]
+
+[project.urls]
+Repository = "https://github.com/networmix/TopoGen"
+Changelog = "https://github.com/networmix/TopoGen/blob/main/CHANGELOG.md"
+Issues = "https://github.com/networmix/TopoGen/issues"
 
 [project.scripts]
 topogen = "topogen.cli:main"
 
 # Pytest flags
 [tool.pytest.ini_options]
-addopts = "--cov=./topogen --cov-fail-under=50 --cov-report term-missing --benchmark-disable-gc --benchmark-min-rounds=5 --benchmark-warmup=on"
+addopts = "--cov=./topogen --cov-fail-under=50 --cov-report term-missing"
 timeout = 30
 markers = [
     "slow: marks integration tests as slow (deselect with '-m \"not slow\"')",
-    "benchmark: marks tests as performance benchmarks (run with '-m benchmark')",
 ]
 
 # Coverage configuration
@@ -101,7 +92,6 @@ exclude_lines = [
 # Package discovery
 [tool.setuptools.packages.find]
 include = ["topogen*"]
-exclude = ["tests*", "notebooks*", "examples*", "dev*"]
 
 [tool.setuptools.package-data]
 "topogen.schemas" = ["topogen_config.json"]

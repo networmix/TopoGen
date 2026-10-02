@@ -86,14 +86,6 @@ __pypackages__/
 # Cursor
 .cursorrules
 
-# Jupyter Notebooks
-.ipynb_checkpoints
-.virtual_documents/
-
-# Documentation
-# MkDocs
-/site
-
 # OS Specific
 # macOS
 .DS_Store
@@ -105,7 +97,6 @@ Desktop.ini
 
 # Private content
 private/
-notebooks/private/
 *_private/
 *.private.*
 
@@ -128,14 +119,6 @@ temp/
 temporary/
 analysis_temp/
 tmp/
-analysis*.ipynb
-*_analysis.ipynb
-analysis*.html
-*_analysis.html
-
-# Performance analysis results
-dev/perf_results/
-dev/perf_plots/
 
 # Repo root file ignores
 # Ignore certain file types only at the repository root
@@ -145,7 +128,6 @@ dev/perf_plots/
 /*.json
 
 # Allow required config files
-!/mkdocs.yml
 !/.pre-commit-config.yaml
 
 # Project directories to ignore at the repository root

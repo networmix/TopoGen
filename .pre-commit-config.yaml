@@ -6,31 +6,6 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.401
-    hooks:
-      - id: pyright
-        args: [--project, pyproject.toml]
-        additional_dependencies:
-          [
-            "pyyaml",
-            "pandas",
-            "matplotlib",
-            "nbformat",
-            "nbconvert",
-            "ipykernel",
-            "itables",
-            "rasterio",
-            "pyproj",
-            "geopandas",
-            "shapely",
-            "scikit-learn",
-            "networkx",
-            "contextily",
-            "pandas-stubs",
-            "ngraph>=0.23.1",
-          ]
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

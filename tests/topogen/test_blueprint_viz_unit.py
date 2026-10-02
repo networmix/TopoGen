@@ -11,12 +11,13 @@ from topogen.blueprint_viz import (
     build_abstract_view,
     collect_concrete_site,
 )
+from topogen.blueprints_lib import get_builtin_blueprints
 
 
 def test_helper_functions() -> None:
-    assert _first_path_component("/G{g}/G{g}_r{r}") == "G{g}"
+    assert _first_path_component("/G${g}/G${g}_r${r}") == "G${g}"
     assert _first_path_component("G1/G1_r1") == "G1"
-    assert _extract_vars("G{a}_x{b}") == ["a", "b"]
+    assert _extract_vars("G${a}_x$b") == ["a", "b"]
 
     # zip alignment (truncate to min length)
     assigns = _iter_assignments({"a": [1, 2], "b": [3]}, ["a", "b"], "zip")
@@ -33,7 +34,8 @@ def test_helper_functions() -> None:
     assert _iter_assignments({"a": []}, ["a"], "zip") == [{}]
 
     # substitution leaves unknowns intact
-    assert _subst("G{a}_x{b}", {"a": 1}) == "G1_x{b}"
+    assert _subst("G${a}_x${b}", {"a": 1}) == "G1_x${b}"
+    assert _subst("G$a/r$b", {"a": 1, "b": 2}) == "G1/r2"
 
 
 def test_build_abstract_view_and_self_loops() -> None:
@@ -46,15 +48,15 @@ def test_build_abstract_view_and_self_loops() -> None:
         },
         "links": [
             {
-                "source": "G{g}",
-                "target": "G{g}_r{r}",
+                "source": "G${g}",
+                "target": "G${g}_r${r}",
                 "pattern": "uplink",
                 "expand": {"vars": {"g": [1, 2], "r": [1, 1]}, "mode": "zip"},
                 "attrs": {"target_capacity": 100},
             },
             {
-                "source": "G1_r{r}",
-                "target": "G1_r{r}",
+                "source": "G1_r${r}",
+                "target": "G1_r${r}",
                 "pattern": "mesh",
                 "expand": {"vars": {"r": [1, 2]}, "mode": "zip"},
                 "attrs": {"target_capacity": 50},
@@ -71,6 +73,16 @@ def test_build_abstract_view_and_self_loops() -> None:
     assert "uplink" in any_label and "100" in any_label
     loop_groups = {g for (g, _lbl) in av.self_loops}
     assert {"G1_r1", "G1_r2"} & loop_groups
+
+
+def test_builtin_dragonfly_abstract_view_expands_placeholders() -> None:
+    av = build_abstract_view(get_builtin_blueprints()["Dragonfly_A3H2G7"])
+    groups = {f"G{i}" for i in range(1, 8)}
+    assert set(av.graph.nodes) == groups
+    assert {(u, v) for u, v, _k in av.graph.edges} == {
+        (f"G{u}", f"G{v}") for u in range(1, 8) for v in range(u + 1, 8)
+    }
+    assert {g for g, _lbl in av.self_loops} == groups
 
 
 class _Node:

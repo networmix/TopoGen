@@ -7,6 +7,7 @@ and optional self-loop markers.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -35,7 +36,7 @@ def _first_path_component(selector: str) -> str:
     """Return the first path component of a selector.
 
     Examples:
-        "/G{g}" -> "G{g}"; "G1/G1_r1" -> "G1".
+        "/G${g}" -> "G${g}"; "G1/G1_r1" -> "G1".
     """
 
     s = str(selector or "").strip()
@@ -44,12 +45,14 @@ def _first_path_component(selector: str) -> str:
     return s.split("/", 1)[0]
 
 
+# NetGraph placeholder syntax: ``$var`` or ``${var}``.
+_VAR_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+
+
 def _extract_vars(template: str) -> list[str]:
-    """Extract variable names inside ``{}`` from ``template`` in order."""
+    """Return ``$var``/``${var}`` names in ``template`` in order."""
 
-    import re as _re
-
-    return _re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", template)
+    return [m.group(1) or m.group(2) for m in _VAR_PATTERN.finditer(template)]
 
 
 def _iter_assignments(
@@ -90,14 +93,13 @@ def _iter_assignments(
 
 
 def _subst(template: str, values: dict[str, Any]) -> str:
-    """Replace known ``{var}`` placeholders, leaving unknown variables intact."""
+    """Replace known ``$var``/``${var}`` placeholders, leaving unknown ones intact."""
 
-    out = template
-    for name in _extract_vars(template):
-        val = values.get(name)
-        if val is not None:
-            out = out.replace("{" + name + "}", str(val))
-    return out
+    def _replace(match: re.Match[str]) -> str:
+        val = values.get(match.group(1) or match.group(2))
+        return match.group(0) if val is None else str(val)
+
+    return _VAR_PATTERN.sub(_replace, template)
 
 
 def build_abstract_view(

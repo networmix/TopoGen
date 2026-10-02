@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **BREAKING**: **Scenarios**: Emit NetGraph `demands` and `failures` sections; update consumers of generated YAML.
 - **BREAKING**: **Failures**: Custom rules must use `scope`, `mode` and `match`; migrate `lib/failure_policies.yml`.
+- **BREAKING**: **Blueprints**: Link selectors in `lib/blueprints.yml` use NetGraph `$var`/`${var}` placeholders; `{var}` is no longer expanded.
 - **BREAKING**: **Workflows**: Reject `placement_rounds`, `acceptance_rule`, `seeds_per_alpha`, `baseline`, `step_type`, `matrix_name`.
 - **BREAKING**: **Traffic**: `traffic.flow_policy_config` requires preset names; replace integer values.
 - **BREAKING**: **TM Sizing**: Reject unsupported demand endpoints instead of silently omitting their traffic.

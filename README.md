@@ -9,7 +9,7 @@ scenarios with site blueprints, hardware, risk groups, traffic, and workflows.
 
 ## Install
 
-Requires Python 3.11+. Dependencies include `ngraph>=0.23.1` and
+Requires Python 3.11+. Dependencies include `ngraph>=0.24.0` and
 `netgraph-core>=0.10.0`. TopoGen is not on PyPI; the `topogen` package there is
 an unrelated project.
 

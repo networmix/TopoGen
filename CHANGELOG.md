@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Workflows**: Use `design_analysis_brief` as the default in both Python and YAML configurations.
 - **Workflows**: Bind built-in demand references to `traffic.matrix_name`.
 - **Failures**: Make the `empty` policy a valid no-failure mode.
+- **Docs**: Install from GitHub; the `topogen` name on PyPI belongs to an unrelated project.
 
 ### Changed
 
@@ -30,11 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Workflows**: Validate `lib/workflows.yml` with NetGraph before emission; steps use `type` and `demand_set`.
 - **Workflows**: Use `parallelism: auto` in built-in and sample workflows.
 - **Validation**: Construct the full NetGraph scenario to check workflow arguments and failure policies before topology audits.
-- **Internal**: Remove redundant validation and scenario code; shorten comments and documentation.
+- **Internal**: Remove redundant validation and scenario code, the PyPI publish workflow, the pre-commit Pyright hook and benchmark flags.
 
 ### Added
 
 - **Superset**: Add setup, teardown and run commands to install dev dependencies, copy local `.env` files and run checks.
+
+### Removed
+
+- **Dependencies**: Unused `seaborn`, `rich`, `nbformat`, `nbconvert`, `ipykernel`, `itables`, `rasterio` and `scikit-learn` requirements.
 
 ## [0.4.0] - 2026-03-15
 

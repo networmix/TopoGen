@@ -10,10 +10,11 @@ scenarios with site blueprints, hardware, risk groups, traffic, and workflows.
 ## Install
 
 Requires Python 3.11+. Dependencies include `ngraph>=0.23.1` and
-`netgraph-core>=0.10.0`.
+`netgraph-core>=0.10.0`. TopoGen is not on PyPI; the `topogen` package there is
+an unrelated project.
 
 ```bash
-pip install topogen
+pip install git+https://github.com/networmix/TopoGen
 ```
 
 For a source checkout:
@@ -44,8 +45,8 @@ ngraph run output/config_scenario.yml
 ```
 
 `generate` writes `output/config_integrated_graph.json`, a metro-to-metro corridor
-graph. `build` reads it and writes `output/config_scenario.yml`. File prefixes
-come from the config filename.
+graph, and a preview JPEG. `build` reads the graph and writes
+`output/config_scenario.yml`. File prefixes come from the config filename.
 
 `build` checks the schema, NetGraph Scenario construction, topology, and hardware.
 `ngraph run` executes the workflows. Add `--print` to `topogen build` to also print

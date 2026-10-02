@@ -1,6 +1,6 @@
 # TopoGen development commands
 
-.PHONY: help venv clean-venv dev install check check-ci lint format test qt build clean check-dist publish-test publish validate info hooks check-python
+.PHONY: help venv clean-venv dev install check check-ci lint format test qt build clean check-dist validate info hooks check-python
 
 .DEFAULT_GOAL := help
 
@@ -33,17 +33,13 @@ help:
 	@echo "  make lint          - Run only linting (non-mutating: ruff + pyright)"
 	@echo "  make format        - Auto-format code with ruff"
 	@echo "  make validate      - Validate YAML configs against schemas"
-	@echo "  make test          - Run tests with coverage (includes slow and benchmark)"
-	@echo "  make qt            - Run quick tests only (excludes slow and benchmark)"
+	@echo "  make test          - Run tests with coverage (includes slow)"
+	@echo "  make qt            - Run quick tests only (excludes slow)"
 	@echo ""
 	@echo "Build & Package:"
 	@echo "  make build         - Build distribution packages"
+	@echo "  make check-dist    - Check distribution metadata with twine"
 	@echo "  make clean         - Clean build artifacts and cache files"
-	@echo ""
-	@echo "Publishing:"
-	@echo "  make check-dist    - Check distribution packages with twine"
-	@echo "  make publish-test  - Publish to Test PyPI"
-	@echo "  make publish       - Publish to PyPI"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make hooks         - Run pre-commit on all files"
@@ -121,12 +117,12 @@ format:
 	@$(RUFF) format .
 
 test:
-	@echo "🧪 Running tests with coverage (includes slow and benchmark)..."
+	@echo "🧪 Running tests with coverage (includes slow)..."
 	@$(PYTEST)
 
 qt:
-	@echo "⚡ Running quick tests only (excludes slow and benchmark)..."
-	@$(PYTEST) --no-cov -m "not slow and not benchmark"
+	@echo "⚡ Running quick tests only (excludes slow)..."
+	@$(PYTEST) --no-cov -m "not slow"
 
 validate:
 	@echo "📋 Validating TopoGen config YAMLs..."
@@ -149,7 +145,7 @@ build:
 clean:
 	@echo "🧹 Cleaning build artifacts and cache files..."
 	@rm -rf build/ dist/ *.egg-info/ || true
-	@rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov htmlcov-python .coverage coverage.xml coverage-*.xml .benchmarks .pytest-benchmark || true
+	@rm -rf .pytest_cache .ruff_cache htmlcov .coverage coverage.xml || true
 	@find . -path "./venv" -prune -o -type f -name "*.pyc" -delete 2>/dev/null || true
 	@find . -path "./venv" -prune -o -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	@find . -path "./venv" -prune -o -type f -name "*.pyo" -delete 2>/dev/null || true
@@ -157,29 +153,10 @@ clean:
 	@find . -path "./venv" -prune -o -type f -name "*.orig" -delete 2>/dev/null || true
 	@echo "✅ Cleanup complete!"
 
-# Publishing
 check-dist:
-	@echo "🔍 Checking distribution packages..."
+	@echo "🔍 Checking distribution metadata..."
 	@if $(PYTHON) -c "import twine" >/dev/null 2>&1; then \
 		$(PYTHON) -m twine check dist/*; \
-	else \
-		echo "❌ twine not installed. Install dev dependencies with: make dev"; \
-		exit 1; \
-	fi
-
-publish-test:
-	@echo "📦 Publishing to Test PyPI..."
-	@if $(PYTHON) -c "import twine" >/dev/null 2>&1; then \
-		$(PYTHON) -m twine upload --repository testpypi dist/*; \
-	else \
-		echo "❌ twine not installed. Install dev dependencies with: make dev"; \
-		exit 1; \
-	fi
-
-publish:
-	@echo "🚀 Publishing to PyPI..."
-	@if $(PYTHON) -c "import twine" >/dev/null 2>&1; then \
-		$(PYTHON) -m twine upload dist/*; \
 	else \
 		echo "❌ twine not installed. Install dev dependencies with: make dev"; \
 		exit 1; \

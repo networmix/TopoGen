@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "topogen"
-version = "0.4.0"
+version = "0.5.0"
 description = "Generate NetGraph backbone scenarios from US Census urban areas and TIGER/Line roads."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]

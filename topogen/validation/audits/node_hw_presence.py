@@ -1,70 +1,40 @@
-"""Checks for node hardware assignment completeness and basic validity."""
+"""Validate declared platform references and optional role assignment coverage."""
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import math
+from typing import Any
+
+from ngraph import Network
+
+from ..helpers import _node_hw_from_attrs
 
 
 def check_node_hw_presence(
-    net: Any,
-    comps_section: Dict[str, Any],
-    comp_lib: Dict[str, Any],
+    net: Network, assignments: dict[str, str], comp_lib: dict[str, Any]
 ) -> list[str]:
-    """If role is mapped in components.hw_component, enforce that node has hardware.
-
-    Also flags unknown components referenced by node hardware and capacity calc errors.
-    """
-    issues: list[str] = []
-
-    if not isinstance(comps_section, dict) or not comps_section:
-        # Mapping not provided in scenario → skip this audit entirely.
-        return issues
-
-    # Record roles present in network and compare with declared mapping keys
-    roles_present: set[str] = set()
-    try:
-        for node in net.nodes.values():
-            r = str(getattr(node, "attrs", {}).get("role", "")).strip()
-            if r:
-                roles_present.add(r)
-    except Exception:
-        pass
-    declared_roles: set[str] = set(map(str, comps_section.keys()))
-    for role in sorted(roles_present - declared_roles):
-        issues.append(
-            f"node hardware: components.hw_component missing mapping for role '{role}'"
-        )
-
-    for node in net.nodes.values():
-        nname = str(getattr(node, "name", ""))
-        attrs = getattr(node, "attrs", {}) or {}
-        role = str(attrs.get("role", "")).strip()
-        if not role:
-            continue
-        # Explicit exemption: non-string/empty mapping value means 'do not enforce'
-        mapping_val = comps_section.get(role)
-        if not isinstance(mapping_val, str) or not mapping_val.strip():
-            continue
-        hw = attrs.get("hardware")
-        if not isinstance(hw, dict) or not str(hw.get("component", "")).strip():
+    issues = []
+    roles = {node.attrs.get("role", "") for node in net.nodes.values()}
+    if assignments:
+        for role in sorted(roles - assignments.keys() - {""}):
             issues.append(
-                f"node hardware: role '{role}' mapped in components.hw_component but node '{nname}' has no hardware assignment"
+                f"node hardware: components.hw_component missing mapping for role '{role}'"
             )
-        else:
-            try:
-                comp_name = str(hw.get("component", "")).strip()
-                count = float(hw.get("count", 1.0))
-                comp = comp_lib.get(comp_name)
-                if comp is None:
-                    issues.append(
-                        f"node hardware: node '{nname}' references unknown component '{comp_name}'"
-                    )
-                else:
-                    # Surface component capacity calculation errors.
-                    _ = float(comp.get("capacity", 0.0)) * float(count)
-            except Exception as e2:  # pragma: no cover
+    for node in net.nodes.values():
+        role = node.attrs.get("role", "")
+        component, count = _node_hw_from_attrs(node.attrs)
+        if component is None:
+            if assignments.get(role):
                 issues.append(
-                    f"node hardware: capacity calculation error for node '{nname}': {e2}"
+                    f"node hardware: role '{role}' mapped in components.hw_component but node '{node.name}' has no hardware assignment"
                 )
-
+            continue
+        if component not in comp_lib:
+            issues.append(
+                f"node hardware: node '{node.name}' references unknown component '{component}'"
+            )
+        if not math.isfinite(count) or count <= 0:
+            issues.append(
+                f"node hardware: node '{node.name}' has invalid hardware count {count}"
+            )
     return issues

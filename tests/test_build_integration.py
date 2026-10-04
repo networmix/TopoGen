@@ -8,7 +8,7 @@ import yaml
 
 from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import TopologyConfig
-from topogen.scenario_builder import build_scenario
+from topogen.scenario import build_scenario
 from topogen.workflows_lib import get_builtin_workflows
 
 
@@ -17,7 +17,7 @@ class TestBuildIntegration:
 
     @pytest.fixture
     def sample_integrated_graph(self):
-        graph = nx.Graph()
+        graph = nx.MultiGraph()
 
         denver = (100.0, 200.0)
         slc = (150.0, 250.0)
@@ -31,15 +31,17 @@ class TestBuildIntegration:
             x=100.0,
             y=200.0,
             radius_km=50.0,
+            name_orig="Denver",
         )
         graph.add_node(
             slc,
-            node_type="metro+highway",
+            node_type="metro",
             name="Salt Lake City",
             metro_id="metro_002",
             x=150.0,
             y=250.0,
             radius_km=40.0,
+            name_orig="Salt Lake City",
         )
         graph.add_node(
             phoenix,
@@ -49,12 +51,8 @@ class TestBuildIntegration:
             x=75.0,
             y=150.0,
             radius_km=45.0,
+            name_orig="Phoenix",
         )
-
-        highway1 = (125.0, 225.0)
-        highway2 = (90.0, 180.0)
-        graph.add_node(highway1, node_type="highway")
-        graph.add_node(highway2, node_type="highway")
 
         graph.add_edge(denver, slc, length_km=530.0, capacity=400, edge_type="corridor")
         graph.add_edge(
@@ -63,10 +61,6 @@ class TestBuildIntegration:
         graph.add_edge(
             slc, phoenix, length_km=650.0, capacity=400, edge_type="corridor"
         )
-
-        graph.add_edge(denver, highway1, length_km=25.0)
-        graph.add_edge(highway1, slc, length_km=30.0)
-        graph.add_edge(phoenix, highway2, length_km=20.0)
 
         return graph
 
@@ -328,7 +322,7 @@ class TestBuildIntegration:
         config.build.build_defaults.site_blueprint = "SingleRouter"
         config.build.build_overrides = {}
 
-        empty_graph = nx.Graph()
+        empty_graph = nx.MultiGraph()
         config.workflows.assignments.default = next(
             iter(get_builtin_workflows().keys())
         )
@@ -361,7 +355,7 @@ class TestBuildIntegration:
             }
         }
 
-        graph = nx.Graph()
+        graph = nx.MultiGraph()
         metro = (100.0, 200.0)
         graph.add_node(
             metro,
@@ -371,6 +365,7 @@ class TestBuildIntegration:
             x=100.0,
             y=200.0,
             radius_km=50.0,
+            name_orig="Denver",
         )
 
         config.workflows.assignments.default = next(

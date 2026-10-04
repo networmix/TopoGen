@@ -45,12 +45,13 @@ ngraph run output/config_scenario.yml
 ```
 
 `generate` writes `output/config_integrated_graph.json`, a metro-to-metro corridor
-graph, and a preview JPEG. `build` reads the graph and writes
+multigraph. Preview JPEGs are written when their export settings are enabled. `build` reads the graph and writes
 `output/config_scenario.yml`. File prefixes come from the config filename.
 
 `build` checks the schema, NetGraph Scenario construction, topology, and hardware.
 `ngraph run` executes the workflows. Add `--print` to `topogen build` to also print
-the YAML and skip scenario validation.
+the validated YAML. A failed build preserves the previous scenario YAML; successful
+writes replace it atomically.
 
 To process a folder of configs, use `./build.sh examples output`. It reuses saved
 graphs; pass `--force` to regenerate them or `--build-only` to rebuild scenarios.
@@ -60,17 +61,33 @@ See `./build.sh --help` for filename filters.
 
 ```python
 from pathlib import Path
-from topogen import TopologyConfig, build_integrated_graph, save_to_json
+from topogen import RunContext, TopologyConfig, build_integrated_graph, save_to_json
+from topogen.scenario import build_scenario
+from topogen.validation import validate_scenario_yaml
 
 config = TopologyConfig.from_yaml(Path("config.yml"))
-graph = build_integrated_graph(config)
+context = RunContext(Path("output"), stem="config")
+graph = build_integrated_graph(config, context=context)
 save_to_json(
     graph,
-    Path("output/config_integrated_graph.json"),
+    context.path("integrated_graph.json"),
     config.projection.target_crs,
     config.output.formatting,
 )
+scenario_yaml = build_scenario(graph, config, context=context)
+issues = validate_scenario_yaml(
+    scenario_yaml,
+    hw_component_map=config.components.hw_component,
+    optics_map=config.components.optics,
+)
+assert not issues, issues
 ```
+
+Without `context`, the Python generation/build functions return their results
+without exporting files. Configuration holds topology and visualization settings;
+`RunContext` holds output paths, the filename stem and the optional debug directory.
+The CLI supplies this context automatically. `--debug-dir` exports the exact traffic
+matrices used for sizing and emission, for all traffic models.
 
 ## Configuration
 
@@ -95,8 +112,83 @@ workflow arguments when the library is loaded.
 Traffic models are `uniform`, `gravity`, and `hose`. With `build.tm_sizing.enabled`,
 TopoGen routes traffic on a collapsed metro graph and sizes corridors for the
 larger directional load, then applies headroom and capacity increments. Uniform
-traffic includes same-metro DC pairs in the total split. Sizing models one demand
-node per DC region and rejects unsupported endpoint patterns.
+traffic uses `group_mode: group_pairwise`: each ordered pair of distinct DC sites
+receives an equal share, including same-metro sites. Device counts within a DC do
+not change its share. Sizing aggregates traffic by ordered metro pair before
+routing and rejects unsupported endpoint patterns.
+
+### Current contracts and migration
+
+There is one supported format at each stage; obsolete inputs are rejected.
+
+- Regenerate saved graphs with `topogen generate`: JSON requires
+  `graph_type: corridors` and an explicit key for every parallel edge. The Python
+  build API accepts an undirected `networkx.MultiGraph` of metro nodes only.
+  Each metro supplies `name`, `name_orig`, `metro_id`, `x`, `y` and `radius_km`.
+  Names and IDs must be unique nonempty strings; coordinates must be finite.
+  The target CRS must be projected with metre units.
+- Every discovered path survives extraction, JSON and site expansion. Chain
+  contraction preserves alternate routes and both arcs of a ring. Risk tags are
+  aggregated along each path, including risks shared with other paths.
+- Import `build_scenario` from `topogen.scenario`; `topogen.scenario_builder` has
+  been removed. Replace private configuration output attributes with `RunContext`
+  and public `config.visualization` fields.
+- Use `get_builtin_components()` and ordinary dictionary lookup/filtering for the
+  effective component library. The unused singular/list/filter helpers,
+  `TopologyConfig.summary()`, standalone point/bearing helpers, and unused
+  `MetroCluster` distance/overlap/array helpers have been removed. `topogen info`
+  remains the configuration summary command.
+- Delete `highway_processing.min_cycle_nodes`, `validation_sample_size`,
+  `build.tm_sizing.edge_select`, `output.scenario_metadata`,
+  `components.assignments`, `components.library`, and failure/workflow
+  `assignments.scenario_overrides`. These settings did not affect generation.
+  Library definitions belong in the corresponding `lib/*.yml` file.
+- Link `role_pairs` use strings such as `core|leaf`. Optics mappings explicitly
+  name the **local and remote roles**, using `local->remote`. Specify both
+  directions when both ends need optics; the module types may differ:
+
+  ```yaml
+  components:
+    optics:
+      leaf->spine: 800G-DR4
+      spine->leaf: 1600G-2xDR4
+  ```
+
+  There is no implicit reverse mapping. Old `a-b` and `a|b` optics keys are rejected.
+- Scenario hardware definitions must be present in the scenario's `components`.
+  The builder includes components referenced by configured assignments and used
+  blueprints. Audits never substitute the local built-in component library.
+  Port audits count declared modules; optics audits check their capacity.
+- Capacity/cost integer inputs must be finite and integral; booleans and fractional
+  values are errors. Integer strings retain exact precision, and non-finite
+  configuration numbers are rejected. Unknown routing policies and malformed library files fail
+  explicitly. Optional libraries may be absent, but a present file must be a mapping.
+
+Link `cost` is a minimum routing cost; the geometric distance remains separately
+available as `distance_km`. Striping accepts only `width` (with optional
+`mode: width`) or `mode: by_attr` plus `attribute`. It respects `one_to_one`,
+endpoint matches and full device paths, including literal regex metacharacters.
+Duplicate normalized priorities or metro overrides, unknown striping options and
+unmatched forced metro patterns are errors. Nested blueprint dependencies are
+included recursively; reference cycles are rejected.
+
+Assembly generates traffic once and expands the complete device network once.
+Capacity and optics are resolved per site edge against that expansion. Validation
+constructs one full NetGraph scenario; coverage audits additionally expand tagged
+rules and probe blueprint definitions, retaining node/link rules and variables.
+Risk definitions use the length of their owning corridor path; references without
+a corresponding path are errors.
+DC capacity audits resolve NetGraph selectors and check each demand set separately
+against external device-link capacity. `run_ngraph=False` checks metadata and
+references only. Combined demand endpoints spanning multiple DCs require workflow
+execution to determine their per-DC placement.
+Hose generation rejects infeasible margins or a fit that does not converge.
+With `rounding_gbps: 0`, gravity and hose preserve unquantized demand values.
+Gravity jitter uses the scenario seed without changing Python's global PRNG.
+Blueprint diagrams aggregate the already expanded devices and link capacities;
+they do not implement a second version of the NetGraph DSL.
+Map rendering uses network tiles through Contextily and may dominate wall time;
+render failures propagate to the caller.
 
 ## Development
 

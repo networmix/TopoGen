@@ -6,10 +6,9 @@ The YAML file maps names to definitions; each entry replaces the matching built-
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
-import yaml
+from topogen.library_io import load_user_library
 
 _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
     "DCRegion": {
@@ -410,27 +409,9 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
 }
 
 
-def _load_user_library(file_name: str) -> dict[str, Any]:
-    """Read a name-to-definition mapping from ``cwd/lib/<file_name>`` if present."""
-    lib_path = Path.cwd() / "lib" / file_name
-    if not lib_path.exists():
-        return {}
-
-    try:
-        with lib_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Failed to parse YAML: {lib_path}") from exc
-
-    if not isinstance(data, dict):
-        raise ValueError(f"User library YAML must be a mapping: {lib_path}")
-
-    return data
-
-
 def get_builtin_blueprints() -> dict[str, dict[str, Any]]:
     """Return built-in blueprints with user overrides applied."""
     blueprints = deepcopy(_BUILTIN_BLUEPRINTS)
-    user_blueprints = _load_user_library("blueprints.yml")
+    user_blueprints = load_user_library("blueprints.yml")
     blueprints.update(user_blueprints)
     return blueprints

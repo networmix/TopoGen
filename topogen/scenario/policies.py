@@ -11,7 +11,9 @@ if TYPE_CHECKING:  # pragma: no cover - import-time types only
     from topogen.config import TopologyConfig
 
 
-def _build_failure_policy_set_section(config: "TopologyConfig") -> dict[str, Any]:
+def _build_failure_policy_set_section(
+    config: "TopologyConfig", workflow: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Build the ``failures`` section of the scenario."""
     builtin_policies = get_builtin_failure_policies()
     policies: dict[str, Any] = {}
@@ -25,35 +27,22 @@ def _build_failure_policy_set_section(config: "TopologyConfig") -> dict[str, Any
             f"Default failure policy '{default_policy_name}' not found. Available built-in policies: {available}"
         )
 
-    workflows_cfg = getattr(config, "workflows", None)
-    if (
-        workflows_cfg is not None
-        and getattr(workflows_cfg, "assignments", None) is not None
-    ):
-        workflows = get_builtin_workflows()
-        workflow_name = workflows_cfg.assignments.default
-        steps = workflows.get(workflow_name, [])
-        for step in steps:
-            policy_name = step.get("failure_policy")
-            if not policy_name:
-                continue
-            if policy_name not in builtin_policies:
-                available2 = list(builtin_policies.keys())
-                raise ValueError(
-                    f"Workflow '{workflow_name}' references unknown failure policy '{policy_name}'. Available built-in policies: {available2}"
-                )
-            policies[policy_name] = builtin_policies[policy_name]
+    workflow_name = config.workflows.assignments.default
+    for step in workflow:
+        policy_name = step.get("failure_policy")
+        if policy_name is None:
+            continue
+        if policy_name not in builtin_policies:
+            raise ValueError(
+                f"Workflow '{workflow_name}' references unknown failure policy '{policy_name}'"
+            )
+        policies[policy_name] = builtin_policies[policy_name]
     return policies
 
 
 def _build_workflow_section(config: "TopologyConfig") -> list[dict[str, Any]]:
     """Build the ``workflow`` section of the scenario."""
-    matrix_name = getattr(getattr(config, "traffic", None), "matrix_name", None)
-    builtin_workflows = get_builtin_workflows(
-        matrix_name=matrix_name
-        if isinstance(matrix_name, str)
-        else "baseline_traffic_matrix"
-    )
+    builtin_workflows = get_builtin_workflows(matrix_name=config.traffic.matrix_name)
     default_workflow_name = config.workflows.assignments.default
     if default_workflow_name in builtin_workflows:
         return builtin_workflows[default_workflow_name]

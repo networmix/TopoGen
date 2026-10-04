@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
+from topogen.config import BuildConfig, BuildDefaults, LinkParams, TopologyConfig
 from topogen.scenario.config import _determine_metro_settings
 
 
-def _build_cfg() -> SimpleNamespace:
+def _build_cfg() -> TopologyConfig:
     def link(
         cap,
         cost,
@@ -17,7 +16,7 @@ def _build_cfg() -> SimpleNamespace:
         striping=None,
         mode="mesh",
     ):
-        return SimpleNamespace(
+        return LinkParams(
             capacity=cap,
             cost=cost,
             attrs=({} if attrs is None else attrs),
@@ -27,7 +26,7 @@ def _build_cfg() -> SimpleNamespace:
             mode=mode,
         )
 
-    defaults = SimpleNamespace(
+    defaults = BuildDefaults(
         pop_per_metro=2,
         site_blueprint="SingleRouter",
         dc_regions_per_metro=1,
@@ -80,8 +79,8 @@ def _build_cfg() -> SimpleNamespace:
             },
         }
     }
-    return SimpleNamespace(
-        build=SimpleNamespace(build_defaults=defaults, build_overrides=overrides)
+    return TopologyConfig(
+        build=BuildConfig(build_defaults=defaults, build_overrides=overrides)
     )
 
 

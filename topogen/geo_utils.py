@@ -1,50 +1,14 @@
-"""Geographic utilities for coordinate projections and spatial operations."""
+"""Build the projected contiguous-US mask shared by filtering and map rendering."""
 
 from __future__ import annotations
 
-import math
-from functools import lru_cache
 from pathlib import Path
 
 import geopandas as gpd
-import pyproj
-from shapely.geometry import Point
 
 from topogen.log_config import get_logger
 
 logger = get_logger(__name__)
-
-WGS84 = "EPSG:4326"  # Geographic coordinate system (lat/lon)
-CONUS_ALBERS = "EPSG:5070"  # NAD83 / Conus Albers Equal Area
-
-
-@lru_cache(maxsize=32)
-def get_transformer(src_crs: str, dst_crs: str) -> pyproj.Transformer:
-    """Return a CRS transformer with x/y (longitude/latitude) axis order."""
-    return pyproj.Transformer.from_crs(src_crs, dst_crs, always_xy=True)
-
-
-def transform_point(point: Point, src_crs: str, dst_crs: str) -> Point:
-    """Transform a point from ``src_crs`` to ``dst_crs``."""
-    transformer = get_transformer(src_crs, dst_crs)
-    x, y = transformer.transform(point.x, point.y)
-    return Point(x, y)
-
-
-def bearing_to_offset(bearing_deg: float, radius_m: float) -> tuple[float, float]:
-    """Return an (x, y) offset in meters for a bearing clockwise from north."""
-    bearing_rad = math.radians(bearing_deg)
-    x_offset = radius_m * math.sin(bearing_rad)
-    y_offset = radius_m * math.cos(bearing_rad)
-    return x_offset, y_offset
-
-
-def point_at_bearing(
-    center_point: Point, bearing_deg: float, distance_m: float
-) -> Point:
-    """Offset a projected point by meters at a bearing clockwise from north."""
-    x_offset, y_offset = bearing_to_offset(bearing_deg, distance_m)
-    return Point(center_point.x + x_offset, center_point.y + y_offset)
 
 
 def create_conus_mask(conus_boundary_path: Path, target_crs: str) -> gpd.GeoDataFrame:

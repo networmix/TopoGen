@@ -1,4 +1,4 @@
-"""Normalize metro names for configuration keys and path identifiers."""
+"""Metro configuration names and stable site-adjacency identifiers."""
 
 from __future__ import annotations
 
@@ -25,3 +25,8 @@ def metro_slug(name: str) -> str:
     collapsed = re.sub(r"-+", "-", cleaned).strip("-")
 
     return collapsed[:30]
+
+
+def site_edge_id(source: str, target: str, key: str) -> str:
+    """Identify one site adjacency in the graph's edge iteration order."""
+    return f"{source}|{target}|{key}"

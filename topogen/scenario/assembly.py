@@ -2,26 +2,24 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from topogen.blueprints_lib import get_builtin_blueprints
+from topogen.context import RunContext
 from topogen.log_config import get_logger
+from topogen.traffic_matrix import generate_traffic_matrix
 
+from .artifacts import export_artifacts
 from .config import _determine_metro_settings
-from .graph_pipeline import (
-    assign_per_link_capacity,
-    build_site_graph,
-    tm_based_size_capacities,
-    to_network_sections,
-)
+from .expansion import resolve_network
+from .graph_pipeline import build_site_graph
 from .libraries import _build_blueprints_section, _build_components_section
-from .network import _extract_metros_from_graph
+from .network import _extract_metros_from_graph, to_network_sections
 from .policies import _build_failure_policy_set_section, _build_workflow_section
 from .risk import _build_risk_groups_section
-from .traffic import _build_traffic_matrix_section
+from .sizing import tm_based_size_capacities
+from .traffic import to_demand_sets
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
     import networkx as nx
@@ -32,16 +30,15 @@ logger = get_logger(__name__)
 
 
 def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
-    """Serialize a scenario with adjacency comments and optional YAML anchors."""
-    emit_anchors = bool(yaml_anchors)
-    if emit_anchors:
+    """Serialize a scenario with optional YAML anchors."""
+    if yaml_anchors:
         yaml_output = yaml.safe_dump(
             scenario, sort_keys=False, default_flow_style=False
         )
     else:
 
         class NoAliasDumper(yaml.SafeDumper):
-            def ignore_aliases(self, data):  # type: ignore[override]
+            def ignore_aliases(self, data):
                 return True
 
         yaml_output = yaml.dump(
@@ -50,450 +47,67 @@ def _emit_yaml(scenario: dict[str, Any], *, yaml_anchors: bool = True) -> str:
             sort_keys=False,
             default_flow_style=False,
         )
-    yaml_output = _add_adjacency_comments(yaml_output)
     logger.info("Generated NetGraph scenario YAML")
     return yaml_output
 
 
-def build_scenario(graph: "nx.Graph", config: "TopologyConfig") -> str:
+def build_scenario(
+    graph: "nx.MultiGraph",
+    config: "TopologyConfig",
+    *,
+    context: RunContext | None = None,
+) -> str:
     """Build NetGraph scenario YAML from a metro-to-metro corridor graph.
 
     Expand metros into PoP and DC sites, size links, and resolve hardware and
-    scenario libraries. Write site-graph JSON when an output directory is set,
+    scenario libraries. Write site-graph JSON when a run context is supplied,
     and export maps when configured. The caller validates the returned YAML
     with ``validate_scenario_yaml``; this function does not run workflows.
     """
-    logger.info("Building NetGraph scenario from integrated graph")
-
     metros = _extract_metros_from_graph(graph)
-    logger.info(f"Found {len(metros)} metro nodes")
-
     metro_settings = _determine_metro_settings(metros, config)
-    max_sites = max((s["pop_per_metro"] for s in metro_settings.values()), default=1)
-    max_dc_regions = max(
-        (s["dc_regions_per_metro"] for s in metro_settings.values()), default=0
-    )
-    logger.info(f"Maximum sites per metro: {max_sites}")
-    logger.info(f"Maximum DC regions per metro: {max_dc_regions}")
-
-    scenario: dict[str, Any] = {}
-
-    try:
-        scenario_seed = int(getattr(config.output, "scenario_seed", 42))
-    except Exception:
-        scenario_seed = 42
-    scenario["seed"] = scenario_seed
-
-    logger.info("Building site-level MultiGraph")
-    G = build_site_graph(metros, metro_settings, graph, config)
-    # Optional TM-based sizing before per-link capacity split
-    tm_based_size_capacities(G, metros, metro_settings, config)
-    try:
-        tm_enabled = bool(
-            getattr(getattr(config.build, "tm_sizing", object()), "enabled", False)
-        )
-    except Exception:
-        tm_enabled = False
-    if tm_enabled:
-        logger.info("Assigning per-link capacities after TM-based sizing")
-    else:
-        logger.info("Assigning per-link capacities from configured base capacities")
-    assign_per_link_capacity(G, config)
-
-    try:
-        cfg_out = getattr(config, "_output_dir", None)
-        if cfg_out is not None and isinstance(cfg_out, (str, Path)):
-            from .graph_pipeline import save_site_graph_json
-
-            output_dir = Path(cfg_out)
-            src_path = getattr(config, "_source_path", None)
-            stem = (
-                Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
-            )
-            network_graph_path = output_dir / f"{stem}_network_graph.json"
-            logger.info(
-                "Saving site-level network graph to JSON: %s",
-                str(network_graph_path),
-            )
-            fmt = getattr(getattr(config, "output", None), "formatting", None)
-            json_indent = int(getattr(fmt, "json_indent", 2)) if fmt is not None else 2
-            save_site_graph_json(G, network_graph_path, json_indent=json_indent)
-        else:
-            logger.debug(
-                "Skipping site-level network graph save (no output directory configured)"
-            )
-    except Exception as e:  # pragma: no cover - best-effort artefact save
-        logger.warning("Failed to save site-level network graph: %s", e)
-
-    try:
-        cfg_out = getattr(config, "_output_dir", None)
-        if (
-            bool(getattr(config, "_export_site_graph", False))
-            and cfg_out is not None
-            and isinstance(cfg_out, (str, Path))
-        ):
-            from topogen.visualization import export_site_graph_map
-
-            output_dir = Path(cfg_out)
-            try:
-                output_dir.mkdir(parents=True, exist_ok=True)
-            except Exception:
-                pass
-            src_path = getattr(config, "_source_path", None)
-            stem = (
-                Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
-            )
-            site_vis_path = output_dir / f"{stem}_site_graph.jpg"
-            logger.info(
-                "Exporting site-level graph visualization to: %s", str(site_vis_path)
-            )
-            dpi = int(getattr(config, "_visualization_dpi", 300))
-            target_crs = str(
-                getattr(getattr(config, "projection", object()), "target_crs", "")
-            )
-            export_site_graph_map(G, site_vis_path, dpi=dpi, target_crs=target_crs)
-    except Exception as e:  # pragma: no cover - best-effort
-        logger.warning("Failed to export site-level graph visualization: %s", e)
-
     used_blueprints = {
-        str(data.get("site_blueprint", "")) for _n, data in G.nodes(data=True)
+        settings[key]
+        for settings in metro_settings.values()
+        for count, key in (
+            ("pop_per_metro", "site_blueprint"),
+            ("dc_regions_per_metro", "dc_region_blueprint"),
+        )
+        if settings[count] > 0
     }
-    used_blueprints = {bp for bp in used_blueprints if bp}
-    builtin_blueprints = get_builtin_blueprints()
-    for bp_name in used_blueprints:
-        if bp_name not in builtin_blueprints:
-            available = ", ".join(sorted(builtin_blueprints.keys()))
-            raise ValueError(f"Unknown blueprint '{bp_name}'. Available: {available}")
+    blueprints = _build_blueprints_section(used_blueprints, config)
+    site_graph = build_site_graph(metros, metro_settings, graph, blueprints)
+    traffic_matrices = generate_traffic_matrix(metros, metro_settings, config)
+    tm_based_size_capacities(
+        site_graph, metros, metro_settings, config, traffic_matrices
+    )
 
-    # Emit libraries first to preserve expected YAML ordering
-    scenario["blueprints"] = _build_blueprints_section(used_blueprints, config)
-    scenario["components"] = _build_components_section(config, used_blueprints)
-
-    logger.info("Serializing network sections from MultiGraph")
-    groups, adjacency = to_network_sections(G, metros, metro_settings, config)
-    scenario["network"] = {"nodes": groups, "links": adjacency}
-    try:
-        overrides = G.graph.get("__emitted_node_overrides__", [])
-        if isinstance(overrides, list) and overrides:
-            scenario["network"]["node_rules"] = overrides
-    except Exception:
-        pass
-
+    groups, adjacency = to_network_sections(site_graph, metros, metro_settings, config)
+    scenario: dict[str, Any] = {
+        "seed": config.output.scenario_seed,
+        "blueprints": blueprints,
+        "components": _build_components_section(config, blueprints),
+        "network": {"nodes": groups, "links": adjacency},
+    }
+    node_rules = site_graph.graph.get("node_overrides", [])
+    if node_rules:
+        scenario["network"]["node_rules"] = node_rules
     risk_groups = _build_risk_groups_section(graph, config)
     if risk_groups:
         scenario["risk_groups"] = risk_groups
-    scenario["failures"] = _build_failure_policy_set_section(config)
-    traffic_section = _build_traffic_matrix_section(metros, metro_settings, config)
-    if traffic_section:
-        scenario["demands"] = traffic_section
-    scenario["workflow"] = _build_workflow_section(config)
+    workflow = _build_workflow_section(config)
+    scenario["failures"] = _build_failure_policy_set_section(config, workflow)
+    if traffic_matrices:
+        scenario["demands"] = to_demand_sets(traffic_matrices)
+    scenario["workflow"] = workflow
 
-    # Resolve link hardware from expanded endpoint roles.
-    from collections.abc import Mapping as _Mapping
-
-    comp_obj = getattr(config, "components", None)
-    raw_optics = getattr(comp_obj, "optics", {}) if comp_obj is not None else {}
-    optics_enabled = isinstance(raw_optics, _Mapping) and len(raw_optics) > 0
-
-    try:
-        from ngraph.dsl.blueprints.expand import (  # type: ignore[import-not-found]
-            expand_network_dsl as _ng_expand,
+    network = resolve_network(site_graph, scenario, config.components.optics)
+    if context is not None:
+        export_artifacts(
+            site_graph,
+            network,
+            config,
+            context,
+            traffic_matrices,
         )
-
-        from topogen.components_lib import (
-            get_builtin_components as _get_components_lib,
-        )
-    except Exception as exc:
-        if optics_enabled:
-            raise RuntimeError(
-                "Late hardware resolution requires DSL expansion when optics mapping is configured"
-            ) from exc
-        _fmt = getattr(getattr(config, "output", None), "formatting", None)
-        _anchors = (
-            bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
-        )
-        return _emit_yaml(scenario, yaml_anchors=_anchors)
-
-    def _count_for_optic(name: str, capacity: float) -> float:
-        comps = _get_components_lib() or {}
-        spec = comps.get(name)
-        if spec is None:
-            raise ValueError(f"Unknown component '{name}' in optics mapping")
-        total = float(spec.get("capacity", 0.0))
-        if total <= 0.0:
-            raise ValueError(f"Optic '{name}' must have positive capacity")
-        import math as _m
-
-        modules = float(_m.ceil(capacity / total))
-        return modules
-
-    # Build probe network from current scenario to inspect concrete roles per adjacency
-    try:
-        probe = {
-            "blueprints": scenario["blueprints"],
-            "network": scenario["network"],
-        }
-        try:
-            overrides = G.graph.get("__emitted_node_overrides__", [])
-            if isinstance(overrides, list) and overrides:
-                probe["network"]["node_rules"] = overrides
-        except Exception:
-            pass
-        net = _ng_expand(probe)
-    except Exception as exc:
-        if optics_enabled:
-            raise RuntimeError(
-                "Late hardware resolution failed to expand network DSL with optics configured"
-            ) from exc
-        _fmt = getattr(getattr(config, "output", None), "formatting", None)
-        _anchors = (
-            bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
-        )
-        return _emit_yaml(scenario, yaml_anchors=_anchors)
-
-    node_role: dict[str, str] = {}
-    for node in net.nodes.values():
-        r = str(node.attrs.get("role", "")).strip()
-        if r:
-            node_role[str(node.name)] = r
-
-    from collections import defaultdict
-
-    per_adj: dict[str, list[tuple[str, str, float]]] = defaultdict(list)
-    for link in net.links.values():
-        src = str(link.source)
-        dst = str(link.target)
-        rs = node_role.get(src, "")
-        rd = node_role.get(dst, "")
-        if not (rs and rd):
-            continue
-        aid = str(link.attrs.get("adjacency_id", ""))
-        if not aid:
-            # Fallback to link_type when adjacency id is absent
-            aid = str(link.attrs.get("link_type", ""))
-        per_adj[aid].append((rs, rd, float(link.capacity)))
-
-    optics_lookup: dict[tuple[str, str], str] = {}
-    if isinstance(raw_optics, _Mapping) and len(raw_optics) > 0:
-        for k, v in raw_optics.items():
-            key = str(k)
-            if "|" in key:
-                a, b = [p.strip() for p in key.split("|", 1)]
-                if a and b:
-                    optics_lookup[(a, b)] = str(v)
-                    optics_lookup[(b, a)] = str(v)
-            elif "-" in key:
-                a, b = [p.strip() for p in key.split("-", 1)]
-                optics_lookup[(a, b)] = str(v)
-        try:
-            logger.debug("Optics lookup built: %d entries", len(optics_lookup))
-        except Exception:
-            pass
-    if optics_lookup:
-        augmented_total = 0
-        augmented_by_pair: dict[tuple[str, str], int] = {}
-        for adj in scenario["network"].get("links", []):
-            attrs = adj.get("attrs", {})
-            aid = str(attrs.get("adjacency_id") or attrs.get("link_type") or "")
-            if not aid or aid not in per_adj:
-                continue
-            entries = per_adj[aid]
-            roles = {r for s, t, _ in entries for r in (s, t)}
-            if len(roles) > 2:
-                raise ValueError(
-                    f"Adjacency '{aid}' expands to more than two roles: {sorted(roles)}"
-                )
-            pairs = {(s, t) for s, t, _ in entries}
-            if len(pairs) != 1:
-                # Mixed role-pairs in one class: leave HW unset
-                try:
-                    logger.debug(
-                        "HW: skip adj='%s' due to multiple role pairs: %s",
-                        aid,
-                        sorted(list(pairs)),
-                    )
-                except Exception:
-                    pass
-                continue
-            (sr, tr) = next(iter(pairs))
-            optic = optics_lookup.get((sr, tr))
-            if not optic:
-                try:
-                    logger.debug(
-                        "HW: no optic configured for adj='%s' pair=(%s,%s); skipping",
-                        aid,
-                        sr,
-                        tr,
-                    )
-                except Exception:
-                    pass
-                continue
-            cap = float(entries[0][2])
-            count = _count_for_optic(optic, cap)
-            attrs.setdefault("hardware", {})
-            attrs["hardware"]["source"] = {"component": optic, "count": float(count)}
-            attrs["hardware"]["target"] = {"component": optic, "count": float(count)}
-            adj["attrs"] = attrs
-            augmented_total += 1
-            augmented_by_pair[(sr, tr)] = augmented_by_pair.get((sr, tr), 0) + 1
-            try:
-                logger.debug(
-                    "HW: adj='%s' pair=(%s,%s) optic=%s capacity=%s count=%.3f",
-                    aid,
-                    sr,
-                    tr,
-                    optic,
-                    f"{cap:.0f}",
-                    float(count),
-                )
-            except Exception:
-                pass
-
-        try:
-            if augmented_total > 0:
-                top_pairs = sorted(
-                    augmented_by_pair.items(), key=lambda kv: kv[1], reverse=True
-                )[:3]
-                if top_pairs:
-                    examples = ", ".join(
-                        f"({a},{b})={cnt}" for ((a, b), cnt) in top_pairs
-                    )
-                    logger.info(
-                        "HW: applied optics to %d adjacencies (top role-pairs: %s)",
-                        augmented_total,
-                        examples,
-                    )
-                else:
-                    logger.info("HW: applied optics to %d adjacencies", augmented_total)
-        except Exception:
-            pass
-
-    _fmt = getattr(getattr(config, "output", None), "formatting", None)
-    _anchors = bool(getattr(_fmt, "yaml_anchors", True)) if _fmt is not None else True
-    try:
-        if bool(getattr(config, "_export_blueprint_diagrams", False)):
-            from topogen.visualization import export_blueprint_diagram
-
-            used_blueprints = set(scenario.get("blueprints", {}).keys())
-            attached: dict[str, float] = {}
-            for link in net.links.values():
-                cap = float(getattr(link, "capacity", 0.0) or 0.0)
-                s = str(getattr(link, "source", ""))
-                t = str(getattr(link, "target", ""))
-                if s:
-                    attached[s] = attached.get(s, 0.0) + cap
-                if t:
-                    attached[t] = attached.get(t, 0.0) + cap
-
-            site_to_bp: dict[str, str] = {}
-            for gpath, gdef in scenario.get("network", {}).get("nodes", {}).items():
-                bp = str(gdef.get("blueprint", ""))
-                if not bp:
-                    continue
-                # Expand ranges like pop[1-4] into concrete prefixes
-                import re as _re
-
-                m = _re.match(r"^(?P<prefix>.+?)\[(?P<a>\d+)-(?:\d+)\]$", gpath)
-                if m:
-                    prefix = m.group("prefix")
-                    for node in net.nodes.values():
-                        nname = str(node.name)
-                        if nname.startswith(prefix.rstrip("/")):
-                            head = nname.split("/", 2)[0:2]
-                            site_path = "/".join(head)
-                            site_to_bp[site_path] = bp
-                else:
-                    # Normalize to the first two components (site scope)
-                    head = gpath.split("/", 2)[0:2]
-                    site_path = "/".join(head)
-                    site_to_bp[site_path] = bp
-
-            bp_to_best_site: dict[str, str] = {}
-            for site_path, bp in site_to_bp.items():
-                prefix = f"{site_path}/"
-                tot = 0.0
-                for node_name, val in attached.items():
-                    if str(node_name).startswith(prefix):
-                        tot += float(val)
-                prev_site = bp_to_best_site.get(bp)
-                if prev_site is None:
-                    bp_to_best_site[bp] = site_path
-                else:
-                    prev_tot = 0.0
-                    for node_name, val in attached.items():
-                        if str(node_name).startswith(f"{prev_site}/"):
-                            prev_tot += float(val)
-                    if tot > prev_tot:
-                        bp_to_best_site[bp] = site_path
-
-            cfg_out = getattr(config, "_output_dir", None)
-            output_dir = (
-                Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
-            )
-            try:
-                output_dir.mkdir(parents=True, exist_ok=True)
-            except Exception:
-                pass
-            src_path = getattr(config, "_source_path", None)
-            stem = (
-                Path(src_path).stem if isinstance(src_path, (str, Path)) else "scenario"
-            )
-            dpi = int(getattr(config, "_visualization_dpi", 300))
-            blueprints_defs = scenario.get("blueprints", {})
-            for bp in sorted(used_blueprints):
-                if bp not in blueprints_defs:
-                    continue
-                site = bp_to_best_site.get(bp)
-                if not site:
-                    continue
-                out_path = output_dir / f"{stem}_blueprint_{bp}.jpg"
-                export_blueprint_diagram(
-                    bp,
-                    blueprints_defs[bp],
-                    net,
-                    site,
-                    out_path,
-                    dpi=dpi,
-                )
-    except Exception as e:  # pragma: no cover - non-fatal visualization optional
-        logger.warning("Failed to export blueprint diagrams: %s", e)
-
-    return _emit_yaml(scenario, yaml_anchors=_anchors)
-
-
-def _add_adjacency_comments(yaml_content: str) -> str:
-    """Label intra-metro and inter-metro link sections in emitted YAML."""
-    lines = yaml_content.split("\n")
-    result_lines: list[str] = []
-    in_adjacency = False
-    intra_metro_added = False
-    inter_metro_added = False
-    for i, line in enumerate(lines):
-        if line.strip() in ("adjacency:", "links:") and not in_adjacency:
-            in_adjacency = True
-            result_lines.append(line)
-            continue
-        if (
-            in_adjacency
-            and line
-            and not line.startswith(" ")
-            and not line.startswith("-")
-        ):
-            in_adjacency = False
-        if in_adjacency and line.strip().startswith("- source:"):
-            link_type = None
-            for j in range(i, min(i + 15, len(lines))):
-                if "link_type: intra_metro" in lines[j]:
-                    link_type = "intra_metro"
-                    break
-                elif "link_type: inter_metro_corridor" in lines[j]:
-                    link_type = "inter_metro"
-                    break
-            if link_type == "intra_metro" and not intra_metro_added:
-                result_lines.append("  # Intra-metro links")
-                intra_metro_added = True
-            elif link_type == "inter_metro" and not inter_metro_added:
-                result_lines.append("  # Inter-metro corridors")
-                inter_metro_added = True
-        result_lines.append(line)
-    return "\n".join(result_lines)
+    return _emit_yaml(scenario, yaml_anchors=config.output.formatting.yaml_anchors)

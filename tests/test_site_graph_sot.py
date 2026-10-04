@@ -6,12 +6,12 @@ import networkx as nx
 import yaml
 
 from topogen.config import TopologyConfig
-from topogen.scenario_builder import build_scenario
+from topogen.scenario import build_scenario
 from topogen.workflows_lib import get_builtin_workflows
 
 
 def _single_metro_graph() -> nx.Graph:
-    g = nx.Graph()
+    g = nx.MultiGraph()
     metro = (100.0, 200.0)
     g.add_node(
         metro,
@@ -21,6 +21,7 @@ def _single_metro_graph() -> nx.Graph:
         x=100.0,
         y=200.0,
         radius_km=50.0,
+        name_orig="Denver",
     )
     return g
 

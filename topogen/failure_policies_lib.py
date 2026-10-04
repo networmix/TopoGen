@@ -6,10 +6,9 @@ The YAML file maps names to definitions; each entry replaces the matching built-
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
-import yaml
+from topogen.library_io import load_user_library
 
 _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
     "empty": {"modes": [{"weight": 1.0, "rules": []}]},
@@ -129,24 +128,6 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
 def get_builtin_failure_policies() -> dict[str, dict[str, Any]]:
     """Return built-in failure policies with user overrides applied."""
     policies = deepcopy(_BUILTIN_FAILURE_POLICIES)
-    user_policies = _load_user_library("failure_policies.yml")
+    user_policies = load_user_library("failure_policies.yml")
     policies.update(user_policies)
     return policies
-
-
-def _load_user_library(file_name: str) -> dict[str, Any]:
-    """Load user failure policies from ``lib/<file_name>`` if present."""
-    lib_path = Path.cwd() / "lib" / file_name
-    if not lib_path.exists():
-        return {}
-
-    try:
-        with lib_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Failed to parse YAML: {lib_path}") from exc
-
-    if not isinstance(data, dict):
-        raise ValueError(f"User library YAML must be a mapping: {lib_path}")
-
-    return data

@@ -102,16 +102,8 @@
                         "type": "string"
                     }
                 },
-                "min_cycle_nodes": {
-                    "type": "integer",
-                    "minimum": 0
-                },
                 "filter_largest_component": {
                     "type": "boolean"
-                },
-                "validation_sample_size": {
-                    "type": "integer",
-                    "minimum": 0
                 }
             }
         },
@@ -182,25 +174,9 @@
             "type": "object",
             "additionalProperties": false,
             "required": [
-                "scenario_metadata",
                 "formatting"
             ],
             "properties": {
-                "scenario_metadata": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "properties": {
-                        "title": {
-                            "type": "string"
-                        },
-                        "description": {
-                            "type": "string"
-                        },
-                        "version": {
-                            "type": "string"
-                        }
-                    }
-                },
                 "formatting": {
                     "type": "object",
                     "additionalProperties": false,
@@ -330,10 +306,10 @@
                             "minimum": 0
                         },
                         "flow_placement": {
-                            "type": "string"
-                        },
-                        "edge_select": {
-                            "type": "string"
+                            "enum": [
+                                "EQUAL_BALANCED",
+                                "PROPORTIONAL"
+                            ]
                         },
                         "respect_min_base_capacity": {
                             "type": "boolean"
@@ -342,9 +318,57 @@
                 }
             }
         },
-        "components": {},
-        "failure_policies": {},
-        "workflows": {},
+        "components": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "hw_component": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "optics": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "propertyNames": {
+                        "pattern": "^[^|>]+->[^|>]+$"
+                    }
+                }
+            }
+        },
+        "failure_policies": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "assignments": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "default": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "workflows": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "assignments": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "default": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "traffic": {
             "type": "object",
             "additionalProperties": false,
@@ -394,15 +418,15 @@
                     "properties": {
                         "alpha": {
                             "type": "number",
-                            "minimum": 0
+                            "exclusiveMinimum": 0
                         },
                         "beta": {
                             "type": "number",
-                            "minimum": 0
+                            "exclusiveMinimum": 0
                         },
                         "min_distance_km": {
                             "type": "number",
-                            "minimum": 0
+                            "exclusiveMinimum": 0
                         },
                         "max_partners_per_dc": {
                             "type": [
@@ -430,8 +454,12 @@
                         "mw_per_dc_region_overrides": {
                             "type": "object",
                             "additionalProperties": {
-                                "type": "number"
+                                "type": "number",
+                                "minimum": 0
                             }
+                        },
+                        "exclude_same_metro": {
+                            "type": "boolean"
                         }
                     }
                 },
@@ -445,11 +473,11 @@
                         },
                         "beta": {
                             "type": "number",
-                            "minimum": 0
+                            "exclusiveMinimum": 0
                         },
                         "min_distance_km": {
                             "type": "number",
-                            "minimum": 0
+                            "exclusiveMinimum": 0
                         },
                         "exclude_same_metro": {
                             "type": "boolean"
@@ -533,23 +561,65 @@
                 "role_pairs": {
                     "type": "array",
                     "items": {
-                        "oneOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                },
-                                "minItems": 2,
-                                "maxItems": 2
-                            }
-                        ]
+                        "type": "string",
+                        "pattern": "^[^|]+\\|[^|]+$"
                     }
                 },
                 "striping": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "mode": {
+                            "enum": [
+                                "width",
+                                "by_attr"
+                            ]
+                        },
+                        "width": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "attribute": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    },
+                    "oneOf": [
+                        {
+                            "maxProperties": 0
+                        },
+                        {
+                            "required": [
+                                "width"
+                            ],
+                            "properties": {
+                                "mode": {
+                                    "const": "width"
+                                }
+                            },
+                            "not": {
+                                "required": [
+                                    "attribute"
+                                ]
+                            }
+                        },
+                        {
+                            "required": [
+                                "mode",
+                                "attribute"
+                            ],
+                            "properties": {
+                                "mode": {
+                                    "const": "by_attr"
+                                }
+                            },
+                            "not": {
+                                "required": [
+                                    "width"
+                                ]
+                            }
+                        }
+                    ]
                 },
                 "mode": {
                     "type": "string",
@@ -557,22 +627,6 @@
                         "mesh",
                         "one_to_one"
                     ]
-                }
-            },
-            "required": [
-                "capacity",
-                "cost"
-            ]
-        },
-        "ComponentAssignment": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "hw_component": {
-                    "type": "string"
-                },
-                "optics": {
-                    "type": "string"
                 }
             }
         }

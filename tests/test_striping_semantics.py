@@ -7,7 +7,7 @@ import networkx as nx
 import yaml
 
 from topogen.config import TopologyConfig
-from topogen.scenario_builder import build_scenario
+from topogen.scenario import build_scenario
 from topogen.workflows_lib import get_builtin_workflows
 
 
@@ -36,7 +36,7 @@ def _counts_per_pair(expanded_net, link_type: str) -> dict[tuple[str, str], int]
 
 
 def _make_sample_graph() -> nx.Graph:
-    g = nx.Graph()
+    g = nx.MultiGraph()
     # three metros with ring radii
     a = (10.0, 10.0)
     b = (20.0, 20.0)
@@ -49,6 +49,7 @@ def _make_sample_graph() -> nx.Graph:
         x=10.0,
         y=10.0,
         radius_km=40.0,
+        name_orig="Alpha",
     )
     g.add_node(
         b,
@@ -58,6 +59,7 @@ def _make_sample_graph() -> nx.Graph:
         x=20.0,
         y=20.0,
         radius_km=35.0,
+        name_orig="Beta",
     )
     g.add_node(
         c,
@@ -67,6 +69,7 @@ def _make_sample_graph() -> nx.Graph:
         x=30.0,
         y=25.0,
         radius_km=30.0,
+        name_orig="Gamma",
     )
     g.add_edge(a, b, length_km=400.0, capacity=3200, edge_type="corridor")
     g.add_edge(b, c, length_km=600.0, capacity=3200, edge_type="corridor")
@@ -95,15 +98,15 @@ def _patch_blueprints(new_entries: dict[str, dict[str, Any]]):
     removed: list[str] = []
     try:
         for name, defn in new_entries.items():
-            if name not in BL._BUILTIN_BLUEPRINTS:  # type: ignore[attr-defined]
+            if name not in BL._BUILTIN_BLUEPRINTS:
                 removed.append(name)
-            BL._BUILTIN_BLUEPRINTS[name] = defn  # type: ignore[attr-defined]
+            BL._BUILTIN_BLUEPRINTS[name] = defn
         yield
     finally:
         # remove only those we added
         for name in removed:
             with contextlib.suppress(Exception):
-                del BL._BUILTIN_BLUEPRINTS[name]  # type: ignore[attr-defined]
+                del BL._BUILTIN_BLUEPRINTS[name]
 
 
 def test_equivalence_one_device_each_end_width1():

@@ -47,7 +47,7 @@ class TestGridSnapApproach:
             ),  # Should snap to (0.0, 0.0), (20.0, 0.0)
             LineString(
                 [(4.0, 6.0), (16.0, 4.0)]
-            ),  # Should snap to (0.0, 0.0), (20.0, 0.0)
+            ),  # Should snap to (0.0, 10.0), (20.0, 0.0)
         ]
 
         edges = list(_iter_snapped_edges(lines, snap_m=10.0))
@@ -88,8 +88,7 @@ class TestGridSnapApproach:
 
         # Node at (100, 0) should have degree 3 (junction)
         junction_node = (100.0, 0.0)
-        if junction_node in G.nodes:
-            assert len(list(G.neighbors(junction_node))) == 3
+        assert G.degree[junction_node] == 3
 
     def test_segment_length_calculation_horizontal_vertical(self):
         """Segments should have accurate length_km for axis-aligned geometries."""

@@ -1,23 +1,12 @@
-"""Map generated traffic matrices to the NetGraph ``demands`` section."""
+"""Map generated traffic matrices to the NetGraph demands contract."""
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any
-
-from topogen.traffic_matrix import generate_traffic_matrix
-
-if TYPE_CHECKING:  # pragma: no cover - import-time types only
-    from topogen.config import TopologyConfig
+from typing import Any
 
 
-def _build_traffic_matrix_section(
-    metros: list[dict[str, Any]],
-    metro_settings: dict[str, dict[str, Any]],
-    config: "TopologyConfig",
+def to_demand_sets(
+    matrices: dict[str, list[dict[str, Any]]],
 ) -> dict[str, list[dict[str, Any]]]:
-    """Return NetGraph demand sets, or {} when traffic is disabled or no DCs exist."""
-
-    # Map traffic generator fields to NetGraph demand fields.
+    """Translate the same matrices used for sizing without regenerating traffic."""
     field_names = {
         "source_path": "source",
         "sink_path": "target",
@@ -29,7 +18,5 @@ def _build_traffic_matrix_section(
             {field_names.get(key, key): value for key, value in demand.items()}
             for demand in demands
         ]
-        for name, demands in generate_traffic_matrix(
-            metros, metro_settings, config
-        ).items()
+        for name, demands in matrices.items()
     }

@@ -5,6 +5,7 @@ import networkx as nx
 from topogen.config import CorridorsConfig, RiskGroupsConfig
 from topogen.corridors import assign_risk_groups as assign_risk_groups_to_corridors
 from topogen.metro_clusters import MetroCluster
+from topogen.naming import metro_slug
 
 
 class TestRiskGroupAssignment:
@@ -391,22 +392,20 @@ class TestMetroNameSanitization:
         ]
 
         for original, expected in test_cases:
-            sanitized = MetroCluster._sanitize_metro_name(original)
+            sanitized = metro_slug(original)
             assert sanitized == expected, (
                 f"Failed for {original}: got {sanitized}, expected {expected}"
             )
 
     def test_sanitization_edge_cases(self):
-        assert MetroCluster._sanitize_metro_name("Test & City, CA") == "test-city"
+        assert metro_slug("Test & City, CA") == "test-city"
 
-        assert (
-            MetroCluster._sanitize_metro_name("Multi  --  Space,  TX") == "multi-space"
-        )
+        assert metro_slug("Multi  --  Space,  TX") == "multi-space"
 
         very_long_name = (
             "Very Long Metro Name That Exceeds Thirty Characters, State--Extra--Parts"
         )
-        sanitized = MetroCluster._sanitize_metro_name(very_long_name)
+        sanitized = metro_slug(very_long_name)
         assert len(sanitized) <= 30
         assert sanitized == "very-long-metro-name-that-exce"  # Truncated at 30 chars
 
@@ -414,7 +413,7 @@ class TestMetroNameSanitization:
         original_name = "Denver--Aurora, CO"
         metro = MetroCluster(
             metro_id="23527",
-            name=MetroCluster._sanitize_metro_name(original_name),
+            name=metro_slug(original_name),
             name_orig=original_name,
             uac_code="23527",
             land_area_km2=1669.0,

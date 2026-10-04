@@ -1,38 +1,282 @@
-"""Generate DC-to-DC traffic using uniform, gravity, or hose models.
+"""Generate deterministic uniform, gravity and hose demand sets.
 
-Uniform emits a pairwise selector demand. Gravity allocates traffic by DC power
-and Euclidean distance, with optional jitter, pruning, and rounding. Hose uses
-iterative proportional fitting to target per-DC totals, then emits symmetric
-pairs. Rounding can change the final totals.
-
-Gravity and hose enumerate DC pairs and use O(N_dc^2) intermediate storage.
+Gravity and hose share pair selection, rounding and symmetric emission. Their
+pair inventories are quadratic in DC count; uniform emits one selector per class.
 """
 
 from __future__ import annotations
 
+import heapq
 import json
+import logging
 import math
-import random as _random
-from pathlib import Path
+import random
+from dataclasses import dataclass
 from typing import Any
 
-from topogen.config import TopologyConfig, _validate_flow_policy_names
+import numpy as np
+
+from topogen.config import TopologyConfig, TrafficConfig, _validate_flow_policy_names
 from topogen.log_config import get_logger
 
 logger = get_logger(__name__)
+Pair = tuple[int, int]
 
 
-def _fmt(value: float, *, decimals: int = 2) -> str:
-    """Format a number with thousands separators and the requested precision."""
+def _fit_hose_matrix(
+    matrix: list[list[float]], targets: list[float]
+) -> list[list[float]]:
+    """Fit supported pairs to both margins, rejecting infeasible or unfinished fits."""
+    values = np.asarray(matrix, dtype=float)
+    margins = np.asarray(targets, dtype=float)
+    if (
+        not np.all(np.isfinite(values))
+        or not np.all(np.isfinite(margins))
+        or np.any(values < 0)
+        or np.any(margins < 0)
+    ):
+        raise ValueError("hose requires finite non-negative weights and totals")
+    total = math.fsum(targets)
+    largest = int(np.argmax(margins))
+    rest = math.fsum(value for index, value in enumerate(targets) if index != largest)
+    if margins[largest] > rest and not math.isclose(
+        margins[largest], rest, rel_tol=1e-12, abs_tol=0
+    ):
+        raise ValueError(
+            "hose margins are infeasible: one DC exceeds all peers combined"
+        )
+    # At equality, only a star through the largest DC can satisfy both margins.
+    if math.isclose(margins[largest], rest, rel_tol=1e-12, abs_tol=0):
+        star = np.zeros_like(values)
+        for index, target in enumerate(targets):
+            if index == largest or target == 0:
+                continue
+            if values[largest, index] <= 0 or values[index, largest] <= 0:
+                raise ValueError("hose support is infeasible for the requested margins")
+            star[largest, index] = star[index, largest] = target
+        return star.tolist()
+    for _ in range(2000):
+        for axis in (1, 0):
+            sums = values.sum(axis=axis)
+            if np.any((sums == 0) & (margins > 0)):
+                raise ValueError(
+                    "hose support is infeasible: a DC has no eligible peers"
+                )
+            factors = np.divide(
+                margins, sums, out=np.zeros_like(margins), where=sums > 0
+            )
+            values *= factors[:, None] if axis == 1 else factors[None, :]
+        if all(
+            np.allclose(values.sum(axis=axis), margins, rtol=1e-9, atol=total * 1e-12)
+            for axis in (0, 1)
+        ):
+            return values.tolist()
+    raise ValueError(
+        "hose fitting did not converge after 2000 iterations; adjust DC totals or retained partners"
+    )
 
-    fmt = f"{{:,.{decimals}f}}"
-    return fmt.format(float(value))
+
+@dataclass(frozen=True, slots=True)
+class _DC:
+    metro: str
+    path: str
+    mass: float
 
 
-def _safe_metro_to_path(metro_name: str) -> str:
-    """Normalize a metro name for use in a DC path, such as ``salt-lake-city/dc1``."""
+def _inventory(
+    metros: list[dict[str, Any]],
+    settings: dict[str, dict[str, Any]],
+    config: TrafficConfig,
+) -> list[_DC]:
+    inventory = []
+    overrides = config.gravity.mw_per_dc_region_overrides
+    for metro_index, metro in enumerate(metros, 1):
+        name = metro["name"]
+        prefix = name.lower().replace(" ", "-")
+        for ordinal in range(1, settings[name]["dc_regions_per_metro"] + 1):
+            mass = float(
+                overrides.get(
+                    f"{prefix}/dc{ordinal}",
+                    overrides.get(name, config.mw_per_dc_region),
+                )
+            )
+            if not math.isfinite(mass) or mass < 0:
+                raise ValueError(
+                    f"DC power for {name}/dc{ordinal} must be finite and non-negative"
+                )
+            inventory.append(
+                _DC(
+                    name,
+                    f"^metro{metro_index}/dc{ordinal}/.*",
+                    mass,
+                )
+            )
+    return inventory
 
-    return metro_name.lower().replace(" ", "-")
+
+def _distances(
+    dcs: list[_DC], metros: list[dict[str, Any]], minimum: float
+) -> np.ndarray:
+    positions = {metro["name"]: (metro["x"], metro["y"]) for metro in metros}
+    xy = np.array([positions[dc.metro] for dc in dcs], dtype=float)
+    return np.maximum(
+        np.hypot(xy[:, None, 0] - xy[None, :, 0], xy[:, None, 1] - xy[None, :, 1])
+        / 1000,
+        minimum,
+    )
+
+
+def _top_pairs(weights: dict[Pair, float], k: int) -> dict[Pair, float]:
+    """Keep the union of each DC's strongest K partners, with stable ties."""
+    if k <= 0:
+        raise ValueError("Partner count must be positive")
+    partners: dict[int, list[tuple[Pair, float]]] = {}
+    for pair, value in weights.items():
+        for endpoint in pair:
+            partners.setdefault(endpoint, []).append((pair, value))
+    keep = {
+        pair
+        for entries in partners.values()
+        for pair, _ in heapq.nlargest(k, entries, key=lambda item: item[1])
+    }
+    return {pair: value for pair, value in weights.items() if pair in keep}
+
+
+def _quantize(
+    allocations: dict[Pair, float], total: float, step: float, policy: str
+) -> dict[Pair, float]:
+    """Quantize pair totals and distribute positive residual by largest remainder."""
+    if step == 0:
+        return allocations
+    quantizer = {"nearest": round, "ceil": math.ceil, "floor": math.floor}[policy]
+    rounded = [
+        (pair, quantizer(value / step) * step, value)
+        for pair, value in allocations.items()
+    ]
+    rounded.sort(key=lambda item: item[2] - item[1], reverse=True)
+    steps = max(0, int(round((total - sum(value for _, value, _ in rounded)) / step)))
+    return {
+        pair: value + (step if index < steps else 0)
+        for index, (pair, value, _) in enumerate(rounded)
+    }
+
+
+def _emit_pairs(
+    dcs: list[_DC],
+    pairs: dict[Pair, float],
+    distances: np.ndarray,
+    config: TrafficConfig,
+    offered: float,
+    *,
+    rng: random.Random | None = None,
+) -> list[dict[str, Any]]:
+    demands = []
+    gravity = config.gravity
+    step = gravity.rounding_gbps
+    for priority, ratio in sorted(config.priority_ratios.items()):
+        total = offered * ratio
+        if total <= 0:
+            continue
+        allocations = {pair: value * ratio for pair, value in pairs.items()}
+        if rng is not None and gravity.jitter_stddev > 0:
+            sigma = gravity.jitter_stddev
+            allocations = {
+                pair: value * rng.lognormvariate(-0.5 * sigma * sigma, sigma)
+                for pair, value in allocations.items()
+            }
+            jittered_total = sum(allocations.values())
+            if not math.isfinite(jittered_total) or jittered_total <= 0:
+                raise ValueError("Gravity jitter produced an invalid total")
+            allocations = {
+                pair: value * (total / jittered_total)
+                for pair, value in allocations.items()
+            }
+        allocations = _quantize(allocations, total, step, gravity.rounding_policy)
+        for (source, target), value in allocations.items():
+            each = value / 2
+            if step > 0:
+                each = round(each / (step / 2)) * (step / 2)
+            if each <= 0:
+                continue
+            distance = math.ceil(float(distances[source, target]))
+            for a, b in ((source, target), (target, source)):
+                entry = {
+                    "source_path": dcs[a].path,
+                    "sink_path": dcs[b].path,
+                    "mode": "pairwise",
+                    "priority": priority,
+                    "demand": each,
+                    "attrs": {"euclidean_km": distance},
+                }
+                if priority in config.flow_policy_config:
+                    entry["flow_policy_config"] = config.flow_policy_config[priority]
+                demands.append(entry)
+    return demands
+
+
+def _gravity_pairs(
+    dcs: list[_DC], distances: np.ndarray, config: TrafficConfig, offered: float
+) -> dict[Pair, float]:
+    gravity = config.gravity
+    weights = {}
+    for i, a in enumerate(dcs):
+        for j in range(i + 1, len(dcs)):
+            b = dcs[j]
+            if gravity.exclude_same_metro and a.metro == b.metro:
+                continue
+            value = (
+                (a.mass**gravity.alpha)
+                * (b.mass**gravity.alpha)
+                / (float(distances[i, j]) ** gravity.beta)
+            )
+            if value > 0:
+                weights[i, j] = value
+    if gravity.max_partners_per_dc is not None:
+        weights = _top_pairs(weights, gravity.max_partners_per_dc)
+    total = sum(weights.values())
+    if not math.isfinite(total) or total <= 0:
+        raise ValueError(
+            "Gravity traffic model produced zero or non-finite total weight across DC pairs"
+        )
+    return {pair: offered * (value / total) for pair, value in weights.items()}
+
+
+def _random_hose(
+    dcs: list[_DC],
+    distances: np.ndarray,
+    config: TrafficConfig,
+    rng: random.Random,
+    keep: set[Pair] | None = None,
+) -> list[list[float]]:
+    hose = config.hose
+    n = len(dcs)
+    matrix = [[0.0] * n for _ in range(n)]
+    for i, a in enumerate(dcs):
+        for j, b in enumerate(dcs):
+            if i == j or (keep is not None and (min(i, j), max(i, j)) not in keep):
+                continue
+            value = 1e-9 + rng.random()
+            if hose.tilt_exponent > 0:
+                # This setting excludes same-metro pairs from the tilt kernel,
+                # while keeping positive support for marginal fitting.
+                tilt = (
+                    1e-12
+                    if hose.exclude_same_metro and a.metro == b.metro
+                    else (1.0 / float(distances[i, j]) ** hose.beta)
+                    ** hose.tilt_exponent
+                )
+                value *= tilt
+            matrix[i][j] = value
+    return _fit_hose_matrix(matrix, [dc.mass * config.gbps_per_mw for dc in dcs])
+
+
+def _hose_pairs(matrix: list[list[float]]) -> dict[Pair, float]:
+    return {
+        (i, j): matrix[i][j] + matrix[j][i]
+        for i in range(len(matrix))
+        for j in range(i + 1, len(matrix))
+        if matrix[i][j] + matrix[j][i] > 0
+    }
 
 
 def generate_traffic_matrix(
@@ -40,911 +284,75 @@ def generate_traffic_matrix(
     metro_settings: dict[str, dict[str, Any]],
     config: TopologyConfig,
 ) -> dict[str, list[dict[str, Any]]]:
-    """Generate traffic matrices from configuration and metros.
+    """Return named demand lists, without file I/O or global PRNG mutation.
 
-    Builds DC inventory from ``metro_settings``, computes the offered load, and
-    emits traffic matrices according to the configured model. When the gravity
-    model is selected, per-pair allocations are proportional to
-    (m_i^alpha * m_j^alpha) / (dist_ij^beta) using Euclidean distances in km.
-
-    Args:
-        metros: Extracted metro descriptors with keys ``name``, ``x``, ``y``.
-        metro_settings: Per-metro settings including ``dc_regions_per_metro``.
-        config: Full topology configuration.
-
-    Returns:
-        Mapping from matrix name to list of demand dicts. Returns empty dict
-        when traffic generation is disabled or no DCs exist. Demand fields are
-        ``source_path``, ``sink_path``, ``demand``, and optional
-        ``flow_policy_config``; scenario assembly maps these to NetGraph fields.
-
-    Raises:
-        ValueError: If the gravity model yields zero total weight or if top-K
-            pruning removes all pairs.
+    Uniform shares offered volume over ordered DC pairs through NetGraph's
+    selectors. Gravity weights pairs by power/distance; hose fits each DC's
+    margins. Both emit symmetric pairs with shared quantization semantics.
     """
-
-    traffic_cfg = getattr(config, "traffic", None)
-    if not traffic_cfg or not getattr(traffic_cfg, "enabled", False):
-        logger.debug("Traffic generation disabled or no traffic configuration present")
+    traffic = config.traffic
+    if not traffic.enabled:
         return {}
-
-    # Configs can also be constructed or mutated through the Python API.
-    fpc = traffic_cfg.flow_policy_config
-    _validate_flow_policy_names(fpc)
-
-    dc_nodes: list[tuple[str, int]] = []  # (metro_name, dc_index)
-    for metro_name, settings in metro_settings.items():
-        dc_count = int(settings.get("dc_regions_per_metro", 0))
-        for dc_idx in range(1, dc_count + 1):
-            dc_nodes.append((metro_name, dc_idx))
-
-    if not dc_nodes:
-        logger.debug("No DC regions configured; skipping traffic matrix generation")
+    _validate_flow_policy_names(traffic.flow_policy_config)
+    if traffic.model not in {"uniform", "gravity", "hose"}:
+        raise ValueError(f"Unknown traffic model: {traffic.model}")
+    dcs = _inventory(metros, metro_settings, traffic)
+    if not dcs:
         return {}
-
-    model = str(getattr(traffic_cfg, "model", "uniform")).strip()
-
-    def _power_for_dc(metro_name: str, dc_path: str) -> float:
-        # Override by full path or by metro name; else default
-        overrides = getattr(traffic_cfg.gravity, "mw_per_dc_region_overrides", {})
-        if dc_path in overrides:
-            return float(overrides[dc_path])
-        if metro_name in overrides:
-            return float(overrides[metro_name])
-        return float(traffic_cfg.mw_per_dc_region)
-
-    dc_mass: dict[tuple[str, int], float] = {}
-    total_power_mw = 0.0
-    for metro_name, dc_idx in dc_nodes:
-        dc_path = f"{_safe_metro_to_path(metro_name)}/dc{dc_idx}"
-        mw = _power_for_dc(metro_name, dc_path)
-        dc_mass[(metro_name, dc_idx)] = mw
-        total_power_mw += mw
-
-    offered_gbps = float(traffic_cfg.gbps_per_mw) * float(total_power_mw)
-
-    try:
-        logger.debug(
-            "Traffic model=%s matrix_name=%s gbps_per_mw=%s mw_per_dc_region=%s",
-            getattr(traffic_cfg, "model", "uniform"),
-            getattr(traffic_cfg, "matrix_name", "default"),
-            _fmt(float(traffic_cfg.gbps_per_mw), decimals=3),
-            _fmt(float(traffic_cfg.mw_per_dc_region), decimals=3),
-        )
-        logger.debug(
-            "DC inventory (MW) total=%s: %s",
-            _fmt(total_power_mw, decimals=3),
-            ", ".join(
-                f"{m}/dc{d}={_fmt(dc_mass[(m, d)], decimals=3)}"
-                for (m, d) in sorted(dc_mass.keys())
-            ),
-        )
-        logger.debug("Offered traffic (Gbps)=%s", _fmt(offered_gbps))
-    except Exception:  # pragma: no cover - logging only
-        pass
-
-    if model == "uniform":
-        # Uniform model emission using regex selection across all DCs
-        source_regex = "(metro[0-9]+/dc[0-9]+)"
-        sink_regex = "(metro[0-9]+/dc[0-9]+)"
-        demands: list[dict[str, Any]] = []
-        for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
-            class_demand = offered_gbps * float(ratio)
-            if class_demand <= 0.0:
-                # Skip zero or negative class demand entries
+    offered = sum(dc.mass for dc in dcs) * traffic.gbps_per_mw
+    if not math.isfinite(offered) or offered < 0:
+        raise ValueError("Offered traffic must be finite and non-negative")
+    name = traffic.matrix_name
+    if traffic.model == "uniform":
+        demands = []
+        for priority, ratio in sorted(traffic.priority_ratios.items()):
+            if (volume := offered * ratio) <= 0:
                 continue
             entry = {
-                "source_path": source_regex,
-                "sink_path": sink_regex,
+                "source_path": "(metro[0-9]+/dc[0-9]+)",
+                "sink_path": "(metro[0-9]+/dc[0-9]+)",
                 "mode": "pairwise",
-                "priority": int(priority),
-                "demand": float(class_demand),
+                "group_mode": "group_pairwise",
+                "priority": priority,
+                "demand": volume,
             }
-            if int(priority) in fpc:
-                entry["flow_policy_config"] = fpc[int(priority)]
+            if priority in traffic.flow_policy_config:
+                entry["flow_policy_config"] = traffic.flow_policy_config[priority]
             demands.append(entry)
-        try:
-            for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
-                logger.debug(
-                    "uniform: class priority=%s ratio=%s class_demand_gbps=%s",
-                    int(priority),
-                    _fmt(float(ratio), decimals=6),
-                    _fmt(offered_gbps * float(ratio)),
-                )
-            pretty = {
-                str(traffic_cfg.matrix_name): [
-                    {
-                        "source_path": d["source_path"],
-                        "sink_path": d["sink_path"],
-                        "mode": d["mode"],
-                        "priority": int(d["priority"]),
-                        "demand_gbps": _fmt(float(d["demand"]))
-                        if isinstance(d.get("demand"), (int, float))
-                        else str(d.get("demand")),
-                    }
-                    for d in demands
-                ]
-            }
-            logger.debug(
-                "traffic_matrix pretty:\n%s",
-                json.dumps(pretty, indent=2, ensure_ascii=True),
+        result = {name: demands}
+    elif traffic.model == "gravity":
+        distances = _distances(dcs, metros, traffic.gravity.min_distance_km)
+        pairs = _gravity_pairs(dcs, distances, traffic, offered)
+        result = {
+            name: _emit_pairs(
+                dcs,
+                pairs,
+                distances,
+                traffic,
+                offered,
+                rng=random.Random(config.output.scenario_seed),
             )
-        except Exception:  # pragma: no cover - logging only
-            pass
-        return {traffic_cfg.matrix_name: demands}
-
-    if model == "hose":
-        # Fit randomized hose matrices toward the per-DC totals.
-        if total_power_mw <= 0.0:
-            logger.debug("hose: total_power_mw is zero; skipping traffic generation")
+        }
+    else:
+        if offered == 0:
             return {}
-
-        T: dict[tuple[str, int], float] = {
-            k: offered_gbps * (float(mw) / float(total_power_mw))
-            for k, mw in dc_mass.items()
-        }
-
-        # Map metro name to 1-based index for regex paths
-        metro_idx_map_hose = {m["name"]: idx for idx, m in enumerate(metros, 1)}
-
-        # Hose tilt configuration (gravity-tilted initialization)
-        hcfg = getattr(traffic_cfg, "hose", object())
-        try:
-            tilt_exp = float(getattr(hcfg, "tilt_exponent", 0.0))
-            hose_beta = float(getattr(hcfg, "beta", 1.0))
-            hose_min_km = float(getattr(hcfg, "min_distance_km", 1.0))
-            hose_excl_same = bool(getattr(hcfg, "exclude_same_metro", False))
-            carve_top_k = getattr(hcfg, "carve_top_k", None)
-        except Exception:
-            tilt_exp = 0.0
-            hose_beta = 1.0
-            hose_min_km = 1.0
-            hose_excl_same = False
-            carve_top_k = None
-
-        coords_hose: dict[str, tuple[float, float]] = {
-            m["name"]: (float(m.get("x", 0.0)), float(m.get("y", 0.0))) for m in metros
-        }
-
-        def _hose_distance_km(name_a: str, name_b: str) -> float:
-            if name_a == name_b:
-                return max(hose_min_km, 0.0)
-            (x1, y1) = coords_hose.get(name_a, (0.0, 0.0))
-            (x2, y2) = coords_hose.get(name_b, (0.0, 0.0))
-            return max(math.hypot(x1 - x2, y1 - y2) / 1000.0, hose_min_km)
-
-        # Seeded RNG for reproducibility; vary with sample index
-        try:
-            base_seed = int(
-                getattr(getattr(config, "output", object()), "scenario_seed", 42)
-            )
-        except Exception:
-            base_seed = 42
-
-        def _ipf_directed_matrix(rng: _random.Random) -> list[list[float]]:
-            """Fit a zero-diagonal matrix toward per-DC row and column totals.
-
-            Stop at absolute error 1e-6 or after 2,000 iterations; return the last fit.
-            """
-
-            n = len(dc_nodes)
-            t_vec = [T[dc_nodes[i]] for i in range(n)]
-            D = [[0.0 for _ in range(n)] for _ in range(n)]
-            for i in range(n):
-                (mi, di) = dc_nodes[i]
-                for j in range(n):
-                    if i == j:
-                        continue
-                    (mj, dj) = dc_nodes[j]
-                    # Random base > 0
-                    base = 1e-9 + rng.random()
-                    if tilt_exp > 0.0:
-                        if hose_excl_same and mi == mj:
-                            weight = 0.0
-                        else:
-                            dist_km = _hose_distance_km(mi, mj)
-                            weight = 1.0 / (dist_km**hose_beta) if dist_km > 0 else 0.0
-                        if weight <= 0.0:
-                            # Keep strictly positive but very small to retain feasibility
-                            tilt = 1e-12
-                        else:
-                            tilt = weight**tilt_exp
-                        D[i][j] = base * tilt
-                    else:
-                        D[i][j] = base
-
-            max_iter = 2000
-            tol = 1e-6
-            for _ in range(max_iter):
-                for i in range(n):
-                    row_sum = sum(D[i][j] for j in range(n) if j != i)
-                    if row_sum > 0.0:
-                        factor = t_vec[i] / row_sum
-                        if factor != 1.0:
-                            for j in range(n):
-                                if i != j:
-                                    D[i][j] *= factor
-                max_dev = 0.0
-                for j in range(n):
-                    col_sum = sum(D[i][j] for i in range(n) if i != j)
-                    if col_sum > 0.0:
-                        factor = t_vec[j] / col_sum
-                        if factor != 1.0:
-                            for i in range(n):
-                                if i != j:
-                                    D[i][j] *= factor
-                    col_sum2 = sum(D[i][j] for i in range(n) if i != j)
-                    max_dev = max(max_dev, abs(col_sum2 - t_vec[j]))
-                for i in range(n):
-                    row_sum2 = sum(D[i][j] for j in range(n) if j != i)
-                    max_dev = max(max_dev, abs(row_sum2 - t_vec[i]))
-                if max_dev <= tol:
-                    break
-            return D
-
-        num_samples = int(getattr(traffic_cfg, "samples", 1))
-        base_name = str(getattr(traffic_cfg, "matrix_name", "default"))
-        # Reuse gravity rounding settings for undirected totals, then split equally
-        rounding = float(
-            getattr(getattr(traffic_cfg, "gravity", object()), "rounding_gbps", 0.0)
-        )
-        rounding_policy = str(
-            getattr(
-                getattr(traffic_cfg, "gravity", object()), "rounding_policy", "nearest"
-            )
-        )
-
-        result_hose: dict[str, list[dict[str, Any]]] = {}
-        for s_idx in range(1, num_samples + 1):
-            rng = _random.Random(base_seed * 1000003 + s_idx)
-            D = _ipf_directed_matrix(rng)
-            # Optional gravity carve step: keep top-K partners per DC by undirected total
-            if carve_top_k is not None:
-                k = int(carve_top_k)
-                n = len(dc_nodes)
-                und: dict[tuple[int, int], float] = {}
-                for i in range(n):
-                    for j in range(i + 1, n):
-                        u = float(D[i][j] + D[j][i])
-                        if u > 0.0:
-                            und[(i, j)] = u
-                partner_map: dict[int, list[tuple[int, float]]] = {}
-                for (i, j), u in und.items():
-                    partner_map.setdefault(i, []).append((j, u))
-                    partner_map.setdefault(j, []).append((i, u))
-                keep_pairs: set[tuple[int, int]] = set()
-                for i, lst in partner_map.items():
-                    lst_sorted = sorted(lst, key=lambda t: t[1], reverse=True)[:k]
-                    for j, _ in lst_sorted:
-                        a, b = (i, j) if i < j else (j, i)
-                        keep_pairs.add((a, b))
-                # Reinitialize retained pairs and refit toward the per-DC totals.
-                D = [[0.0 for _ in range(n)] for _ in range(n)]
-                for i in range(n):
-                    (mi, di) = dc_nodes[i]
-                    for j in range(n):
-                        if i == j:
-                            continue
-                        (mj, dj) = dc_nodes[j]
-                        a, b = (i, j) if i < j else (j, i)
-                        if (a, b) not in keep_pairs:
-                            continue
-                        base = 1e-9 + rng.random()
-                        if tilt_exp > 0.0:
-                            if hose_excl_same and mi == mj:
-                                weight = 0.0
-                            else:
-                                dist_km = _hose_distance_km(mi, mj)
-                                weight = (
-                                    1.0 / (dist_km**hose_beta) if dist_km > 0 else 0.0
-                                )
-                            tilt = (weight**tilt_exp) if weight > 0.0 else 1e-12
-                            D[i][j] = base * tilt
-                        else:
-                            D[i][j] = base
-                max_iter = 2000
-                tol = 1e-6
-                for _ in range(max_iter):
-                    for i in range(n):
-                        row_sum = sum(D[i][j] for j in range(n) if j != i)
-                        if row_sum > 0.0:
-                            factor = T[dc_nodes[i]] / row_sum
-                            if factor != 1.0:
-                                for j in range(n):
-                                    if i != j:
-                                        D[i][j] *= factor
-                    max_dev = 0.0
-                    for j in range(n):
-                        col_sum = sum(D[i][j] for i in range(n) if i != j)
-                        if col_sum > 0.0:
-                            factor = T[dc_nodes[j]] / col_sum
-                            if factor != 1.0:
-                                for i in range(n):
-                                    if i != j:
-                                        D[i][j] *= factor
-                        col_sum2 = sum(D[i][j] for i in range(n) if i != j)
-                        max_dev = max(max_dev, abs(col_sum2 - T[dc_nodes[j]]))
-                    for i in range(n):
-                        row_sum2 = sum(D[i][j] for j in range(n) if j != i)
-                        max_dev = max(max_dev, abs(row_sum2 - T[dc_nodes[i]]))
-                    if max_dev <= tol:
-                        break
-            n = len(dc_nodes)
-            undirected: list[tuple[tuple[int, int], float]] = []
-            for i in range(n):
-                for j in range(i + 1, n):
-                    total_ij = float(D[i][j] + D[j][i])
-                    if total_ij > 0.0:
-                        undirected.append(((i, j), total_ij))
-
-            demands: list[dict[str, Any]] = []
-            for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
-                D_c = offered_gbps * float(ratio)
-                allocs_hose = [((i, j), u * float(ratio)) for ((i, j), u) in undirected]
-
-                # Round undirected totals and distribute positive residual by largest remainder.
-                if rounding > 0.0:
-                    floored_hose: list[tuple[tuple[int, int], float, float]] = []
-                    total_floor = 0.0
-                    for (i, j), v in allocs_hose:
-                        if rounding_policy == "ceil":
-                            q = math.ceil(v / rounding) * rounding
-                        elif rounding_policy == "floor":
-                            q = math.floor(v / rounding) * rounding
-                        else:
-                            q = round(v / rounding) * rounding
-                        rem = v - q
-                        floored_hose.append(((i, j), q, rem))
-                        total_floor += q
-                    remainder = D_c - total_floor
-                    steps = int(round(remainder / rounding)) if rounding > 0 else 0
-                    floored_hose.sort(key=lambda t: t[2], reverse=True)
-                    final_map_hose: dict[tuple[int, int], float] = {
-                        key: q for key, q, _ in floored_hose
-                    }
-                    idx = 0
-                    while steps > 0 and idx < len(floored_hose):
-                        key, q, _ = floored_hose[idx]
-                        final_map_hose[key] = q + rounding
-                        steps -= 1
-                        idx += 1
-                    allocs_hose = list(final_map_hose.items())
-
-                dir_step = max(rounding / 2.0, 0.0)
-                for (i, j), v in allocs_hose:
-                    (m1, d1) = dc_nodes[i]
-                    (m2, d2) = dc_nodes[j]
-                    i1 = metro_idx_map_hose[m1]
-                    i2 = metro_idx_map_hose[m2]
-                    src = f"^metro{i1}/dc{d1}/.*"
-                    dst = f"^metro{i2}/dc{d2}/.*"
-                    dist_km = _hose_distance_km(m1, m2)
-                    demand_each_raw = float(v) / 2.0
-                    if dir_step > 0.0:
-                        demand_each = round(demand_each_raw / dir_step) * dir_step
-                    else:
-                        demand_each = round(demand_each_raw, 2)
-                    if demand_each <= 0.0:
-                        continue
-                    entry_fwd = {
-                        "source_path": src,
-                        "sink_path": dst,
-                        "mode": "pairwise",
-                        "priority": int(priority),
-                        "demand": float(demand_each),
-                        "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
-                    }
-                    entry_rev = {
-                        "source_path": dst,
-                        "sink_path": src,
-                        "mode": "pairwise",
-                        "priority": int(priority),
-                        "demand": float(demand_each),
-                        "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
-                    }
-                    if int(priority) in fpc:
-                        entry_fwd["flow_policy_config"] = fpc[int(priority)]
-                        entry_rev["flow_policy_config"] = fpc[int(priority)]
-                    demands.append(entry_fwd)
-                    demands.append(entry_rev)
-
-            matrix_name = base_name if num_samples == 1 else f"{base_name}_{s_idx}"
-            result_hose[matrix_name] = demands
-
-        try:
-            first = next(iter(result_hose.keys())) if result_hose else base_name
-            pretty = {
-                str(first): [
-                    {
-                        "source_path": d["source_path"],
-                        "sink_path": d["sink_path"],
-                        "mode": d["mode"],
-                        "priority": int(d["priority"]),
-                        "demand_gbps": _fmt(float(d["demand"]))
-                        if isinstance(d.get("demand"), (int, float))
-                        else str(d.get("demand")),
-                    }
-                    for d in result_hose.get(first, [])
-                ]
-            }
-            logger.debug(
-                "traffic_matrix pretty (hose sample):\n%s",
-                json.dumps(pretty, indent=2, ensure_ascii=True),
-            )
-        except Exception:  # pragma: no cover - logging only
-            pass
-
-        return result_hose
-
-    gcfg = traffic_cfg.gravity
-
-    # Metro coordinates (EPSG:5070 meters); convert to km for distance
-    coords: dict[str, tuple[float, float]] = {
-        m["name"]: (float(m.get("x", 0.0)), float(m.get("y", 0.0))) for m in metros
-    }
-
-    def _distance_km(m1: str, m2: str) -> float:
-        if m1 == m2:
-            return max(float(gcfg.min_distance_km), 0.0)
-        (x1, y1) = coords.get(m1, (0.0, 0.0))
-        (x2, y2) = coords.get(m2, (0.0, 0.0))
-        dx = x1 - x2
-        dy = y1 - y2
-        return max(math.hypot(dx, dy) / 1000.0, float(gcfg.min_distance_km))
-
-    weights: dict[tuple[tuple[str, int], tuple[str, int]], float] = {}
-    total_w = 0.0
-    logger.debug(
-        "Distance model: Euclidean straight-line km (EPSG:5070 coords), min_distance_km=%s",
-        _fmt(float(gcfg.min_distance_km), decimals=3),
+        distances = _distances(dcs, metros, traffic.hose.min_distance_km)
+        result = {}
+        for sample in range(1, traffic.samples + 1):
+            rng = random.Random(config.output.scenario_seed * 1000003 + sample)
+            pairs = _hose_pairs(_random_hose(dcs, distances, traffic, rng))
+            if traffic.hose.carve_top_k is not None:
+                keep = set(_top_pairs(pairs, traffic.hose.carve_top_k))
+                pairs = _hose_pairs(_random_hose(dcs, distances, traffic, rng, keep))
+            matrix_name = name if traffic.samples == 1 else f"{name}_{sample}"
+            result[matrix_name] = _emit_pairs(dcs, pairs, distances, traffic, offered)
+    logger.info(
+        "Generated %s traffic: %d DCs, %d matrices, %d demands",
+        traffic.model,
+        len(dcs),
+        len(result),
+        sum(map(len, result.values())),
     )
-    logger.debug("traffic: diagnostics begin")
-    for i, (m1, d1) in enumerate(dc_nodes):
-        for j in range(i + 1, len(dc_nodes)):
-            m2, d2 = dc_nodes[j]
-            if gcfg.exclude_same_metro and m1 == m2:
-                continue
-            m_i = dc_mass[(m1, d1)]
-            m_j = dc_mass[(m2, d2)]
-            dist = _distance_km(m1, m2)
-            dist_eff = max(dist, float(gcfg.min_distance_km))
-            w = (
-                (m_i ** float(gcfg.alpha))
-                * (m_j ** float(gcfg.alpha))
-                / (dist_eff ** float(gcfg.beta))
-            )
-            if w <= 0.0:
-                continue
-            key = ((m1, d1), (m2, d2))
-            weights[key] = w
-            total_w += w
-
-    if total_w <= 0.0:
-        raise ValueError(
-            "Gravity traffic model produced zero total weight across DC pairs"
-        )
-
-    try:
-        logger.debug(
-            (
-                "gravity: alpha=%s beta=%s min_distance_km=%s "
-                "exclude_same_metro=%s jitter_stddev=%s rounding_gbps=%s "
-                "directional_step_gbps=%s max_partners_per_dc=%s"
-            ),
-            _fmt(float(gcfg.alpha), decimals=6),
-            _fmt(float(gcfg.beta), decimals=6),
-            _fmt(float(gcfg.min_distance_km), decimals=3),
-            bool(gcfg.exclude_same_metro),
-            _fmt(float(gcfg.jitter_stddev), decimals=6),
-            _fmt(float(gcfg.rounding_gbps), decimals=3),
-            _fmt(float(gcfg.rounding_gbps) / 2.0, decimals=3),
-            (
-                None
-                if gcfg.max_partners_per_dc is None
-                else int(gcfg.max_partners_per_dc)
-            ),
-        )
-        top_pairs = sorted(weights.items(), key=lambda kv: kv[1], reverse=True)[:10]
-        for (m1, d1), (m2, d2) in [p[0] for p in top_pairs]:
-            w = weights[((m1, d1), (m2, d2))]
-            frac = w / total_w if total_w > 0 else 0.0
-            logger.debug(
-                "gravity: pair %s/dc%s <-> %s/dc%s weight=%s frac=%s",
-                m1,
-                d1,
-                m2,
-                d2,
-                _fmt(w, decimals=6),
-                _fmt(frac, decimals=6),
-            )
-    except Exception:  # pragma: no cover - logging only
-        pass
-
-    # Optional top-K pruning per DC
-    if gcfg.max_partners_per_dc is not None:
-        k = int(gcfg.max_partners_per_dc)
-        partners: dict[tuple[str, int], list[tuple[tuple[str, int], float]]] = {}
-        for (a, b), w in weights.items():
-            partners.setdefault(a, []).append((b, w))
-            partners.setdefault(b, []).append((a, w))
-        keep: set[tuple[tuple[str, int], tuple[str, int]]] = set()
-        for node, lst in partners.items():
-            lst_sorted = sorted(lst, key=lambda t: t[1], reverse=True)[:k]
-            for other, _w in lst_sorted:
-                pair = tuple(sorted([node, other]))
-                keep.add((pair[0], pair[1]))
-        weights = {pair: w for pair, w in weights.items() if pair in keep}
-        total_w = sum(weights.values())
-        if total_w <= 0.0:
-            raise ValueError(
-                "After top-K pruning, no DC pairs remain for gravity model"
-            )
-
-        logger.debug(
-            "gravity: applied top-K pruning with k=%d; remaining_pairs=%d",
-            k,
-            len(weights),
-        )
-
-    # Map metro name to 1-based index consistent with network group naming
-    metro_idx_map = {m["name"]: idx for idx, m in enumerate(metros, 1)}
-    try:
-        logger.debug(
-            "regex index map: %s",
-            ", ".join(
-                f"metro{idx} -> {name}"
-                for name, idx in sorted(metro_idx_map.items(), key=lambda x: x[1])
-            ),
-        )
-    except Exception:  # pragma: no cover - logging only
-        pass
-
-    # Emit per-pair demands with class-specific jitter and rounding.
-    demands: list[dict[str, Any]] = []
-    debug_entries: list[dict[str, Any]] = []
-    for priority, ratio in sorted(traffic_cfg.priority_ratios.items()):
-        D_c = offered_gbps * float(ratio)
-        allocs: list[tuple[tuple[tuple[str, int], tuple[str, int]], float]] = []
-        for pair, w in weights.items():
-            alloc = D_c * (w / total_w)
-            allocs.append((pair, alloc))
-
-        # Optional jitter (lognormal with sigma=jitter_stddev, mu set for mean=1)
-        if gcfg.jitter_stddev > 0.0:
-            import random as _r
-
-            sigma = float(gcfg.jitter_stddev)
-            mu = -0.5 * sigma * sigma
-            jittered: list[tuple[tuple[tuple[str, int], tuple[str, int]], float]] = []
-            total_after = 0.0
-            for pair, v in allocs:
-                factor = _r.lognormvariate(mu, sigma)
-                val = v * factor
-                jittered.append((pair, val))
-                total_after += val
-            if total_after > 0:
-                allocs = [(pair, v * (D_c / total_after)) for pair, v in jittered]
-
-        logger.debug(
-            "gravity: class priority=%d ratio=%s class_total_gbps=%s",
-            int(priority),
-            _fmt(float(ratio), decimals=6),
-            _fmt(D_c),
-        )
-
-        # Round pair totals and distribute positive residual by largest remainder.
-        rounding = float(gcfg.rounding_gbps)
-        if rounding > 0.0:
-            floored: list[
-                tuple[tuple[tuple[str, int], tuple[str, int]], float, float]
-            ] = []
-            total_floor = 0.0
-            for pair, v in allocs:
-                if getattr(gcfg, "rounding_policy", "nearest") == "ceil":
-                    q = math.ceil(v / rounding) * rounding
-                elif getattr(gcfg, "rounding_policy", "nearest") == "floor":
-                    q = math.floor(v / rounding) * rounding
-                else:
-                    q = round(v / rounding) * rounding
-                rem = v - q
-                floored.append((pair, q, rem))
-                total_floor += q
-            remainder = D_c - total_floor
-            steps = int(round(remainder / rounding)) if rounding > 0 else 0
-            # Distribute leftover to pairs with largest remainders
-            floored.sort(key=lambda t: t[2], reverse=True)
-            final_map: dict[tuple[tuple[str, int], tuple[str, int]], float] = {
-                pair: q for pair, q, _ in floored
-            }
-            idx = 0
-            while steps > 0 and idx < len(floored):
-                pair, q, _rem = floored[idx]
-                final_map[pair] = q + rounding
-                steps -= 1
-                idx += 1
-            allocs = list(final_map.items())
-            try:
-                sum_final = sum(final_map.values())
-                delta = D_c - sum_final
-                logger.debug(
-                    (
-                        "gravity: class priority=%d rounding delta_gbps=%s "
-                        "(exact-total - rounded-total) policy=%s"
-                    ),
-                    int(priority),
-                    _fmt(delta),
-                    getattr(gcfg, "rounding_policy", "nearest"),
-                )
-            except Exception:  # pragma: no cover - logging only
-                pass
-            logger.debug(
-                "gravity: class priority=%d applied rounding_gbps=%s",
-                int(priority),
-                _fmt(rounding, decimals=3),
-            )
-
-        class_directed_sum = 0.0
-        dir_step = max(float(gcfg.rounding_gbps) / 2.0, 0.0)
-        for pair, v in allocs:
-            (m1, d1), (m2, d2) = pair
-            i1 = metro_idx_map[m1]
-            i2 = metro_idx_map[m2]
-            src = f"^metro{i1}/dc{d1}/.*"
-            dst = f"^metro{i2}/dc{d2}/.*"
-            # Symmetric split: half each direction; align to configured rounding step per direction
-            demand_each_raw = float(v) / 2.0
-            if dir_step > 0.0:
-                demand_each = round(demand_each_raw / dir_step) * dir_step
-            else:
-                demand_each = round(demand_each_raw, 2)
-            if demand_each <= 0.0:
-                continue
-            dist_km = _distance_km(m1, m2)
-            try:
-                w = weights[pair]
-                frac = w / total_w if total_w > 0 else 0.0
-                m_i = dc_mass[(m1, d1)]
-                m_j = dc_mass[(m2, d2)]
-                logger.debug(
-                    (
-                        "entry: prio=%d src=%s dst=%s demand_gbps=%s "
-                        "m_i_MW=%s m_j_MW=%s euclidean_km=%s weight=%s frac=%s "
-                        "alpha=%s beta=%s class_total_gbps=%s rounding_gbps=%s "
-                        "jitter_stddev=%s"
-                    ),
-                    int(priority),
-                    src,
-                    dst,
-                    _fmt(demand_each),
-                    _fmt(m_i, decimals=3),
-                    _fmt(m_j, decimals=3),
-                    _fmt(dist_km, decimals=3),
-                    _fmt(w, decimals=6),
-                    _fmt(frac, decimals=6),
-                    _fmt(float(gcfg.alpha), decimals=6),
-                    _fmt(float(gcfg.beta), decimals=6),
-                    _fmt(D_c),
-                    _fmt(float(gcfg.rounding_gbps), decimals=3),
-                    _fmt(float(gcfg.jitter_stddev), decimals=6),
-                )
-                debug_entries.append(
-                    {
-                        "priority": int(priority),
-                        "source_path": src,
-                        "sink_path": dst,
-                        "demand_gbps": float(demand_each),
-                        "m_i_MW": float(m_i),
-                        "m_j_MW": float(m_j),
-                        "euclidean_km": float(dist_km),
-                        "weight": float(w),
-                        "weight_fraction": float(frac),
-                        "alpha": float(gcfg.alpha),
-                        "beta": float(gcfg.beta),
-                        "class_total_gbps": float(D_c),
-                        "rounding_gbps": float(gcfg.rounding_gbps),
-                        "jitter_stddev": float(gcfg.jitter_stddev),
-                    }
-                )
-                logger.debug(
-                    (
-                        "entry: prio=%d src=%s dst=%s demand_gbps=%s "
-                        "m_i_MW=%s m_j_MW=%s euclidean_km=%s weight=%s frac=%s "
-                        "alpha=%s beta=%s class_total_gbps=%s rounding_gbps=%s "
-                        "jitter_stddev=%s"
-                    ),
-                    int(priority),
-                    dst,
-                    src,
-                    _fmt(demand_each),
-                    _fmt(m_j, decimals=3),
-                    _fmt(m_i, decimals=3),
-                    _fmt(dist_km, decimals=3),
-                    _fmt(w, decimals=6),
-                    _fmt(frac, decimals=6),
-                    _fmt(float(gcfg.alpha), decimals=6),
-                    _fmt(float(gcfg.beta), decimals=6),
-                    _fmt(D_c),
-                    _fmt(float(gcfg.rounding_gbps), decimals=3),
-                    _fmt(float(gcfg.jitter_stddev), decimals=6),
-                )
-                debug_entries.append(
-                    {
-                        "priority": int(priority),
-                        "source_path": dst,
-                        "sink_path": src,
-                        "demand_gbps": float(demand_each),
-                        "m_i_MW": float(m_j),
-                        "m_j_MW": float(m_i),
-                        "euclidean_km": float(dist_km),
-                        "weight": float(w),
-                        "weight_fraction": float(frac),
-                        "alpha": float(gcfg.alpha),
-                        "beta": float(gcfg.beta),
-                        "class_total_gbps": float(D_c),
-                        "rounding_gbps": float(gcfg.rounding_gbps),
-                        "jitter_stddev": float(gcfg.jitter_stddev),
-                    }
-                )
-            except Exception:  # pragma: no cover - logging only
-                pass
-            demands.append(
-                {
-                    "source_path": src,
-                    "sink_path": dst,
-                    "mode": "pairwise",
-                    "priority": int(priority),
-                    "demand": demand_each,
-                    "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
-                }
-            )
-            if int(priority) in fpc:
-                demands[-1]["flow_policy_config"] = fpc[int(priority)]
-            demands.append(
-                {
-                    "source_path": dst,
-                    "sink_path": src,
-                    "mode": "pairwise",
-                    "priority": int(priority),
-                    "demand": demand_each,
-                    "attrs": {"euclidean_km": int(math.ceil(float(dist_km)))},
-                }
-            )
-            if int(priority) in fpc:
-                demands[-1]["flow_policy_config"] = fpc[int(priority)]
-            class_directed_sum += 2.0 * demand_each
-
-        # Post-split rounding delta relative to class exact total (using directional rounding quanta)
-        try:
-            delta_dir = D_c - class_directed_sum
-            logger.debug(
-                "gravity: class priority=%d post-split rounding delta_gbps=%s (exact-total - sum(directed))",
-                int(priority),
-                _fmt(delta_dir),
-            )
-        except Exception:  # pragma: no cover - logging only
-            pass
-
-    result = {traffic_cfg.matrix_name: demands}
-    try:
-        logger.debug(
-            "traffic: counts dc_regions=%d undirected_pairs=%d directed_entries=%d",
-            len(dc_nodes),
-            len(weights),
-            len(demands),
-        )
-        values = [float(d.get("demand", 0.0)) for d in demands]
-        if values:
-            svals = sorted(values)
-            n = len(svals)
-            total = sum(svals)
-            mean = total / n
-            median = (
-                svals[n // 2]
-                if n % 2 == 1
-                else 0.5 * (svals[n // 2 - 1] + svals[n // 2])
-            )
-            logger.debug(
-                "traffic: stats min=%s median=%s mean=%s max=%s",
-                _fmt(svals[0]),
-                _fmt(median),
-                _fmt(mean),
-                _fmt(svals[-1]),
-            )
-            by_class: dict[int, list[float]] = {}
-            for d in demands:
-                by_class.setdefault(int(d["priority"]), []).append(float(d["demand"]))
-            for prio in sorted(by_class):
-                lst = sorted(by_class[prio])
-                n_c = len(lst)
-                tot_c = sum(lst)
-                mean_c = tot_c / n_c
-                med_c = (
-                    lst[n_c // 2]
-                    if n_c % 2 == 1
-                    else 0.5 * (lst[n_c // 2 - 1] + lst[n_c // 2])
-                )
-                logger.debug(
-                    "class %d: entries=%d total=%s min=%s median=%s mean=%s max=%s",
-                    prio,
-                    n_c,
-                    _fmt(tot_c),
-                    _fmt(lst[0]),
-                    _fmt(med_c),
-                    _fmt(mean_c),
-                    _fmt(lst[-1]),
-                )
-        debug_dir = getattr(config, "_debug_dir", None)
-        if debug_dir is not None:
-            export: dict[str, Any] = {
-                "model": getattr(traffic_cfg, "model", "uniform"),
-                "matrix_name": getattr(traffic_cfg, "matrix_name", "default"),
-                "gbps_per_mw": float(traffic_cfg.gbps_per_mw),
-                "mw_per_dc_region": float(traffic_cfg.mw_per_dc_region),
-                "offered_gbps": float(offered_gbps),
-                "gravity": {
-                    "alpha": float(gcfg.alpha),
-                    "beta": float(gcfg.beta),
-                    "min_distance_km": float(gcfg.min_distance_km),
-                    "exclude_same_metro": bool(gcfg.exclude_same_metro),
-                    "jitter_stddev": float(gcfg.jitter_stddev),
-                    "rounding_gbps": float(gcfg.rounding_gbps),
-                    "max_partners_per_dc": (
-                        None
-                        if gcfg.max_partners_per_dc is None
-                        else int(gcfg.max_partners_per_dc)
-                    ),
-                },
-                "dc_masses_MW": {
-                    f"{m}/dc{d}": float(dc_mass[(m, d)]) for (m, d) in sorted(dc_mass)
-                },
-                "metro_index_map": {
-                    f"metro{idx}": name for name, idx in metro_idx_map.items()
-                },
-                "weights": {
-                    f"{a[0]}/dc{a[1]} <-> {b[0]}/dc{b[1]}": float(w)
-                    for (a, b), w in weights.items()
-                },
-                "entries": debug_entries,
-            }
-            out_dir = Path(str(debug_dir))
-            out_dir.mkdir(parents=True, exist_ok=True)
-            stem = getattr(config, "_source_stem", None)
-            if stem is None:
-                src = getattr(config, "_source_path", None)
-                if isinstance(src, (str, Path)):
-                    stem = Path(src).stem
-                else:
-                    stem = "scenario"
-            out_path = out_dir / f"{stem}_traffic_debug.json"
-            try:
-                out_path.write_text(json.dumps(export, indent=2))
-                logger.debug("traffic: wrote debug JSON to %s", str(out_path))
-            except Exception:
-                logger.debug("traffic: failed to write debug JSON to %s", str(out_path))
-    except Exception:  # pragma: no cover - logging only
-        pass
-    try:
-        pretty = {
-            str(traffic_cfg.matrix_name): [
-                {
-                    "source_path": d["source_path"],
-                    "sink_path": d["sink_path"],
-                    "mode": d["mode"],
-                    "priority": int(d["priority"]),
-                    "demand_gbps": _fmt(float(d["demand"]))
-                    if isinstance(d.get("demand"), (int, float))
-                    else str(d.get("demand")),
-                }
-                for d in demands
-            ]
-        }
-        logger.debug(
-            "traffic_matrix pretty:\n%s",
-            json.dumps(pretty, indent=2, ensure_ascii=True),
-        )
-    except Exception:  # pragma: no cover - logging only
-        pass
-
-    logger.debug("traffic: diagnostics end")
-
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug("Traffic matrices:\n%s", json.dumps(result, indent=2))
     return result

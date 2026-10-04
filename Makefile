@@ -126,11 +126,7 @@ qt:
 
 validate:
 	@echo "📋 Validating TopoGen config YAMLs..."
-	@if $(PYTHON) -c "import jsonschema" >/dev/null 2>&1; then \
-		$(PYTHON) -c "import json, yaml, jsonschema, pathlib; from importlib import resources as res; f=res.files('topogen.schemas').joinpath('topogen_config.json').open('r', encoding='utf-8'); schema=json.load(f); f.close(); cfg_dirs=['examples']; cfg_files=[]; [cfg_files.extend(list(pathlib.Path(d).rglob('*.yaml'))+list(pathlib.Path(d).rglob('*.yml'))) for d in cfg_dirs if pathlib.Path(d).exists()]; [jsonschema.validate(yaml.safe_load(open(fp)), schema) for fp in cfg_files]; print(f'✅ Validated {len(cfg_files)} TopoGen config YAML files')"; \
-	else \
-		echo "⚠️  jsonschema not installed. Skipping schema validation"; \
-	fi
+	@$(PYTHON) -c "from pathlib import Path; from topogen.config import TopologyConfig; files=sorted(p for p in Path('examples').rglob('*') if p.suffix in {'.yml', '.yaml'}); [TopologyConfig.from_yaml(p) for p in files]; print(f'Validated {len(files)} TopoGen configs')"
 
 # Build and Package
 build:

@@ -11,14 +11,15 @@ from ngraph.scenario import Scenario
 
 from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import TopologyConfig
-from topogen.scenario_builder import build_scenario
+from topogen.corridors import corridor_risk_name
+from topogen.scenario import build_scenario
 from topogen.validation import validate_scenario_yaml
 
 REPO = Path(__file__).resolve().parents[2]
 
 
 def _graph():
-    graph = nx.Graph()
+    graph = nx.MultiGraph()
     for index, name in enumerate(["alpha", "beta", "gamma"]):
         graph.add_node(
             name,
@@ -28,6 +29,7 @@ def _graph():
             x=index * 300_000.0,
             y=0.0,
             radius_km=20.0,
+            name_orig=name,
         )
     for source, target in [("alpha", "beta"), ("beta", "gamma"), ("alpha", "gamma")]:
         graph.add_edge(
@@ -87,6 +89,15 @@ def test_example_scenario_runs_with_current_netgraph(example, monkeypatch):
         strict=True,
     ):
         graph.nodes[node]["name"] = name
+    for source, target, key, data in graph.edges(keys=True, data=True):
+        data["risk_groups"] = [
+            corridor_risk_name(
+                "corridor_risk",
+                graph.nodes[source]["name"],
+                graph.nodes[target]["name"],
+                key,
+            )
+        ]
     scenario_yaml = build_scenario(graph, config)
     assert not validate_scenario_yaml(
         scenario_yaml,

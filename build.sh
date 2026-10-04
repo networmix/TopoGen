@@ -106,17 +106,8 @@ mkdir -p "$OUTPUT_DIR_RAW" || die "Cannot create output directory: $OUTPUT_DIR_R
 CONFIGS_DIR=$(abs_path "$CONFIGS_DIR_RAW")
 OUTPUT_DIR=$(abs_path "$OUTPUT_DIR_RAW")
 
-# Detect TopoGen invoker once: prefer installed CLI; otherwise python -m.
-TOPGEN_INVOKE=(topogen)
-if ! command -v "${TOPGEN_INVOKE[0]}" >/dev/null 2>&1; then
-  if command -v python3 >/dev/null 2>&1; then
-    TOPGEN_INVOKE=(python3 -m topogen)
-  elif command -v python >/dev/null 2>&1; then
-    TOPGEN_INVOKE=(python -m topogen)
-  else
-    die "Neither 'topogen' nor Python found on PATH. Activate your venv or install TopoGen."
-  fi
-fi
+# Use the installed CLI from the active environment.
+command -v topogen >/dev/null 2>&1 || die "Activate the TopoGen venv or install TopoGen."
 
 echo "🚀 TopoGen batch run"
 OUTPUT_DIR_PRINT=${OUTPUT_DIR%/.}
@@ -213,11 +204,10 @@ while IFS= read -r -d '' cfg; do
 
     if [[ "$run_generate" == "true" ]]; then
       # Run generate writing artefacts directly to workdir via -o
-      ("${TOPGEN_INVOKE[@]}" generate "$cfg_abs" -o "$workdir") 2>&1 | tee "$workdir/generate.log"
+      topogen generate "$cfg_abs" -o "$workdir" 2>&1 | tee "$workdir/generate.log"
       gen_ec=${PIPESTATUS[0]}
     else
       # Use cached artefacts
-      : # artefacts already in workdir from previous run
       echo "⏭️  Skipping generate: found existing ${stem}_integrated_graph.json" | tee "$workdir/generate.log" >/dev/null
       gen_ec=100  # special code for 'cached'
     fi
@@ -238,27 +228,24 @@ while IFS= read -r -d '' cfg; do
   fi
 
   # Build after successful generation or when a saved graph is available.
-  build_icon="⏭️"
-  build_note="skipped"
   build_ec=-1
   scenario_out="$workdir/${stem}_scenario.yml"
   if [[ $gen_ec -eq 0 || $gen_ec -eq 100 ]]; then
     # Run build writing scenario into workdir via -o
-    ("${TOPGEN_INVOKE[@]}" build "$cfg_abs" -o "$scenario_out") 2>&1 | tee "$workdir/build.log"
+    topogen build "$cfg_abs" -o "$scenario_out" 2>&1 | tee "$workdir/build.log"
     build_ec=${PIPESTATUS[0]}
     case "$build_ec" in
       0)
-        build_icon="✅"; build_note="ok"; build_ok=$((build_ok + 1));;
+        build_ok=$((build_ok + 1));;
       3)
-        build_icon="⚠️"; build_note="validation failed"; build_validation=$((build_validation + 1));;
+        build_validation=$((build_validation + 1));;
       2)
-        build_icon="❌"; build_note="config error"; build_config=$((build_config + 1));;
+        build_config=$((build_config + 1));;
       1)
-        build_icon="❌"; build_note="runtime error"; build_runtime=$((build_runtime + 1));;
+        build_runtime=$((build_runtime + 1));;
       *)
-        build_icon="❌"; build_note="exit $build_ec"; build_other=$((build_other + 1));;
+        build_other=$((build_other + 1));;
     esac
-    :
   else
     build_skipped=$((build_skipped + 1))
   fi
@@ -269,7 +256,6 @@ while IFS= read -r -d '' cfg; do
   if [[ $gen_ec -eq 100 ]]; then gen_col="⏭️ cached"; fi
   if [[ $gen_ec -ne 0 && $gen_ec -ne 2 && $gen_ec -ne 100 ]]; then gen_col="❌ runtime"; fi
 
-  build_col="$build_icon"
   case "$build_ec" in
     0) build_col="✅" ;;
     3) build_col="⚠️ validation" ;;
@@ -314,4 +300,8 @@ echo "   • Generate: ✅ $gen_ok  | ⏭️ $gen_cached (cached)  | ❌ $gen_fa
 echo "   • Build:    ✅ $build_ok  | ⚠️ $build_validation (validation)  | ❌ $build_runtime (runtime)  | ❌ $build_config (config)  | ⏭️ $build_skipped (skipped)  | ❓ $build_other (other)"
 echo "======================"
 
+if (( build_ok != total )); then
+  echo "Batch failed: $((total - build_ok)) config(s) did not build successfully." >&2
+  exit 1
+fi
 echo "Done. ✨"

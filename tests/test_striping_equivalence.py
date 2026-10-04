@@ -4,12 +4,12 @@ import networkx as nx
 import yaml
 
 from topogen.config import TopologyConfig
-from topogen.scenario_builder import build_scenario
+from topogen.scenario import build_scenario
 from topogen.workflows_lib import get_builtin_workflows
 
 
 def _make_sample_integrated_graph() -> nx.Graph:
-    g = nx.Graph()
+    g = nx.MultiGraph()
 
     # Three metros with radius for ring adjacency
     a = (10.0, 10.0)
@@ -24,6 +24,7 @@ def _make_sample_integrated_graph() -> nx.Graph:
         x=10.0,
         y=10.0,
         radius_km=40.0,
+        name_orig="Alpha",
     )
     g.add_node(
         b,
@@ -33,6 +34,7 @@ def _make_sample_integrated_graph() -> nx.Graph:
         x=20.0,
         y=20.0,
         radius_km=35.0,
+        name_orig="Beta",
     )
     g.add_node(
         c,
@@ -42,6 +44,7 @@ def _make_sample_integrated_graph() -> nx.Graph:
         x=30.0,
         y=25.0,
         radius_km=30.0,
+        name_orig="Gamma",
     )
 
     # Corridor edges between metros (symmetric undirected)

@@ -103,7 +103,7 @@ line-length = 88
 indent-width = 4
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F", "B", "I"] # core + Bugbear + isort
+select = ["E4", "E7", "E9", "F", "B", "I", "RUF100"] # core + Bugbear + isort + unused noqa
 ignore = ["E501"]                          # allow long strings and comments
 fixable = ["ALL"]
 
@@ -116,6 +116,8 @@ skip-magic-trailing-comma = false
 
 # Pyright / Pylance
 [tool.pyright]
+include = ["topogen"]
+stubPath = "typings"
 typeCheckingMode = "standard"
 pythonVersion = "3.11"
 venvPath = "."

@@ -6,44 +6,41 @@ from typing import TYPE_CHECKING, Any
 
 from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.components_lib import get_builtin_components
-from topogen.log_config import get_logger
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
     from topogen.config import TopologyConfig
 
-logger = get_logger(__name__)
-
 
 def _build_components_section(
-    config: "TopologyConfig", used_blueprints: set[str]
+    config: "TopologyConfig", blueprints: dict[str, Any]
 ) -> dict[str, Any]:
     """Build the components section of the NetGraph scenario.
 
     Uses merged component library (built-ins + lib/components.yml) and includes
-    only component definitions that are actually referenced by the configuration
-    (platforms from ``hw_component`` and optics from ``optics``).
+    components referenced by configuration and finalized blueprint assignments.
+    Scan after role overrides so replaced hardware does not remain a dependency.
     """
     components = get_builtin_components()
-    referenced_components: set[str] = set()
-    role_to_platform = getattr(config.components, "hw_component", {}) or {}
-    optics_map = getattr(config.components, "optics", {}) or {}
-    if isinstance(role_to_platform, dict):
-        for v in role_to_platform.values():
-            if isinstance(v, str) and v:
-                referenced_components.add(v)
-    if isinstance(optics_map, dict):
-        for v in optics_map.values():
-            if isinstance(v, str) and v:
-                referenced_components.add(v)
-    result: dict[str, Any] = {}
-    for comp_name in sorted(referenced_components):
-        if comp_name in components:
-            result[comp_name] = components[comp_name]
-        else:
-            logger.warning(
-                f"Referenced component '{comp_name}' not found in component library"
-            )
+    referenced_components = set(config.components.hw_component.values()) | set(
+        config.components.optics.values()
+    )
 
+    def references(value):
+        if isinstance(value, dict):
+            if "component" in value:
+                referenced_components.add(value["component"])
+            for child in value.values():
+                references(child)
+        elif isinstance(value, list):
+            for child in value:
+                references(child)
+
+    references(blueprints)
+    referenced_components.discard("")  # Explicitly unassigned roles have no component.
+    missing = referenced_components - components.keys()
+    if missing:
+        raise ValueError(f"Unknown components: {sorted(missing)}")
+    result = {name: components[name] for name in sorted(referenced_components)}
     return result
 
 
@@ -54,50 +51,35 @@ def _build_blueprints_section(
     from copy import deepcopy
 
     builtin_blueprints = get_builtin_blueprints()
-    role_to_platform = getattr(config.components, "hw_component", {}) or {}
+    role_to_platform = config.components.hw_component
     if not isinstance(role_to_platform, dict):
-        role_to_platform = {}
+        raise ValueError("components.hw_component must be a mapping")
     result: dict[str, Any] = {}
-    total_groups = 0
-    groups_with_role = 0
-    groups_with_hw = 0
-    for blueprint_name in sorted(used_blueprints):
-        if blueprint_name not in builtin_blueprints:
-            raise ValueError(f"Unknown blueprint: {blueprint_name}")
-        blueprint = deepcopy(builtin_blueprints[blueprint_name])
-        if "nodes" in blueprint:
-            for group_name, group_def in blueprint["nodes"].items():
-                total_groups += 1
-                if "attrs" not in group_def:
-                    group_def["attrs"] = {}
-                role = group_def["attrs"].get("role")
-                if not isinstance(role, str) or not role:
-                    raise ValueError(
-                        f"Blueprint '{blueprint_name}' group '{group_name}' is missing required 'role' attribute"
-                    )
-                groups_with_role += 1
-                hw_name = role_to_platform.get(role, "")
-                if hw_name:
-                    group_def["attrs"]["hardware"] = {
-                        "component": hw_name,
-                        "count": 1,
-                    }
-                    groups_with_hw += 1
-                    logger.info(
-                        "HW: node blueprint=%s group=%s role=%s platform=%s",
-                        blueprint_name,
-                        group_name,
-                        role,
-                        hw_name,
-                    )
-        result[blueprint_name] = blueprint
-    try:
-        logger.info(
-            "Node hardware assigned for %d of %d blueprint groups (with_role=%d)",
-            groups_with_hw,
-            total_groups,
-            groups_with_role,
-        )
-    except Exception:
-        pass
+    visiting: set[str] = set()
+
+    def include(name: str) -> None:
+        if name in visiting:
+            raise ValueError(f"Cyclic blueprint reference: {name}")
+        if name in result:
+            return
+        if name not in builtin_blueprints:
+            raise ValueError(f"Unknown blueprint: {name}")
+        visiting.add(name)
+        blueprint = deepcopy(builtin_blueprints[name])
+        for group_name, group in blueprint["nodes"].items():
+            if "blueprint" in group:
+                include(group["blueprint"])
+            attrs = group.setdefault("attrs", {})
+            role = attrs.get("role")
+            if (not isinstance(role, str) or not role) and "blueprint" not in group:
+                raise ValueError(
+                    f"Blueprint '{name}' group '{group_name}' is missing required 'role' attribute"
+                )
+            if hardware := role_to_platform.get(role):
+                attrs["hardware"] = {"component": hardware, "count": 1}
+        visiting.remove(name)
+        result[name] = blueprint
+
+    for name in sorted(used_blueprints):
+        include(name)
     return result

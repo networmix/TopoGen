@@ -4,13 +4,14 @@ from pathlib import Path
 
 import networkx as nx
 import numpy as np
+import pytest
 
 import topogen.geo_utils as geoutils
 import topogen.visualization as viz
 
 
 class _ConusStub:
-    def plot(self, ax=None, **kwargs):  # type: ignore[no-untyped-def]
+    def plot(self, ax=None, **kwargs):
         return None
 
 
@@ -24,7 +25,7 @@ class _Metro:
         self.radius_km = radius_km
 
 
-def _patch_context_and_conus(monkeypatch):  # type: ignore[no-untyped-def]
+def _patch_context_and_conus(monkeypatch):
     # Avoid network calls and GIS dependencies for basemap and CONUS
     monkeypatch.setattr(viz.cx, "add_basemap", lambda *args, **kwargs: None)
     # export_* functions import create_conus_mask from topogen.geo_utils at call time
@@ -33,7 +34,7 @@ def _patch_context_and_conus(monkeypatch):  # type: ignore[no-untyped-def]
     )
 
 
-def test_export_cluster_map_success(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_export_cluster_map_success(tmp_path: Path, monkeypatch) -> None:
     _patch_context_and_conus(monkeypatch)
     out = tmp_path / "clusters.jpg"
     # Create a dummy file so path.exists() passes
@@ -46,7 +47,7 @@ def test_export_cluster_map_success(tmp_path: Path, monkeypatch) -> None:  # typ
 
 def test_export_integrated_graph_map_corridor_graph(
     tmp_path: Path, monkeypatch
-) -> None:  # type: ignore[no-untyped-def]
+) -> None:
     _patch_context_and_conus(monkeypatch)
     out = tmp_path / "integrated_corridor.jpg"
     conus = tmp_path / "conus.boundary"
@@ -56,7 +57,7 @@ def test_export_integrated_graph_map_corridor_graph(
         _Metro("A", "A_name", (0.0, 0.0), 10.0),
         _Metro("B", "B_name", (2.0, 0.0), 8.0),
     ]
-    G = nx.Graph()
+    G = nx.MultiGraph()
     # corridor edges with metadata specifying metro ids (straight line mode)
     G.add_edge("A_node", "B_node", edge_type="corridor", metro_a="A", metro_b="B")
 
@@ -66,7 +67,7 @@ def test_export_integrated_graph_map_corridor_graph(
     assert out.exists() and out.stat().st_size > 1000
 
 
-def test_export_integrated_graph_map_real_geometry(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_export_integrated_graph_map_real_geometry(tmp_path: Path, monkeypatch) -> None:
     _patch_context_and_conus(monkeypatch)
     out = tmp_path / "integrated_geom.jpg"
     conus = tmp_path / "conus.boundary"
@@ -76,7 +77,7 @@ def test_export_integrated_graph_map_real_geometry(tmp_path: Path, monkeypatch) 
         _Metro("A", "A_name", (0.0, 0.0), 10.0),
         _Metro("B", "B_name", (2.0, 0.0), 8.0),
     ]
-    G = nx.Graph()
+    G = nx.MultiGraph()
     # corridor edges providing explicit geometry
     G.add_edge(
         "A_node",
@@ -93,7 +94,7 @@ def test_export_integrated_graph_map_real_geometry(tmp_path: Path, monkeypatch) 
 
 def test_export_integrated_graph_map_full_graph_from_tags(
     tmp_path: Path, monkeypatch
-) -> None:  # type: ignore[no-untyped-def]
+) -> None:
     _patch_context_and_conus(monkeypatch)
     out = tmp_path / "integrated_full.jpg"
     conus = tmp_path / "conus.boundary"
@@ -109,7 +110,6 @@ def test_export_integrated_graph_map_full_graph_from_tags(
     # Full highway graph style: corridor tag on edges with list of pairs
     G.add_edge("mA", "mB", corridor=[{"metro_a": "A", "metro_b": "B"}])
 
-    viz.export_integrated_graph_map(
-        metros, G, out, conus, "EPSG:5070", use_real_geometry=False, dpi=120
-    )
-    assert out.exists() and out.stat().st_size > 1000
+    with pytest.raises(TypeError, match="MultiGraph"):
+        viz.export_integrated_graph_map(metros, G, out, conus, "EPSG:5070")
+    assert not out.exists()

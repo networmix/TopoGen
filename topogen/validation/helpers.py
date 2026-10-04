@@ -7,31 +7,18 @@ from typing import Any
 
 def _build_ig_coord_map(ig_json: dict[str, Any]) -> dict[str, tuple[float, float]]:
     """Map metro names to projected (x, y) coordinates from integrated graph JSON."""
-    mapping: dict[str, tuple[float, float]] = {}
-    for node in ig_json.get("nodes", []) or []:
-        try:
-            node_type = node.get("node_type")
-        except AttributeError:
-            continue
-        if node_type not in ("metro", "metro+highway"):
-            continue
-        name = str(node.get("name", "")).strip()
-        if not name:
-            continue
-        try:
-            x = float(node.get("x", 0.0))
-            y = float(node.get("y", 0.0))
-        except Exception:
-            continue
-        mapping[name] = (x, y)
-    return mapping
+    return {
+        node["name"]: (float(node["x"]), float(node["y"]))
+        for node in ig_json["nodes"]
+        if node["node_type"] == "metro"
+    }
 
 
 def _float_or_nan(value: Any) -> float:
     """Convert value to float or return NaN if conversion fails."""
     try:
-        return float(value)  # type: ignore[arg-type]
-    except Exception:
+        return float(value)
+    except (TypeError, ValueError, OverflowError):
         return float("nan")
 
 
@@ -46,9 +33,6 @@ def _node_hw_from_attrs(node_attrs: dict[str, object]) -> tuple[str | None, floa
     if isinstance(hw, dict):
         comp_name = str(hw.get("component", "")).strip()
         if comp_name:
-            try:
-                count = float(hw.get("count", 1.0))
-            except Exception:
-                count = 1.0
+            count = float(hw.get("count", 1.0))
             return comp_name, count
     return None, 0.0

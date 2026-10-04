@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from ngraph.dsl.blueprints.expand import expand_network_dsl
+
 from topogen.validation.audits.expand_checks import check_groups_adjacency_blueprints
 
 
@@ -37,7 +39,7 @@ def test_expand_checks_flags_empty_groups_and_adjacency_and_bp():
     }
 
     # ng_expand stub: for tagged group expansion, produce zero nodes to trigger issue
-    def _expand(stub):  # type: ignore[no-untyped-def]
+    def _expand(stub):
         class Net:
             def __init__(self):
                 self.nodes = {}
@@ -76,3 +78,35 @@ def test_expand_checks_flags_empty_groups_and_adjacency_and_bp():
     assert any("group 'g1' expands to 0 nodes" in s for s in issues)
     assert any("adjacency[0] expands to 0 links" in s for s in issues)
     assert any("blueprint 'BP' adjacency[0] expands to 0 links" in s for s in issues)
+
+
+def test_expansion_audit_keeps_node_rules():
+    """Selectors depending on node rules must see exactly the emitted network."""
+    dsl = {
+        "network": {
+            "nodes": {
+                "a": {"attrs": {"role": "core"}},
+                "b": {"attrs": {"role": "core"}},
+            },
+            "node_rules": [{"path": ".*", "attrs": {"stripe": "one"}}],
+            "links": [
+                {
+                    "source": {
+                        "path": "a",
+                        "match": {
+                            "conditions": [
+                                {"attr": "stripe", "op": "==", "value": "one"}
+                            ]
+                        },
+                    },
+                    "target": "b",
+                    "pattern": "one_to_one",
+                }
+            ],
+        },
+    }
+    assert len(expand_network_dsl(dsl).links) == 1
+    issues = check_groups_adjacency_blueprints(
+        dsl, expand_network_dsl, SimpleNamespace(error=lambda *args: None)
+    )
+    assert issues == []

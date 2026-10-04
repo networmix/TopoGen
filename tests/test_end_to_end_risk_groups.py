@@ -18,7 +18,7 @@ from topogen.corridors import (
     assign_risk_groups as assign_risk_groups_to_corridors,
 )
 from topogen.metro_clusters import MetroCluster
-from topogen.scenario_builder import build_scenario
+from topogen.scenario import build_scenario
 from topogen.workflows_lib import get_builtin_workflows
 
 
@@ -27,12 +27,32 @@ class TestEndToEndRiskGroups:
         highway_graph = nx.Graph()
 
         # Highway backbone: A --- B --- C --- D
-        highway_graph.add_edge((0.0, 0.0), (500.0, 0.0), length_km=500.0)  # A-B
-        highway_graph.add_edge((500.0, 0.0), (1000.0, 0.0), length_km=500.0)  # B-C
-        highway_graph.add_edge((1000.0, 0.0), (1500.0, 0.0), length_km=500.0)  # C-D
+        highway_graph.add_edge(
+            (0.0, 0.0),
+            (500.0, 0.0),
+            length_km=500.0,
+            geometry=[(0.0, 0.0), (500.0, 0.0)],
+        )  # A-B
+        highway_graph.add_edge(
+            (500.0, 0.0),
+            (1000.0, 0.0),
+            length_km=500.0,
+            geometry=[(500.0, 0.0), (1000.0, 0.0)],
+        )  # B-C
+        highway_graph.add_edge(
+            (1000.0, 0.0),
+            (1500.0, 0.0),
+            length_km=500.0,
+            geometry=[(1000.0, 0.0), (1500.0, 0.0)],
+        )  # C-D
 
         # Branch from B: B --- E
-        highway_graph.add_edge((500.0, 0.0), (500.0, 500.0), length_km=500.0)  # B-E
+        highway_graph.add_edge(
+            (500.0, 0.0),
+            (500.0, 500.0),
+            length_km=500.0,
+            geometry=[(500.0, 0.0), (500.0, 500.0)],
+        )  # B-E
 
         metros = [
             MetroCluster(
@@ -145,9 +165,6 @@ class TestEndToEndRiskGroups:
         # metro1-metro2 via two edges total 1000km
         pid_12 = ("metro1", "metro2", 0)
         registry[pid_12] = CorridorPath(
-            metros=("metro1", "metro2"),
-            path_index=0,
-            nodes=[metros[0].node_key, metros[1].node_key],
             edges=[((0.0, 0.0), (500.0, 0.0)), ((500.0, 0.0), (1000.0, 0.0))],
             segment_ids=[],
             length_km=1000.0,
@@ -156,9 +173,6 @@ class TestEndToEndRiskGroups:
         # metro2-metro3 via one edge 500km
         pid_23 = ("metro2", "metro3", 0)
         registry[pid_23] = CorridorPath(
-            metros=("metro2", "metro3"),
-            path_index=0,
-            nodes=[metros[1].node_key, metros[2].node_key],
             edges=[((1000.0, 0.0), (1500.0, 0.0))],
             segment_ids=[],
             length_km=500.0,
@@ -167,22 +181,12 @@ class TestEndToEndRiskGroups:
         # metro2-metro4 via 2 edges ~707km
         pid_24 = ("metro2", "metro4", 0)
         registry[pid_24] = CorridorPath(
-            metros=("metro2", "metro4"),
-            path_index=0,
-            nodes=[metros[1].node_key, metros[3].node_key],
             edges=[((500.0, 0.0), (1000.0, 0.0)), ((500.0, 0.0), (500.0, 500.0))],
             segment_ids=[],
             length_km=707.0,
             geometry=[metros[1].node_key, metros[3].node_key],
         )
         highway_graph.graph["corridor_paths"] = registry
-        highway_graph[(0.0, 0.0)][(500.0, 0.0)]["corridor_path_ids"] = {pid_12}
-        highway_graph[(500.0, 0.0)][(1000.0, 0.0)]["corridor_path_ids"] = {
-            pid_12,
-            pid_24,
-        }
-        highway_graph[(1000.0, 0.0)][(1500.0, 0.0)]["corridor_path_ids"] = {pid_23}
-        highway_graph[(500.0, 0.0)][(500.0, 500.0)]["corridor_path_ids"] = {pid_24}
 
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
@@ -260,7 +264,10 @@ class TestEndToEndRiskGroups:
 
         highway_graph.add_edge(*close_edge, length_km=20.0)
         highway_graph.add_edge(
-            (1200000.0, 1000.0), (2000000.0, 1000.0), length_km=800.0
+            (1200000.0, 1000.0),
+            (2000000.0, 1000.0),
+            length_km=800.0,
+            geometry=[(1200000.0, 1000.0), (2000000.0, 1000.0)],
         )
 
         metros = [
@@ -281,6 +288,7 @@ class TestEndToEndRiskGroups:
                 x=metro.centroid_x,
                 y=metro.centroid_y,
                 radius_km=metro.radius_km,
+                name_orig=metro.name,
             )
 
         highway_graph[close_edge[0]][close_edge[1]]["corridor"] = [
@@ -322,19 +330,13 @@ class TestEndToEndRiskGroups:
         pid = ("metro1", "metro2", 0)
         highway_graph.graph["corridor_paths"] = {
             pid: CorridorPath(
-                metros=("metro1", "metro2"),
-                path_index=0,
-                nodes=[metros[0].node_key, metros[1].node_key],
-                edges=[(close_edge[0], close_edge[1])],
+                edges=[close_edge, ((1200000.0, 1000.0), (2000000.0, 1000.0))],
                 segment_ids=[],
                 length_km=1010.0,
                 geometry=[metros[0].node_key, metros[1].node_key],
             )
         }
         # Tag only far edge with path membership to keep its risks
-        highway_graph[(1200000.0, 1000.0)][(2000000.0, 1000.0)]["corridor_path_ids"] = {
-            pid
-        }
 
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
@@ -395,6 +397,7 @@ class TestEndToEndRiskGroups:
                 node_type="metro",
                 name=metro.name,
                 metro_id=metro.metro_id,
+                name_orig=metro.name,
             )
 
         highway_graph.add_edge(
@@ -454,45 +457,35 @@ class TestEndToEndRiskGroups:
         pid_23_1 = ("23527", "43912", 1)
         highway_graph.graph["corridor_paths"] = {
             pid_12_0: CorridorPath(
-                metros=("01171", "23527"),
-                path_index=0,
-                nodes=[metros[0].node_key, metros[1].node_key],
                 edges=[((100000.0, 0.0), (900000.0, 0.0))],
                 segment_ids=[],
                 length_km=1000.0,
                 geometry=[metros[0].node_key, metros[1].node_key],
             ),
             pid_12_1: CorridorPath(
-                metros=("01171", "23527"),
-                path_index=1,
-                nodes=[metros[0].node_key, metros[1].node_key],
                 edges=[((500000.0, 0.0), (1500000.0, 0.0))],
                 segment_ids=[],
                 length_km=1000.0,
                 geometry=[metros[0].node_key, metros[1].node_key],
             ),
+            ("23527", "43912", 0): CorridorPath(
+                edges=[((1100000.0, 0.0), (1900000.0, 0.0))],
+                segment_ids=[],
+                length_km=1000.0,
+                geometry=[metros[1].node_key, metros[2].node_key],
+            ),
             pid_23_1: CorridorPath(
-                metros=("23527", "43912"),
-                path_index=1,
-                nodes=[metros[1].node_key, metros[2].node_key],
-                edges=[((500000.0, 0.0), (1500000.0, 0.0))],
+                edges=[
+                    ((500000.0, 0.0), (1500000.0, 0.0)),
+                    ((1100000.0, 0.0), (1900000.0, 0.0)),
+                ],
                 segment_ids=[],
                 length_km=1000.0,
                 geometry=[metros[1].node_key, metros[2].node_key],
             ),
         }
 
-        highway_graph[(100000.0, 0.0)][(900000.0, 0.0)]["corridor_path_ids"] = {
-            pid_12_0
-        }
-        highway_graph[(1100000.0, 0.0)][(1900000.0, 0.0)]["corridor_path_ids"] = {
-            pid_23_1
-        }
         # Shared edge carries both second paths
-        highway_graph[(500000.0, 0.0)][(1500000.0, 0.0)]["corridor_path_ids"] = {
-            pid_12_1,
-            pid_23_1,
-        }
 
         corridor_graph = extract_corridor_graph(highway_graph, metros)
 
@@ -526,6 +519,8 @@ class TestEndToEndRiskGroups:
         denver_kc_link = None
         for link in corridor_links:
             link_attrs = link["attrs"]
+            if not link_attrs["adjacency_id"].endswith(":path1"):
+                continue
             if (
                 link_attrs["source_metro"] == "denver-aurora"
                 and link_attrs["target_metro"] == "kansas-city"

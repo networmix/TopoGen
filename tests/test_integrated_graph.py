@@ -42,11 +42,14 @@ class TestDegree2Contraction:
 
         contracted = _contract_degree2_chains(G)
 
-        assert len(contracted.nodes) == 2
-        assert len(contracted.edges) == 1
-
-        edge_data = list(contracted.edges(data=True))[0][2]
-        assert edge_data["length_km"] == 400.0  # Sum of cycle
+        assert nx.is_isomorphic(contracted, G)
+        assert sum(d["length_km"] for _, _, d in contracted.edges(data=True)) == 400.0
+        assert (
+            nx.shortest_path_length(
+                contracted, (0.0, 0.0), (100.0, 100.0), weight="length_km"
+            )
+            == 200.0
+        )
 
     def test_contract_mixed_topology(self):
         G = nx.Graph()
@@ -122,8 +125,7 @@ class TestComponentFiltering:
         # Small isolated component
         G.add_edge((100.0, 100.0), (101.0, 100.0), length_km=1.0)
 
-        validation_config = ValidationConfig()
-        largest = _keep_largest_component(G, validation_config)
+        largest = _keep_largest_component(G)
 
         assert len(largest.nodes) == 4
         assert len(largest.edges) == 3
@@ -135,8 +137,7 @@ class TestComponentFiltering:
         G.add_edge((0.0, 0.0), (1.0, 0.0), length_km=1.0)
         G.add_edge((1.0, 0.0), (2.0, 0.0), length_km=1.0)
 
-        validation_config = ValidationConfig()
-        result = _keep_largest_component(G, validation_config)
+        result = _keep_largest_component(G)
 
         assert len(result.nodes) == len(G.nodes)
         assert len(result.edges) == len(G.edges)
@@ -196,10 +197,20 @@ class TestMetroMergeAttributes:
             a = (1000.0, 2000.0)
             b = (3000.0, 4000.0)
             cg.add_node(
-                a, node_type="metro", metro_id="001", name="metro-a", radius_km=10.0
+                a,
+                node_type="metro",
+                metro_id="001",
+                name="metro-a",
+                radius_km=10.0,
+                name_orig="metro-a",
             )
             cg.add_node(
-                b, node_type="metro", metro_id="002", name="metro-b", radius_km=20.0
+                b,
+                node_type="metro",
+                metro_id="002",
+                name="metro-b",
+                radius_km=20.0,
+                name_orig="metro-b",
             )
             cg.add_edge(a, b, edge_type="corridor", length_km=10.0)
             return cg

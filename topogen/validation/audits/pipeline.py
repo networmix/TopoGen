@@ -1,14 +1,19 @@
-"""Run NetGraph construction, topology, and hardware audits."""
+"""Construct the complete NetGraph scenario once and audit its network."""
 
 from __future__ import annotations
 
+from typing import Any
+
 import yaml
+from jsonschema import ValidationError
+from ngraph.dsl.blueprints.expand import expand_network_dsl
+from ngraph.scenario import Scenario
 
 from topogen.log_config import get_logger
 
+from .dc_capacity import check_dc_capacity
 from .expand_checks import check_groups_adjacency_blueprints
 from .hw_capacity import check_node_hw_capacity
-from .ngraph_schema import check_schema_and_isolation
 from .node_hw_presence import check_node_hw_presence
 from .node_role import check_node_roles
 from .optics_checks import check_link_optics
@@ -20,83 +25,48 @@ logger = get_logger(__name__)
 def run_ngraph_audits(
     scenario_yaml: str,
     *,
-    hw_component_map: dict[str, object] | None = None,
-    optics_map: dict[str, object] | None = None,
+    hw_component_map: dict[str, str] | None = None,
+    optics_map: dict[str, str] | None = None,
 ) -> list[str]:
-    """Validate Scenario construction and rule expansion, then audit the network.
-
-    Check node roles, hardware assignments, optics, attached capacity, and ports.
-    Return all collected issue strings.
-    """
+    """Validate schema/workflows/failures, then audit the constructed network."""
+    try:
+        scenario = Scenario.from_yaml(scenario_yaml)
+    except ValidationError as exc:
+        return [f"ngraph schema: {exc.message}"]
+    except Exception as exc:
+        return [f"ngraph scenario: {exc}"]
+    data = yaml.safe_load(scenario_yaml)
+    net = scenario.network
     issues: list[str] = []
-
-    try:
-        issues.extend(check_schema_and_isolation(scenario_yaml))
-    except Exception as e:
-        issues.append(f"ngraph schema: {e}")
-
-    try:
-        from ngraph.dsl.blueprints.expand import (  # type: ignore[import-untyped]
-            expand_network_dsl as _ng_expand,
+    engaged = {
+        endpoint
+        for link in net.links.values()
+        for endpoint in (link.source, link.target)
+    }
+    isolated = [node for node in net.nodes if node not in engaged]
+    if isolated:
+        issues.append(
+            f"{len(isolated)} isolated nodes found in built network "
+            f"(e.g., {', '.join(isolated[:10])})"
         )
-
-        from topogen.components_lib import (  # type: ignore[import-untyped]
-            get_builtin_components as _get_components_lib,
-        )
-
-        d = yaml.safe_load(scenario_yaml) or {}
-        dsl = {
-            "blueprints": (d.get("blueprints") or {}),
-            "network": (d.get("network") or {}),
-        }
-
+    components = data.get("components", {})
+    role_map = {} if hw_component_map is None else hw_component_map
+    optic_assignments = {} if optics_map is None else optics_map
+    checks: list[tuple[str, Any]] = [
+        ("DC capacity", lambda: check_dc_capacity(net, scenario.demand_set)),
+        (
+            "adjacency/group expansion",
+            lambda: check_groups_adjacency_blueprints(data, expand_network_dsl, logger),
+        ),
+        ("node roles", lambda: check_node_roles(net)),
+        ("node hardware", lambda: check_node_hw_presence(net, role_map, components)),
+        ("link optics", lambda: check_link_optics(net, optic_assignments, components)),
+        ("hardware capacity", lambda: check_node_hw_capacity(net, components)),
+        ("port budget", lambda: audit_port_budget(net, components)),
+    ]
+    for label, check in checks:
         try:
-            issues.extend(check_groups_adjacency_blueprints(dsl, _ng_expand, logger))
-        except Exception as e:
-            issues.append(f"adjacency/group expansion audit failed: {e}")
-
-        net = _ng_expand(dsl)
-        comp_lib = _get_components_lib()
-
-        try:
-            issues.extend(check_node_roles(net))
-        except Exception as e:
-            issues.append(f"node roles audit failed: {e}")
-
-        try:
-            # Prefer explicit mapping provided by caller (from config)
-            if isinstance(hw_component_map, dict) and hw_component_map:
-                comps_section = hw_component_map
-            else:
-                comps_section = (d.get("components") or {}).get("hw_component", {})
-            issues.extend(check_node_hw_presence(net, comps_section, comp_lib))
-        except Exception as e:
-            issues.append(f"node hardware audit failed: {e}")
-
-        try:
-            # When override provided, inject into a shallow copy for optics checks
-            if isinstance(optics_map, dict) and optics_map:
-                d2 = dict(d)
-                comps = dict(d2.get("components") or {})
-                comps["optics"] = optics_map
-                d2["components"] = comps
-                issues.extend(check_link_optics(net, d2, comp_lib))
-            else:
-                issues.extend(check_link_optics(net, d, comp_lib))
-        except Exception as e:
-            issues.append(f"link optics audit failed: {e}")
-
-        try:
-            issues.extend(check_node_hw_capacity(net, comp_lib))
-        except Exception as e:
-            issues.append(f"hardware capacity audit failed: {e}")
-
-        try:
-            issues.extend(audit_port_budget(net, d, comp_lib))
-        except Exception as e:
-            issues.append(f"port budget audit failed: {e}")
-
-    except Exception as e:
-        issues.append(f"ngraph explorer: {e}")
-
+            issues.extend(check())
+        except Exception as exc:
+            issues.append(f"{label} audit failed: {exc}")
     return issues

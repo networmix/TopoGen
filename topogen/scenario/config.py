@@ -1,224 +1,53 @@
-"""Resolve build defaults and overrides for each metro."""
+"""Resolve typed build defaults and per-metro overrides."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import asdict
+from typing import Any
 
-from topogen.config import _normalize_int
+from topogen.config import LINK_TYPES, LinkParams, TopologyConfig, parse_link_params
 from topogen.naming import metro_slug
-
-if TYPE_CHECKING:  # pragma: no cover - import-time types only
-    from topogen.config import TopologyConfig
 
 
 def _determine_metro_settings(
-    metros: list[dict[str, Any]], config: "TopologyConfig"
+    metros: list[dict[str, Any]], config: TopologyConfig
 ) -> dict[str, dict[str, Any]]:
-    """Return build settings keyed by metro name, with overrides applied.
-
-    Raise ValueError for unknown metro names or invalid resolved settings.
-    """
-    build_config = config.build
-    defaults = build_config.build_defaults
-    overrides = build_config.build_overrides
-
-    if metros:
-        available_slugs = set()
-        for m in metros:
-            available_slugs.add(metro_slug(m.get("name", "")))
-            available_slugs.add(metro_slug(m.get("name_orig", m.get("name", ""))))
-        for override_key in overrides.keys():
-            if override_key not in available_slugs:
-                available_list = ", ".join(sorted(available_slugs))
-                raise ValueError(
-                    "Build override references unknown metro "
-                    f"'{override_key}'. Available metro slugs: {available_list}"
-                )
-
-    settings: dict[str, dict[str, Any]] = {}
+    """Resolve independent settings for each metro, rejecting invalid budgets."""
+    defaults = config.build.build_defaults
+    overrides = config.build.build_overrides
+    available = {
+        metro_slug(name)
+        for metro in metros
+        for name in (metro["name"], metro.get("name_orig", metro["name"]))
+    }
+    if metros and (unknown := set(overrides) - available):
+        raise ValueError(
+            f"Build override references unknown metro {sorted(unknown)}. "
+            f"Available metro slugs: {sorted(available)}"
+        )
+    settings = {}
     for metro in metros:
-        metro_name = metro["name"]
-
-        # Seed with defaults (single 'match' applied symmetrically)
-        def _rp_list(obj: Any) -> list[str | list[str]]:
-            try:
-                rp = getattr(obj, "role_pairs", None)
-            except Exception:  # pragma: no cover - defensive for mocks
-                return []
-            return list(rp) if isinstance(rp, list) else []
-
-        metro_settings = {
-            "pop_per_metro": defaults.pop_per_metro,
-            "site_blueprint": defaults.site_blueprint,
-            "dc_regions_per_metro": defaults.dc_regions_per_metro,
-            "dc_region_blueprint": defaults.dc_region_blueprint,
-            "intra_metro_link": {
-                "capacity": _normalize_int(
-                    defaults.intra_metro_link.capacity,
-                    "defaults.intra_metro_link.capacity",
-                ),
-                "cost": _normalize_int(
-                    defaults.intra_metro_link.cost, "defaults.intra_metro_link.cost"
-                ),
-                "attrs": defaults.intra_metro_link.attrs.copy(),
-                "match": defaults.intra_metro_link.match.copy(),
-                "role_pairs": _rp_list(defaults.intra_metro_link),
-                "striping": getattr(defaults.intra_metro_link, "striping", {})
-                if isinstance(getattr(defaults.intra_metro_link, "striping", {}), dict)
-                else {},
-                "mode": getattr(defaults.intra_metro_link, "mode", "mesh"),
-            },
-            "inter_metro_link": {
-                "capacity": _normalize_int(
-                    defaults.inter_metro_link.capacity,
-                    "defaults.inter_metro_link.capacity",
-                ),
-                "cost": _normalize_int(
-                    defaults.inter_metro_link.cost, "defaults.inter_metro_link.cost"
-                ),
-                "attrs": defaults.inter_metro_link.attrs.copy(),
-                "match": defaults.inter_metro_link.match.copy(),
-                "role_pairs": _rp_list(defaults.inter_metro_link),
-                "striping": getattr(defaults.inter_metro_link, "striping", {})
-                if isinstance(getattr(defaults.inter_metro_link, "striping", {}), dict)
-                else {},
-                "mode": getattr(defaults.inter_metro_link, "mode", "mesh"),
-            },
-            "dc_to_pop_link": {
-                "capacity": _normalize_int(
-                    defaults.dc_to_pop_link.capacity, "defaults.dc_to_pop_link.capacity"
-                ),
-                "cost": _normalize_int(
-                    defaults.dc_to_pop_link.cost, "defaults.dc_to_pop_link.cost"
-                ),
-                "attrs": defaults.dc_to_pop_link.attrs.copy(),
-                "match": defaults.dc_to_pop_link.match.copy(),
-                "role_pairs": _rp_list(defaults.dc_to_pop_link),
-                "striping": getattr(defaults.dc_to_pop_link, "striping", {})
-                if isinstance(getattr(defaults.dc_to_pop_link, "striping", {}), dict)
-                else {},
-                "mode": getattr(defaults.dc_to_pop_link, "mode", "mesh"),
-            },
-        }
-
-        metro_name_orig = metro.get("name_orig", metro_name)
-        override = None
-        slug_sanitized = metro_slug(metro_name)
-        slug_original = metro_slug(metro_name_orig)
-        if slug_sanitized in overrides:
-            override = overrides[slug_sanitized]
-        elif slug_original in overrides:
-            override = overrides[slug_original]
-
-        if override:
-            if "pop_per_metro" in override:
-                metro_settings["pop_per_metro"] = override["pop_per_metro"]
-            if "site_blueprint" in override:
-                metro_settings["site_blueprint"] = override["site_blueprint"]
-            if "dc_regions_per_metro" in override:
-                metro_settings["dc_regions_per_metro"] = override[
-                    "dc_regions_per_metro"
-                ]
-            if "dc_region_blueprint" in override:
-                metro_settings["dc_region_blueprint"] = override["dc_region_blueprint"]
-            if "intra_metro_link" in override:
-                override_intra = override["intra_metro_link"]
-                if "attrs" in override_intra:
-                    metro_settings["intra_metro_link"]["attrs"].update(
-                        override_intra["attrs"]
-                    )
-                if "match" in override_intra and isinstance(
-                    override_intra["match"], dict
-                ):
-                    metro_settings["intra_metro_link"]["match"] = override_intra[
-                        "match"
-                    ]
-                for key, value in override_intra.items():
-                    if key != "attrs":
-                        if key in {"capacity", "cost"}:
-                            metro_settings["intra_metro_link"][key] = _normalize_int(
-                                value, f"override.intra_metro_link.{key}"
-                            )
-                        else:
-                            metro_settings["intra_metro_link"][key] = value
-            if "inter_metro_link" in override:
-                override_inter = override["inter_metro_link"]
-                if "attrs" in override_inter:
-                    metro_settings["inter_metro_link"]["attrs"].update(
-                        override_inter["attrs"]
-                    )
-                if "match" in override_inter and isinstance(
-                    override_inter["match"], dict
-                ):
-                    metro_settings["inter_metro_link"]["match"] = override_inter[
-                        "match"
-                    ]
-                for key, value in override_inter.items():
-                    if key != "attrs":
-                        if key in {"capacity", "cost"}:
-                            metro_settings["inter_metro_link"][key] = _normalize_int(
-                                value, f"override.inter_metro_link.{key}"
-                            )
-                        else:
-                            metro_settings["inter_metro_link"][key] = value
-            if "dc_to_pop_link" in override:
-                override_dc_pop = override["dc_to_pop_link"]
-                if "attrs" in override_dc_pop:
-                    metro_settings["dc_to_pop_link"]["attrs"].update(
-                        override_dc_pop["attrs"]
-                    )
-                if "match" in override_dc_pop and isinstance(
-                    override_dc_pop["match"], dict
-                ):
-                    metro_settings["dc_to_pop_link"]["match"] = override_dc_pop["match"]
-                for key, value in override_dc_pop.items():
-                    if key != "attrs":
-                        if key in {"capacity", "cost"}:
-                            metro_settings["dc_to_pop_link"][key] = _normalize_int(
-                                value, f"override.dc_to_pop_link.{key}"
-                            )
-                        else:
-                            metro_settings["dc_to_pop_link"][key] = value
-
-        if metro_settings["pop_per_metro"] < 1:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid pop_per_metro: {metro_settings['pop_per_metro']}"
+        name = metro["name"]
+        override = overrides.get(
+            metro_slug(name),
+            overrides.get(metro_slug(metro.get("name_orig", name)), {}),
+        )
+        resolved = asdict(defaults)
+        resolved.update(
+            {key: value for key, value in override.items() if key not in LINK_TYPES}
+        )
+        for key in LINK_TYPES:
+            link = parse_link_params(
+                override.get(key, {}), LinkParams(**resolved[key]), key
             )
-        if metro_settings["dc_regions_per_metro"] < 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid dc_regions_per_metro: {metro_settings['dc_regions_per_metro']}"
-            )
-
-        intra_link = metro_settings["intra_metro_link"]
-        if intra_link["capacity"] <= 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid intra_metro_link capacity: {intra_link['capacity']}"
-            )
-        if intra_link["cost"] <= 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid intra_metro_link cost: {intra_link['cost']}"
-            )
-
-        inter_link = metro_settings["inter_metro_link"]
-        if inter_link["capacity"] <= 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid inter_metro_link capacity: {inter_link['capacity']}"
-            )
-        if inter_link["cost"] < 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid inter_metro_link cost: {inter_link['cost']}"
-            )
-
-        dc_pop_link = metro_settings["dc_to_pop_link"]
-        if dc_pop_link["capacity"] <= 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid dc_to_pop_link capacity: {dc_pop_link['capacity']}"
-            )
-        if dc_pop_link["cost"] < 0:
-            raise ValueError(
-                f"Metro '{metro_name}' has invalid dc_to_pop_link cost: {dc_pop_link['cost']}"
-            )
-
-        settings[metro_name] = metro_settings
-
+            if (
+                link.capacity <= 0
+                or link.cost < 0
+                or (key == "intra_metro_link" and link.cost == 0)
+            ):
+                raise ValueError(f"Metro '{name}' has invalid {key} capacity or cost")
+            resolved[key] = asdict(link)
+        if resolved["pop_per_metro"] < 1 or resolved["dc_regions_per_metro"] < 0:
+            raise ValueError(f"Metro '{name}' has invalid PoP or DC count")
+        settings[name] = resolved
     return settings

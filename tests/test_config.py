@@ -27,9 +27,7 @@ def test_config_from_yaml(tmp_path: Path) -> None:
             "min_edge_length_km": 0.05,
             "snap_precision_m": 10.0,
             "highway_classes": ["S1100", "S1200"],
-            "min_cycle_nodes": 3,
             "filter_largest_component": True,
-            "validation_sample_size": 5,
         },
         "validation": {
             "max_metro_highway_distance_km": 10.0,
@@ -44,11 +42,6 @@ def test_config_from_yaml(tmp_path: Path) -> None:
             "max_corridor_distance_km": 1000.0,
         },
         "output": {
-            "scenario_metadata": {
-                "title": "Test Topology",
-                "description": "Test description",
-                "version": "1.0",
-            },
             "formatting": {
                 "json_indent": 2,
             },
@@ -97,7 +90,7 @@ def test_export_clusters_config() -> None:
             "highway_processing": {},
             "validation": {},
             "corridors": {},
-            "output": {"scenario_metadata": {}, "formatting": {}},
+            "output": {"formatting": {}},
         }
         from tempfile import NamedTemporaryFile as _NTF
 
@@ -124,9 +117,8 @@ def test_dc_regions_config_defaults() -> None:
     assert config.build.build_defaults.dc_to_pop_link.cost == 1
     assert config.build.build_defaults.dc_to_pop_link.attrs["link_type"] == "dc_to_pop"
 
-    assert hasattr(config.components.assignments, "dc")
-    assert config.components.assignments.dc.hw_component == ""
-    assert config.components.assignments.dc.optics == ""
+    assert config.components.hw_component == {}
+    assert config.components.optics == {}
 
 
 def test_config_validation_missing_files() -> None:
@@ -150,14 +142,6 @@ def test_config_validation_invalid_params() -> None:
     config.clustering = ClusteringConfig(metro_clusters=0)
     with pytest.raises(ValueError, match="metro_clusters must be positive"):
         config.validate()
-
-
-def test_config_summary() -> None:
-    config = TopologyConfig()
-    summary = config.summary()
-
-    assert "TOPOLOGY GENERATOR CONFIGURATION" in summary
-    assert "Metro Clusters: ~30" in summary
 
 
 def test_config_file_not_found() -> None:

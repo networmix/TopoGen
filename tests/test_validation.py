@@ -127,7 +127,7 @@ network:
         mw_per_dc_region: 50.0
         gbps_per_mw: 250.0
 """
-    # Without adjacency, fallback scenario-level isolation should be reported.
+    # Metadata-only validation reports site groups without any adjacency rules.
     issues = validate_scenario_yaml(
         yaml_text, integrated_graph_path=None, run_ngraph=False
     )
@@ -135,168 +135,51 @@ network:
 
 
 def test_dc_capacity_vs_demand_validation():
-    data = _minimal_scenario()
-    # Add one dc_to_pop adjacency with target_capacity 1000
-    data["network"]["links"] = [
-        {
-            "source": "metro1/dc1",
-            "target": "metro1/pop1",
-            "pattern": "one_to_one",
-            "capacity": 1000.0,
-            "cost": 1,
-            "attrs": {
-                "link_type": "dc_to_pop",
-                "source_metro": "Denver",
-                "target_metro": "Denver",
-                "target_capacity": 1000.0,
-            },
-        }
-    ]
-    # Traffic matrix with a single class that demands 1200 out of the DC and 800 into the DC
-    data["demands"] = {
-        "tm": [
-            {
-                "source": "^metro1/dc1/.*",
-                "target": "^metro1/dc1/.*",
-                "mode": "pairwise",
-                "priority": 0,
-                "volume": 1200.0,
-            },
-            {
-                "source": "^metro2/dc1/.*",
-                "target": "^metro1/dc1/.*",
-                "mode": "pairwise",
-                "priority": 0,
-                "volume": 800.0,
-            },
-        ]
-    }
-    issues = validate_scenario_dict(data)
-    # Egress 1200 > capacity 1000 => violation
-    assert any(
-        "egress demand" in s and "exceeds adjacency capacity" in s for s in issues
-    )
-    # Ingress 800 <= capacity 1000 => no ingress violation for metro1/dc1
-    assert not any("ingress demand 800.0" in s for s in issues)
-
-
-def test_groups_that_expand_to_zero_nodes_are_flagged(monkeypatch):
-    # Patch DSL expansion to return zero nodes and zero links
-    class _FakeNet:
-        def __init__(self) -> None:
-            self.nodes = {}
-            self.links = {}
-
-    def _fake_expand(_dsl: dict):  # noqa: ANN001
-        return _FakeNet()
-
-    monkeypatch.setattr(
-        "ngraph.dsl.blueprints.expand.expand_network_dsl", _fake_expand, raising=True
-    )
-
-    # Patch Scenario.from_yaml to avoid schema errors and isolation noise
-    class _FakeScenario:
-        @classmethod
-        def from_yaml(cls, _y: str):  # noqa: ANN001
-            return cls()
-
-        class network:  # noqa: N801 - name per production API
-            @staticmethod
-            def to_strict_multidigraph(add_reverse: bool = True):  # noqa: FBT001, FBT002
-                class _G:
-                    @staticmethod
-                    def get_nodes():
-                        return {}
-
-                    @staticmethod
-                    def get_edges():
-                        return {}
-
-                return _G()
-
-    monkeypatch.setattr("ngraph.scenario.Scenario", _FakeScenario, raising=True)
-    # A group with zero count via an invalid blueprint should be flagged.
-    # Use a blueprint that exists but set an impossible range in the group path.
     data = {
-        "blueprints": {},
         "network": {
             "nodes": {
-                # Invalid range [1-0] yields zero nodes
-                "metro1/pop[1-0]": {
-                    "blueprint": "SingleRouter",
-                    "attrs": {
-                        "metro_name": "X",
-                        "metro_name_orig": "X",
-                        "metro_id": 1,
-                        "location_x": 0.0,
-                        "location_y": 0.0,
-                    },
-                }
+                name: {"attrs": {"role": "dc"}}
+                for name in ("metro1/dc1/r", "metro2/dc1/r")
             },
-            "links": [],
+            "links": [
+                {"source": "metro1/dc1/r", "target": "metro2/dc1/r", "capacity": 1000}
+            ],
         },
-        "failures": {},
-        "demands": {},
-        "workflow": [],
+        "demands": {
+            "tm": [
+                {
+                    "source": "^metro1/dc1/.*",
+                    "target": "^metro2/dc1/.*",
+                    "mode": "pairwise",
+                    "volume": 1200,
+                },
+                {
+                    "source": "^metro2/dc1/.*",
+                    "target": "^metro1/dc1/.*",
+                    "mode": "pairwise",
+                    "volume": 800,
+                },
+            ]
+        },
     }
-    issues = validate_scenario_yaml(
-        yaml.safe_dump(data, sort_keys=False),
-        integrated_graph_path=None,
-        run_ngraph=True,
+    issues = validate_scenario_yaml(yaml.safe_dump(data))
+    assert any(
+        "metro1/dc1 egress demand" in issue and "exceeds adjacency capacity" in issue
+        for issue in issues
     )
-    assert any("expands to 0 nodes" in s for s in issues)
+    assert not any("metro1/dc1 ingress demand" in issue for issue in issues)
 
 
-def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
-    # Patch DSL expansion to return zero nodes and zero links
-    class _FakeNet:
-        def __init__(self) -> None:
-            self.nodes = {}
-            self.links = {}
+def test_invalid_group_range_is_rejected():
+    data = {"network": {"nodes": {"metro1/pop[1-0]": {}}, "links": []}}
+    issues = validate_scenario_yaml(yaml.safe_dump(data), run_ngraph=True)
+    assert any("Invalid range '1-0'" in issue for issue in issues)
 
-    def _fake_expand(_dsl: dict):  # noqa: ANN001
-        return _FakeNet()
 
-    monkeypatch.setattr(
-        "ngraph.dsl.blueprints.expand.expand_network_dsl", _fake_expand, raising=True
-    )
-
-    # Patch Scenario.from_yaml to avoid schema errors and isolation noise
-    class _FakeScenario:
-        @classmethod
-        def from_yaml(cls, _y: str):  # noqa: ANN001
-            return cls()
-
-        class network:  # noqa: N801 - name per production API
-            @staticmethod
-            def to_strict_multidigraph(add_reverse: bool = True):  # noqa: FBT001, FBT002
-                class _G:
-                    @staticmethod
-                    def get_nodes():
-                        return {}
-
-                    @staticmethod
-                    def get_edges():
-                        return {}
-
-                return _G()
-
-    monkeypatch.setattr("ngraph.scenario.Scenario", _FakeScenario, raising=True)
-    # Construct a scenario with a valid group but an adjacency using nonexistent endpoints
+def test_adjacencies_that_expand_to_zero_links_are_flagged():
     data = {
         "network": {
-            "nodes": {
-                "metro1/pop[1]": {
-                    "blueprint": "SingleRouter",
-                    "attrs": {
-                        "metro_name": "Y",
-                        "metro_name_orig": "Y",
-                        "metro_id": 1,
-                        "location_x": 0.0,
-                        "location_y": 0.0,
-                    },
-                },
-            },
+            "nodes": {"metro1/pop1": {"attrs": {"role": "core"}}},
             "links": [
                 {
                     "source": "metro1/missing",
@@ -306,16 +189,9 @@ def test_adjacencies_that_expand_to_zero_links_are_flagged(monkeypatch):
                 }
             ],
         },
-        "failures": {},
-        "demands": {},
-        "workflow": [],
     }
-    issues = validate_scenario_yaml(
-        yaml.safe_dump(data, sort_keys=False),
-        integrated_graph_path=None,
-        run_ngraph=True,
-    )
-    assert any("adjacency[0] expands to 0 links" in s for s in issues)
+    issues = validate_scenario_yaml(yaml.safe_dump(data), run_ngraph=True)
+    assert any("adjacency[0] expands to 0 links" in issue for issue in issues)
 
 
 def yaml_dump(d: dict) -> str:
@@ -343,7 +219,6 @@ def test_node_hardware_presence_audited():
                 "capacity": 1000.0,
                 "ports": 10,
             },
-            "hw_component": {"core": "CoreRouter"},
         },
         "network": {
             "nodes": {
@@ -361,12 +236,15 @@ def test_node_hardware_presence_audited():
         },
     }
     issues = validate_scenario_yaml(
-        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+        yaml_dump(data),
+        integrated_graph_path=None,
+        run_ngraph=True,
+        hw_component_map={"core": "CoreRouter"},
     )
     assert any("node hardware:" in s for s in issues)
 
 
-def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
+def test_invalid_network_nodes_type_is_rejected():
     invalid = {
         "network": {
             # wrong type: nodes should be a mapping, make it a list to fail
@@ -389,7 +267,7 @@ def test_json_schema_validation_flags_invalid_when_available(monkeypatch):
     issues = validate_scenario_yaml(
         yaml_dump(invalid), integrated_graph_path=None, run_ngraph=True
     )
-    assert any("ngraph schema:" in s for s in issues)
+    assert any("nodes" in s and "mapping" in s for s in issues)
 
 
 def test_link_optics_presence_audited_unordered_and_directional():
@@ -425,7 +303,7 @@ def test_link_optics_presence_audited_unordered_and_directional():
             "800G-DR4": {"component_type": "optic", "capacity": 800.0, "ports": 4},
             "1600G-2xDR4": {"component_type": "optic", "capacity": 1600.0, "ports": 8},
             # First, unordered only (single 'leaf|spine') should require both ends to be that optic
-            "optics": {"leaf|spine": "800G-DR4"},
+            "optics": {"leaf->spine": "800G-DR4", "spine->leaf": "800G-DR4"},
         },
         "network": {
             "nodes": {
@@ -443,8 +321,12 @@ def test_link_optics_presence_audited_unordered_and_directional():
         },
     }
     # No hardware assigned on links in blueprint -> should flag both ends
+    optics_map = data["components"].pop("optics")
     issues = validate_scenario_yaml(
-        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+        yaml_dump(data),
+        integrated_graph_path=None,
+        run_ngraph=True,
+        optics_map=optics_map,
     )
     assert any(
         "optics: missing hardware required by mapping on source end" in s
@@ -455,17 +337,12 @@ def test_link_optics_presence_audited_unordered_and_directional():
         for s in issues
     )
 
-    # Now add directional override alongside unordered: both present means ordered interpretations.
-    data["components"]["optics"] = {
-        "leaf|spine": "800G-DR4",
-        "spine|leaf": "1600G-2xDR4",
-    }
     issues2 = validate_scenario_yaml(
-        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+        yaml_dump(data),
+        optics_map={"leaf->spine": "800G-DR4", "spine->leaf": "1600G-2xDR4"},
     )
-    # Still missing since blueprint didn't assign; we only assert presence of messages (not exact counts)
-    assert any("source end" in s for s in issues2)
-    assert any("target end" in s for s in issues2)
+    assert any("source end" in issue for issue in issues2)
+    assert any("target end" in issue for issue in issues2)
 
 
 def test_port_budget_detects_platform_port_overuse():
@@ -499,14 +376,20 @@ def test_port_budget_detects_platform_port_overuse():
                         # 54.4 Tb/s per link requires ceil(54400/800)=68 modules at each end
                         "capacity": 54_400.0,
                         "cost": 1,
-                        "attrs": {"link_type": "leaf_spine"},
+                        "attrs": {
+                            "link_type": "leaf_spine",
+                            "hardware": {
+                                end: {"component": "800G-DR4", "count": 68}
+                                for end in ("source", "target")
+                            },
+                        },
                     }
                 ],
             }
         },
         "components": {
             # Use optics mapping to infer per-end optics when link hardware isn't specified
-            "optics": {"leaf|spine": "800G-DR4"},
+            "optics": {"leaf->spine": "800G-DR4", "spine->leaf": "800G-DR4"},
         },
         "network": {
             "nodes": {
@@ -523,8 +406,15 @@ def test_port_budget_detects_platform_port_overuse():
             "links": [],
         },
     }
+    from topogen.components_lib import get_builtin_components
+
+    optics_map = data["components"].pop("optics")
+    data["components"].update(get_builtin_components())
     issues = validate_scenario_yaml(
-        yaml_dump(data), integrated_graph_path=None, run_ngraph=True
+        yaml_dump(data),
+        integrated_graph_path=None,
+        run_ngraph=True,
+        optics_map=optics_map,
     )
     # Expect a port budget violation referencing LeafRouter (64 ports) needing 68
     assert any("hardware ports:" in s and "LeafRouter" in s for s in issues)

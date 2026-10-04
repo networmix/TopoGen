@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from topogen.config import TopologyConfig
+from topogen.context import RunContext
 from topogen.log_config import get_logger
 
 logger = get_logger(__name__)
@@ -19,14 +22,14 @@ def Timer(description: str):
     """Print and log elapsed time on completion or failure."""
     print(f"🔄 {description}...")
     logger.info(f"Starting {description}")
-    start = time.time()
+    start = time.perf_counter()
     try:
         yield
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
         print(f"✅ {description} (completed in {elapsed:.1f}s)")
         logger.info(f"Completed {description} in {elapsed:.1f}s")
     except Exception as e:
-        elapsed = time.time() - start
+        elapsed = time.perf_counter() - start
         print(f"❌ {description} (failed after {elapsed:.1f}s)")
         logger.error(f"Failed {description} after {elapsed:.1f}s: {e}")
         raise
@@ -55,48 +58,20 @@ def build_command(args: argparse.Namespace) -> None:
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
-        # Compute output directory and scenario path.
-        # If -o is a directory, write '<stem>_scenario.yml' inside it.
-        # If -o is a file, use it directly and treat its parent as output dir.
-        prefix_path = getattr(config_obj, "_source_path", config_path)
-        stem = Path(prefix_path).stem if isinstance(prefix_path, Path) else "scenario"
-        if getattr(args, "output", None):
-            output_arg = Path(args.output)
-            if output_arg.suffix.lower() in {".yml", ".yaml"}:
-                output_dir = output_arg.parent
-                output_path = output_arg
-            else:
-                output_dir = output_arg
-                output_path = output_dir / f"{stem}_scenario.yml"
+        output_arg = Path(args.output) if args.output else Path.cwd()
+        if output_arg.suffix.lower() in {".yml", ".yaml"}:
+            output_dir, output_path = output_arg.parent, output_arg
         else:
-            output_dir = Path.cwd()
-            output_path = output_dir / f"{stem}_scenario.yml"
-        # Persist chosen output directory on config for downstream artefacts
-        try:
-            output_dir.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
-        try:
-            config_obj._output_dir = output_dir  # type: ignore[attr-defined]
-        except Exception:
-            pass
-
-        # Attach optional debug directory to config for downstream use
-        if getattr(args, "debug_dir", None):
-            try:
-                debug_dir = Path(args.debug_dir)
-                debug_dir.mkdir(parents=True, exist_ok=True)
-                config_obj._debug_dir = debug_dir
-                # Provide a stable stem to downstream exporters
-                config_obj._source_stem = Path(config_path).stem
-            except Exception:
-                # Non-fatal: continue without debug directory
-                pass
+            output_dir = output_arg
+            output_path = output_dir / f"{config_path.stem}_scenario.yml"
+        context = RunContext(
+            output_dir,
+            config_path.stem,
+            Path(args.debug_dir) if args.debug_dir else None,
+        )
 
         with Timer("Topology generation pipeline"):
-            scenario_yaml = _run_pipeline(
-                config_obj, output_path, print_yaml=args.print
-            )
+            scenario_yaml = _run_pipeline(config_obj, output_path, context=context)
 
         if args.print:
             print("\n" + "=" * 60)
@@ -121,127 +96,75 @@ def build_command(args: argparse.Namespace) -> None:
         sys.exit(1)  # Runtime error
 
 
+def _write_scenario(path: Path, content: str) -> None:
+    """Replace a scenario atomically, only after it has passed validation."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            delete=False,
+        ) as stream:
+            temporary = Path(stream.name)
+            stream.write(content)
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def _run_pipeline(
-    config: TopologyConfig, output_path: Path, print_yaml: bool = False
+    config: TopologyConfig, output_path: Path, *, context: RunContext
 ) -> str:
-    """Build and write scenario YAML from the saved corridor graph.
-
-    With ``print_yaml``, also print the YAML and skip validation. Otherwise,
-    validate the scenario and raise ValueError on issues (CLI exit code 3).
-    A missing graph exits with code 1.
-    """
+    """Build, validate, then publish scenario YAML from the saved corridor graph."""
     from topogen import load_from_json
-    from topogen.scenario_builder import build_scenario
+    from topogen.scenario import build_scenario
+    from topogen.validation import validate_scenario_yaml
 
-    # Check for integrated graph in configured output dir (fallback to CWD)
-    source_path = getattr(config, "_source_path", None)
-    prefix = Path(source_path).stem if isinstance(source_path, Path) else "scenario"
-    output_dir = getattr(config, "_output_dir", None)
-    base_dir = Path(output_dir) if isinstance(output_dir, (str, Path)) else Path.cwd()
-    graph_path = base_dir / f"{prefix}_integrated_graph.json"
+    graph_path = context.path("integrated_graph.json")
     if not graph_path.exists():
-        print("❌ No integrated graph found!")
-        print("   Run generation first: python -m topogen generate")
-        sys.exit(1)
-
-    print("Topology Generation Pipeline")
-    print("=" * 50)
-
-    print("🔄 Loading integrated graph...")
+        raise FileNotFoundError(
+            f"No integrated graph found: {graph_path}. Run topogen generate first."
+        )
     graph, crs = load_from_json(graph_path)
-
-    print(f"📊 Graph loaded: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
-
-    metro_nodes = [
-        n
-        for n, d in graph.nodes(data=True)
-        if d.get("node_type") in ["metro", "metro+highway"]
-    ]
-    highway_nodes = [n for n in graph.nodes() if n not in metro_nodes]
-    print(f"   Metro nodes: {len(metro_nodes)}")
-    print(f"   Highway nodes: {len(highway_nodes)}")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
+    if crs != config.projection.target_crs:
+        raise ValueError(
+            f"Saved graph CRS {crs} differs from configured {config.projection.target_crs}; regenerate the integrated graph"
+        )
+    print(f"Graph loaded: {len(graph.nodes):,} metros, {len(graph.edges):,} corridors")
     with Timer("Generate NetGraph scenario"):
-        scenario_yaml = build_scenario(graph, config)
-
-    with Timer(f"Write scenario to {output_path}"):
-        with open(output_path, "w") as f:
-            f.write(scenario_yaml)
-
-    print(f"\n📄 Scenario written to: {output_path}")
-
-    if not print_yaml:
-        from topogen.validation import validate_scenario_yaml
-
-        print("🔄 Validating generated scenario...")
-        comp_obj = getattr(config, "components", None)
-        hw_map = (
-            getattr(comp_obj, "hw_component", None) if comp_obj is not None else None
-        )
-        optics_map = getattr(comp_obj, "optics", None) if comp_obj is not None else None
-        # Be strict about unexpected types to avoid silently disabling audits
-        if hw_map is not None and not isinstance(hw_map, dict):
-            raise ValueError(
-                "'components.hw_component' must be a mapping when provided"
-            )
-        if optics_map is not None and not isinstance(optics_map, dict):
-            raise ValueError("'components.optics' must be a mapping when provided")
-        issues = validate_scenario_yaml(
-            scenario_yaml,
-            integrated_graph_path=graph_path,
-            run_ngraph=True,
-            hw_component_map=hw_map,
-            optics_map=optics_map,
-        )
-        if issues:
-            print("❌ Scenario validation found issues:")
-            for s in issues:
-                print(f"   - {s}")
-            print("   Scenario file generated but has issues")
-            raise ValueError("Scenario validation failed")
-        else:
-            print("✅ Scenario validation passed")
-
+        scenario_yaml = build_scenario(graph, config, context=context)
+    issues = validate_scenario_yaml(
+        scenario_yaml,
+        integrated_graph_path=graph_path,
+        hw_component_map=config.components.hw_component,
+        optics_map=config.components.optics,
+    )
+    if issues:
+        raise ValueError("Scenario validation failed:\n" + "\n".join(issues))
+    print("✅ Scenario validation passed")
+    _write_scenario(output_path, scenario_yaml)
+    print(f"Scenario written to: {output_path}")
     return scenario_yaml
 
 
-def _run_generation(config: TopologyConfig) -> None:
-    """Generate and save the corridor graph in the configured output directory."""
+def _run_generation(config: TopologyConfig, context: RunContext) -> None:
+    """Generate and save the corridor graph at the explicit artifact destination."""
     from topogen import build_integrated_graph, save_to_json
 
-    print("Integrated Graph Generation Pipeline")
-    print("=" * 50)
-
-    # Artefacts in configured output directory (fallback to CWD)
-    cfg_out = getattr(config, "_output_dir", None)
-    output_dir = Path(cfg_out) if isinstance(cfg_out, (str, Path)) else Path.cwd()
-
-    source_path = getattr(config, "_source_path", None)
-    prefix = Path(source_path).stem if isinstance(source_path, Path) else "scenario"
-    graph_output = output_dir / f"{prefix}_integrated_graph.json"
-
-    print(f"   Urban areas: {config.clustering.metro_clusters}")
-    print(f"   UAC data: {config.data_sources.uac_polygons}")
-    print(f"   Highway data: {config.data_sources.tiger_roads}")
-
+    config.validate()
+    context.output_dir.mkdir(parents=True, exist_ok=True)
     with Timer("Generate a metro-to-metro corridor graph"):
-        graph = build_integrated_graph(config)
-
-    with Timer("Save integrated graph"):
-        save_to_json(
-            graph, graph_output, config.projection.target_crs, config.output.formatting
-        )
-
-    print("\n🎉 Generation complete!")
-    print(f"📁 Integrated graph: {graph_output}")
-    print(f"📊 Graph summary: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
-    print("🔗 Ready for topology generation with:")
-    print(
-        f"   python -m topogen build -c {getattr(config, '_source_path', 'config.yml')}"
-        f" -o {output_dir}"
+        graph = build_integrated_graph(config, context=context)
+    graph_output = context.path("integrated_graph.json")
+    save_to_json(
+        graph, graph_output, config.projection.target_crs, config.output.formatting
     )
+    print(f"Integrated graph: {graph_output}")
+    print(f"Graph summary: {len(graph.nodes):,} nodes, {len(graph.edges):,} edges")
 
 
 def generate_command(args: argparse.Namespace) -> None:
@@ -249,16 +172,11 @@ def generate_command(args: argparse.Namespace) -> None:
     try:
         config_path = Path(args.config)
         config_obj = _load_config(config_path)
-        # If output directory provided, persist on config
-        if getattr(args, "output", None):
-            try:
-                out_dir = Path(args.output)
-                out_dir.mkdir(parents=True, exist_ok=True)
-                config_obj._output_dir = out_dir  # type: ignore[attr-defined]
-            except Exception:
-                pass
-
-        _run_generation(config_obj)
+        context = RunContext(
+            Path(args.output) if args.output else Path.cwd(),
+            config_path.stem,
+        )
+        _run_generation(config_obj, context)
 
     except Exception as e:
         print(f"❌ ERROR: {e}")
@@ -280,12 +198,14 @@ def info_command(args: argparse.Namespace) -> None:
         print("=" * 20)
         print(f"UAC polygons: {config_obj.data_sources.uac_polygons}")
         print(f"TIGER roads: {config_obj.data_sources.tiger_roads}")
+        print(f"CONUS boundary: {config_obj.data_sources.conus_boundary}")
 
         print("\nData Availability")
         print("=" * 20)
 
         uac_path = Path(config_obj.data_sources.uac_polygons)
         tiger_path = Path(config_obj.data_sources.tiger_roads)
+        boundary_path = Path(config_obj.data_sources.conus_boundary)
 
         uac_status = "✅" if uac_path.exists() else "❌"
         tiger_status = "✅" if tiger_path.exists() else "❌"
@@ -293,7 +213,11 @@ def info_command(args: argparse.Namespace) -> None:
         print(f"UAC data: {uac_status} {uac_path}")
         print(f"TIGER roads: {tiger_status} {tiger_path}")
 
-        if not uac_path.exists() or not tiger_path.exists():
+        print(
+            f"CONUS boundary: {'✅' if boundary_path.exists() else '❌'} {boundary_path}"
+        )
+
+        if not all(path.exists() for path in (uac_path, tiger_path, boundary_path)):
             print("\n⚠️  Missing data files - download required before generation")
 
     except Exception as e:
@@ -322,6 +246,7 @@ def main() -> None:
         help="Suppress console output (logs only)",
     )
 
+    parser.set_defaults(func=None)
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # Build command
@@ -343,15 +268,12 @@ def main() -> None:
     build_parser.add_argument(
         "--print",
         action="store_true",
-        help="Also print YAML to stdout and skip scenario validation",
+        help="Also print the validated scenario YAML to stdout",
     )
     build_parser.add_argument(
         "--debug-dir",
         default=None,
-        help=(
-            "Optional directory to write debug artifacts (e.g., traffic matrix "
-            "internals as JSON) when -v is enabled"
-        ),
+        help=("Optional directory to write the generated traffic matrices as JSON"),
     )
 
     build_parser.set_defaults(func=build_command)
@@ -403,17 +325,15 @@ def main() -> None:
 
     set_global_log_level(log_level)
 
-    # Suppress print output if --quiet is set
-    if args.quiet:
-        import builtins
-
-        builtins.print = lambda *args, **kwargs: None
-
-    if not hasattr(args, "func") or args.func is None:
+    if args.func is None:
         parser.print_help()
         sys.exit(1)
 
-    args.func(args)
+    if args.quiet:
+        with open(os.devnull, "w") as sink, redirect_stdout(sink):
+            args.func(args)
+    else:
+        args.func(args)
 
 
 if __name__ == "__main__":

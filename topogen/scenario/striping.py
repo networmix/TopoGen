@@ -1,144 +1,92 @@
-"""Helpers for deterministic striping of inter-site adjacencies.
-
-Compute stripe groupings (by fixed width or by blueprint attribute) and emit
-``node_overrides`` that assign per-adjacency stripe identifiers to nodes. The
-graph pipeline then matches on a single stripe attribute, so role-based
-eligibility is encoded upfront in the grouping selection.
-"""
+"""Stripe actual blueprint devices and emit one exact node rule per device."""
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+import re
+from typing import Any
+
+from ngraph import Network
+from ngraph.dsl.blueprints.expand import expand_network_dsl
+from ngraph.dsl.selectors import normalize_selector
+from ngraph.model.selectors import select_nodes
 
 
-def _natural_key(name: str) -> Tuple[str, int]:
-    """Return the non-digit characters and concatenated digits as a sort key.
-
-    For example, ``leaf12`` becomes ``("leaf", 12)``. No digits gives 0.
-    """
-
-    prefix_chars: List[str] = []
-    digits: List[str] = []
-    for ch in name:
-        if ch.isdigit():
-            digits.append(ch)
-        else:
-            prefix_chars.append(ch)
-    prefix = "".join(prefix_chars)
-    try:
-        num = int("".join(digits)) if digits else 0
-    except Exception:
-        num = 0
-    return prefix, num
+def _natural_key(path: str) -> tuple:
+    return tuple(
+        int(part) if part.isdigit() else part for part in re.split(r"(\d+)", path)
+    )
 
 
-def eligible_device_names_from_blueprint(
-    blueprint: Dict[str, Any], roles: set[str] | None
-) -> List[str]:
-    """List eligible device names from a blueprint filtered by roles.
+class StripePlanner:
+    """Cache each blueprint inventory and merge stripe attributes within one build."""
 
-    Args:
-        blueprint: Blueprint definition with a ``nodes`` mapping.
-        roles: Allowed roles or None for all roles.
+    def __init__(self, blueprints: dict[str, Any]) -> None:
+        self._blueprints = blueprints
+        self._inventories: dict[str, Network] = {}
+        self._rules: dict[str, dict[str, str]] = {}
 
-    Returns:
-        Sorted device names (e.g., ["leaf1", "leaf2"]).
-    """
-
-    names: List[str] = []
-    groups = blueprint.get("nodes", {}) if isinstance(blueprint, dict) else {}
-    for _gname, gdef in groups.items():
-        attrs = gdef.get("attrs", {}) if isinstance(gdef, dict) else {}
-        role = str(attrs.get("role", ""))
-        if roles and role not in roles:
-            continue
-        try:
-            n = int(gdef.get("count", 0))
-        except Exception:
-            n = 0
-        template = str(gdef.get("template", ""))
-        for i in range(1, n + 1):
-            names.append(template.replace("{n}", str(i)))
-    names.sort(key=_natural_key)
-    return names
-
-
-def group_by_width(names: List[str], width: int) -> List[List[str]]:
-    """Partition names into contiguous groups of size ``width``.
-
-    Raises:
-        ValueError: If ``width`` <= 0 or ``len(names) % width != 0``.
-    """
-
-    if width <= 0:
-        raise ValueError("striping.width must be positive")
-    total = len(names)
-    if total % width != 0:
-        raise ValueError(
-            f"Eligible device count {total} is not divisible by width {width}"
+    def groups(
+        self, blueprint: str, striping: dict[str, Any], match: dict[str, Any]
+    ) -> dict[str, list[str]]:
+        if blueprint not in self._inventories:
+            network = expand_network_dsl(
+                {
+                    "blueprints": self._blueprints,
+                    "network": {"nodes": {"stripe_probe": {"blueprint": blueprint}}},
+                }
+            )
+            self._inventories[blueprint] = network
+        groups = select_nodes(
+            self._inventories[blueprint],
+            normalize_selector({"path": "stripe_probe", "match": match}, "link"),
+            default_active_only=False,
         )
-    groups: List[List[str]] = []
-    for i in range(0, total, width):
-        groups.append(names[i : i + width])
-    return groups
+        selected = {
+            node.name.removeprefix("stripe_probe/"): node.attrs
+            for nodes in groups.values()
+            for node in nodes
+        }
+        if not selected:
+            raise ValueError(f"No eligible stripe devices in blueprint '{blueprint}'")
+        names = sorted(selected, key=_natural_key)
+        mode = striping.get("mode", "width")
+        if mode == "width":
+            width = striping["width"]
+            if (
+                not isinstance(width, int)
+                or isinstance(width, bool)
+                or width <= 0
+                or len(names) % width
+            ):
+                raise ValueError(
+                    f"Eligible device count {len(names)} requires a positive divisible striping.width"
+                )
+            return {
+                f"g{offset // width + 1}": names[offset : offset + width]
+                for offset in range(0, len(names), width)
+            }
+        if mode != "by_attr":
+            raise ValueError(f"Unknown striping.mode: {mode}")
+        attribute = striping["attribute"]
+        labels: dict[str, list[str]] = {}
+        for name in names:
+            if attribute not in selected[name]:
+                raise ValueError(
+                    f"Stripe device '{blueprint}/{name}' lacks attribute '{attribute}'"
+                )
+            labels.setdefault(str(selected[name][attribute]), []).append(name)
+        return {label: labels[label] for label in sorted(labels)}
 
+    def attach(self, site: str, attribute: str, groups: dict[str, list[str]]) -> None:
+        for label, members in groups.items():
+            for member in members:
+                path = f"^{re.escape(site + '/' + member)}$"
+                attrs = self._rules.setdefault(path, {})
+                if attribute in attrs and attrs[attribute] != label:
+                    raise ValueError(
+                        f"Conflicting stripe assignment for {site}/{member}"
+                    )
+                attrs[attribute] = label
 
-def group_by_attr(
-    blueprint: Dict[str, Any], *, attr: str, roles: set[str] | None
-) -> Dict[str, List[str]]:
-    """Group device names by a blueprint group attribute value.
-
-    Uses per-blueprint group attribute (constant for the subgroup) as label.
-    Returns a mapping label -> list of device names sorted by natural order.
-    """
-
-    labels: Dict[str, List[str]] = {}
-    groups = blueprint.get("nodes", {}) if isinstance(blueprint, dict) else {}
-    for _gname, gdef in groups.items():
-        attrs = gdef.get("attrs", {}) if isinstance(gdef, dict) else {}
-        role = str(attrs.get("role", ""))
-        if roles and role not in roles:
-            continue
-        label = attrs.get(attr)
-        if label is None:
-            continue
-        label_str = str(label)
-        try:
-            n = int(gdef.get("count", 0))
-        except Exception:
-            n = 0
-        template = str(gdef.get("template", ""))
-        for i in range(1, n + 1):
-            namestr = template.replace("{n}", str(i))
-            labels.setdefault(label_str, []).append(namestr)
-    for lab in list(labels.keys()):
-        labels[lab].sort(key=_natural_key)
-    return labels
-
-
-def build_node_overrides_for_site(
-    site_path: str, stripe_attr: str, label_to_names: Dict[str, List[str]]
-) -> List[Dict[str, Any]]:
-    """Create DSL ``node_overrides`` to assign a stripe attribute to nodes.
-
-    Matches nodes by anchored regex on full path with exactly one subgroup level
-    (blueprint group name), e.g., ``^metro3/pop1/[^/]+/leaf3$``.
-    """
-
-    overrides: List[Dict[str, Any]] = []
-    for label, names in label_to_names.items():
-        for nodename in names:
-            pattern = f"^{site_path}/[^/]+/{nodename}$"
-            overrides.append({"path": pattern, "attrs": {stripe_attr: label}})
-    return overrides
-
-
-def make_stripe_attr_name(scope: str) -> str:
-    """Return a stable stripe attribute name for a scope string.
-
-    Example scopes:
-      - ``im_5_7`` for inter-metro between indices 5 and 7
-      - ``dc_5`` for dc-to-pop inside metro 5
-    """
-
-    return f"stripe_{scope}"
+    def node_rules(self) -> list[dict[str, Any]]:
+        return [{"path": path, "attrs": attrs} for path, attrs in self._rules.items()]

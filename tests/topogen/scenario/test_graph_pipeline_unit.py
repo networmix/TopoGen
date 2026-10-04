@@ -1,32 +1,40 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-from unittest.mock import patch
-
 import networkx as nx
 
 import topogen.scenario.graph_pipeline as gp
+import topogen.scenario.network as nw
+import topogen.scenario.sizing as sz
+from topogen.blueprints_lib import get_builtin_blueprints
+from topogen.config import (
+    BuildConfig,
+    BuildTmSizingConfig,
+    TopologyConfig,
+    TrafficConfig,
+)
+from topogen.naming import site_edge_id
+from topogen.scenario.expansion import resolve_network
 
 
-def _cfg() -> SimpleNamespace:
+def _cfg() -> TopologyConfig:
     # Minimal config object with nested fields used by to_network_sections
-    return SimpleNamespace(
-        traffic=SimpleNamespace(enabled=True, mw_per_dc_region=10.0, gbps_per_mw=100.0),
-        build=SimpleNamespace(tm_sizing=SimpleNamespace(enabled=False)),
+    return TopologyConfig(
+        traffic=TrafficConfig(enabled=True, mw_per_dc_region=10.0, gbps_per_mw=100.0),
+        build=BuildConfig(tm_sizing=BuildTmSizingConfig(enabled=False)),
     )
 
 
-def _tm_sizing_cfg() -> SimpleNamespace:
+def _tm_sizing_cfg() -> TopologyConfig:
     # Config with TM sizing enabled for testing
-    return SimpleNamespace(
-        traffic=SimpleNamespace(
+    return TopologyConfig(
+        traffic=TrafficConfig(
             enabled=True,
             mw_per_dc_region=10.0,
             gbps_per_mw=100.0,
             matrix_name="default",
         ),
-        build=SimpleNamespace(
-            tm_sizing=SimpleNamespace(
+        build=BuildConfig(
+            tm_sizing=BuildTmSizingConfig(
                 enabled=True,
                 quantum_gbps=3200.0,
                 headroom=1.3,
@@ -90,15 +98,15 @@ def test_add_intra_metro_edges_cost_arc() -> None:
             "intra_metro_link": {"capacity": 3200, "cost": 1},
         }
     }
-    gp._add_intra_metro_edges(G, metros, metro_settings, _cfg(), idx_map)
+    gp._add_intra_metro_edges(G, metros, metro_settings, idx_map)
     assert G.number_of_edges() == 3
-    # Longest arc between pop1 and pop3 should be > base cost
+    # Three equally spaced PoPs have the same shortest ring-arc distance.
     data = G.get_edge_data("metro1/pop1", "metro1/pop3")
     any_key = next(iter(data))
     assert data[any_key]["cost"] >= 1
 
 
-def test_add_inter_metro_edges_one_to_one(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_add_inter_metro_edges_one_to_one() -> None:
     G = nx.MultiGraph()
     metros = [
         {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 10.0, "node_key": (0.0, 0.0)},
@@ -115,19 +123,14 @@ def test_add_inter_metro_edges_one_to_one(monkeypatch) -> None:  # type: ignore[
         G.add_node(gp._site_node_id(1, "pop", p), site_kind="pop")
         G.add_node(gp._site_node_id(2, "pop", p), site_kind="pop")
 
-    # Monkeypatch corridor extractor to return a single corridor edge
-    monkeypatch.setattr(
-        gp,
-        "_extract_corridor_edges",
-        lambda graph: [
-            {
-                "source": (0.0, 0.0),
-                "target": (100.0, 0.0),
-                "length_km": 500.0,
-                "edge_type": "corridor",
-                "risk_groups": [],
-            }
-        ],
+    corridors = nx.MultiGraph()
+    corridors.add_edge(
+        (0.0, 0.0),
+        (100.0, 0.0),
+        key=0,
+        length_km=500.0,
+        edge_type="corridor",
+        risk_groups=[],
     )
 
     metro_settings = {
@@ -145,12 +148,11 @@ def test_add_inter_metro_edges_one_to_one(monkeypatch) -> None:  # type: ignore[
     }
     gp._add_inter_metro_edges(
         G,
-        metros,
         metro_settings,
-        nx.Graph(),
-        _cfg(),
+        corridors,
         idx_map,
         {(0.0, 0.0): metros[0], (100.0, 0.0): metros[1]},
+        gp.StripePlanner(get_builtin_blueprints()),
     )
     assert G.number_of_edges() == 2
     for _u, _v, d in G.edges(data=True):
@@ -165,7 +167,25 @@ def test_assign_per_link_capacity_splits_by_expansion() -> None:
     G.add_node(u, site_blueprint="FullMesh4")
     G.add_node(v, site_blueprint="FullMesh4")
     G.add_edge(u, v, key="k1", base_capacity=3200.0, match={})
-    gp.assign_per_link_capacity(G, _cfg())
+    scenario = {
+        "blueprints": get_builtin_blueprints(),
+        "network": {
+            "nodes": {u: {"blueprint": "FullMesh4"}, v: {"blueprint": "FullMesh4"}},
+            "links": [
+                {
+                    "source": u,
+                    "target": v,
+                    "pattern": "one_to_one",
+                    "capacity": 3200.0,
+                    "attrs": {"site_edge": site_edge_id(u, v, "k1")},
+                }
+            ],
+        },
+    }
+    network = resolve_network(G, scenario, {})
+    concrete = [link for link in network.links.values() if "site_edge" in link.attrs]
+    assert len(concrete) == 4
+    assert sum(link.capacity for link in concrete) == 3200.0
     data = G.get_edge_data(u, v)["k1"]
     assert data["capacity"] == 800.0
 
@@ -209,7 +229,10 @@ def test_to_network_sections_serializes_groups_and_adjacency() -> None:
         source_metro="A",
         target_metro="B",
     )
-    groups, adjacency = gp.to_network_sections(G, metros, settings, _cfg())
+    for index, metro in enumerate(metros):
+        metro["name_orig"] = metro["name"]
+        metro["metro_id"] = str(index)
+    groups, adjacency = nw.to_network_sections(G, metros, settings, _cfg())
     assert any(path.endswith("/pop[1-1]") for path in groups)
     assert any(path.endswith("/dc[1-1]") for path in groups)
     assert any(
@@ -295,8 +318,7 @@ def test_tm_sizing_preserves_parallel_edges() -> None:
     }
 
     cfg = _tm_sizing_cfg()
-    with patch("topogen.traffic_matrix.generate_traffic_matrix", return_value=mock_tm):
-        gp.tm_based_size_capacities(G, metros, metro_settings, cfg)
+    sz.tm_based_size_capacities(G, metros, metro_settings, cfg, mock_tm)
 
     corridor_edges = [
         (u, v, k, d)
@@ -383,8 +405,7 @@ def test_tm_sizing_single_edge_baseline() -> None:
     }
 
     cfg = _tm_sizing_cfg()
-    with patch("topogen.traffic_matrix.generate_traffic_matrix", return_value=mock_tm):
-        gp.tm_based_size_capacities(G, metros, metro_settings, cfg)
+    sz.tm_based_size_capacities(G, metros, metro_settings, cfg, mock_tm)
 
     corridor_data = G.get_edge_data("metro1/pop1", "metro2/pop1", "corridor:0")
     assert corridor_data is not None

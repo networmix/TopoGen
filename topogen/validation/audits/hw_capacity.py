@@ -1,51 +1,33 @@
-"""Hardware capacity vs total attached capacity feasibility check."""
+"""Compare total attached link capacity with each declared platform budget."""
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import math
+from collections import defaultdict
+from typing import Any
+
+from ngraph import Network
 
 from ..helpers import _node_hw_from_attrs
 
 
-def check_node_hw_capacity(net: Any, comp_lib: Dict[str, Any]) -> list[str]:
-    """For each node with explicit hardware, ensure attached capacity <= HW capacity.
-
-    Unknown components are skipped here (already reported by node_hw_presence).
-    """
-    issues: list[str] = []
-
-    # Pre-compute total attached capacity per node (sum of incident link capacities)
-    attached: dict[str, float] = {}
+def check_node_hw_capacity(net: Network, comp_lib: dict[str, Any]) -> list[str]:
+    attached: dict[str, float] = defaultdict(float)
     for link in net.links.values():
-        cap = float(getattr(link, "capacity", 0.0) or 0.0)
-        src = str(getattr(link, "source", ""))
-        dst = str(getattr(link, "target", ""))
-        if src:
-            attached[src] = attached.get(src, 0.0) + cap
-        if dst:
-            attached[dst] = attached.get(dst, 0.0) + cap
-
+        attached[link.source] += link.capacity
+        attached[link.target] += link.capacity
+    issues = []
     for node in net.nodes.values():
-        node_name = str(getattr(node, "name", ""))
-        if not node_name:
-            continue
-        comp_name, count = _node_hw_from_attrs(getattr(node, "attrs", {}) or {})
-        if not comp_name or count <= 0.0:
-            continue
-        comp = comp_lib.get(comp_name)
-        if comp is None:
-            # Avoid duplicate reporting; node_hw_presence handles unknown comps.
-            continue
-        hw_cap = float(comp.get("capacity", 0.0)) * float(count)
-        total_attached = float(attached.get(node_name, 0.0))
-        if total_attached > hw_cap + 1e-9:
+        component, count = _node_hw_from_attrs(node.attrs)
+        if component is None or component not in comp_lib:
+            continue  # Presence audit reports unknown references.
+        capacity = float(comp_lib[component]["capacity"]) * count
+        if not math.isfinite(capacity) or capacity < 0:
             issues.append(
-                (
-                    "hardware capacity: node '\n"
-                    f"{node_name}\n' total attached capacity {total_attached:,.0f} "
-                    f"exceeds hardware capacity {hw_cap:,.0f} from component "
-                    f"'{comp_name}' (hw_count={count:g})."
-                ).replace("\n", "")
+                f"hardware capacity: node '{node.name}' has invalid capacity {capacity} from '{component}'"
             )
-
+        elif attached[node.name] > capacity + 1e-9:
+            issues.append(
+                f"hardware capacity: node '{node.name}' total attached capacity {attached[node.name]:,.0f} exceeds hardware capacity {capacity:,.0f} from component '{component}' (hw_count={count:g})."
+            )
     return issues

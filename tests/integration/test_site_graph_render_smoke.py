@@ -18,6 +18,7 @@ def test_export_site_graph_map_smoke(tmp_path: Path) -> None:
         center_y=0.0,
         radius_m=10_000.0,
         metro_idx=1,
+        site_kind="dc",
         metro_name="M1",
     )
     G.add_node(
@@ -28,6 +29,7 @@ def test_export_site_graph_map_smoke(tmp_path: Path) -> None:
         center_y=0.0,
         radius_m=10_000.0,
         metro_idx=1,
+        site_kind="dc",
         metro_name="M1",
     )
     G.add_edge(

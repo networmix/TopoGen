@@ -7,11 +7,11 @@ NetGraph validates step arguments before the library is returned.
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
-import yaml
 from ngraph.workflow.parse import build_workflow_steps
+
+from topogen.library_io import load_user_library
 
 _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
     "design_analysis_brief": [
@@ -52,24 +52,6 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
 }
 
 
-def _load_user_library(file_name: str) -> dict[str, Any]:
-    """Load user workflow library from ``lib/<file_name>`` if present."""
-    lib_path = Path.cwd() / "lib" / file_name
-    if not lib_path.exists():
-        return {}
-
-    try:
-        with lib_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Failed to parse YAML: {lib_path}") from exc
-
-    if not isinstance(data, dict):
-        raise ValueError(f"User library YAML must be a mapping: {lib_path}")
-
-    return data
-
-
 def get_builtin_workflows(
     matrix_name: str = "baseline_traffic_matrix",
 ) -> dict[str, list[dict[str, Any]]]:
@@ -83,7 +65,7 @@ def get_builtin_workflows(
         for step in steps:
             if "demand_set" in step:
                 step["demand_set"] = matrix_name
-    user_workflows = _load_user_library("workflows.yml")
+    user_workflows = load_user_library("workflows.yml")
     workflows.update(user_workflows)
     for name, steps in workflows.items():
         if not isinstance(steps, list) or any(not isinstance(s, dict) for s in steps):

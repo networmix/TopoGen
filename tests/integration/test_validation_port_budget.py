@@ -19,7 +19,10 @@ def _net_for_ports():
         target="B",
         capacity=400.0,
         attrs={
-            "hardware": {"source": {"component": "O"}, "target": {"component": "O"}}
+            "hardware": {
+                "source": {"component": "O", "count": 4},
+                "target": {"component": "O", "count": 4},
+            }
         },
     )
     net = SimpleNamespace(nodes={"A": nA, "B": nB}, links={"l1": l1})
@@ -28,16 +31,14 @@ def _net_for_ports():
 
 def test_audit_port_budget_no_issue_when_ports_sufficient():
     net = _net_for_ports()
-    scenario = {"components": {"optics": {"core|core": "O"}}}
     comp_lib = {"P": {"ports": 8}, "O": {"capacity": 100, "ports": 1}}
-    issues = audit_port_budget(net, scenario, comp_lib)
+    issues = audit_port_budget(net, comp_lib)
     assert issues == []
 
 
 def test_audit_port_budget_detects_shortage():
     net = _net_for_ports()
-    scenario = {"components": {"optics": {"core|core": "O"}}}
     # Only 2 ports available per node → shortage (need 4)
     comp_lib = {"P": {"ports": 2}, "O": {"capacity": 100, "ports": 1}}
-    issues = audit_port_budget(net, scenario, comp_lib)
+    issues = audit_port_budget(net, comp_lib)
     assert issues and "requires 4 ports" in issues[0]

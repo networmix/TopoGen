@@ -17,8 +17,18 @@ class TestCorridorDiscovery:
         graph = nx.Graph()
 
         # Highway path: A --- B --- C
-        graph.add_edge((0.0, 0.0), (500.0, 0.0), length_km=500.0)
-        graph.add_edge((500.0, 0.0), (1000.0, 0.0), length_km=500.0)
+        graph.add_edge(
+            (0.0, 0.0),
+            (500.0, 0.0),
+            length_km=500.0,
+            geometry=[(0.0, 0.0), (500.0, 0.0)],
+        )
+        graph.add_edge(
+            (500.0, 0.0),
+            (1000.0, 0.0),
+            length_km=500.0,
+            geometry=[(500.0, 0.0), (1000.0, 0.0)],
+        )
 
         metros = [
             MetroCluster("metro1", "metro-a", "Metro A", "001", 100.0, 0.0, 0.0, 25.0),
@@ -47,6 +57,7 @@ class TestCorridorDiscovery:
                 anchor_point,
                 edge_type="metro_anchor",
                 length_km=0.0,
+                geometry=[metro.node_key, anchor_point],
             )
 
         config = CorridorsConfig()
@@ -71,8 +82,18 @@ class TestCorridorDiscovery:
 
     def test_corridor_discovery_no_path(self):
         graph = nx.Graph()
-        graph.add_edge((0.0, 0.0), (100.0, 0.0), length_km=100.0)
-        graph.add_edge((2000.0, 0.0), (2100.0, 0.0), length_km=100.0)  # Disconnected
+        graph.add_edge(
+            (0.0, 0.0),
+            (100.0, 0.0),
+            length_km=100.0,
+            geometry=[(0.0, 0.0), (100.0, 0.0)],
+        )
+        graph.add_edge(
+            (2000.0, 0.0),
+            (2100.0, 0.0),
+            length_km=100.0,
+            geometry=[(2000.0, 0.0), (2100.0, 0.0)],
+        )  # Disconnected
 
         metros = [
             MetroCluster("metro1", "metro-a", "Metro A", "001", 100.0, 0.0, 0.0, 25.0),
@@ -98,6 +119,7 @@ class TestCorridorDiscovery:
                 anchor_point,
                 edge_type="metro_anchor",
                 length_km=0.0,
+                geometry=[metro.node_key, anchor_point],
             )
 
         config = CorridorsConfig()
@@ -118,7 +140,7 @@ class TestCorridorDiscovery:
         for i in range(10):
             start = (i * 500000.0, 0.0)  # 500km intervals in EPSG:5070 meters
             end = ((i + 1) * 500000.0, 0.0)
-            graph.add_edge(start, end, length_km=500.0)
+            graph.add_edge(start, end, length_km=500.0, geometry=[start, end])
 
         metros = [
             MetroCluster("metro1", "metro-a", "Metro A", "001", 100.0, 0.0, 0.0, 25.0),
@@ -144,6 +166,7 @@ class TestCorridorDiscovery:
                 anchor_point,
                 edge_type="metro_anchor",
                 length_km=0.0,
+                geometry=[metro.node_key, anchor_point],
             )
 
         config = CorridorsConfig()
@@ -159,12 +182,32 @@ class TestCorridorDiscovery:
         graph = nx.Graph()
 
         # Path 1: A --- B --- D
-        graph.add_edge((0.0, 0.0), (500.0, 100.0), length_km=510.0)
-        graph.add_edge((500.0, 100.0), (1000.0, 0.0), length_km=510.0)
+        graph.add_edge(
+            (0.0, 0.0),
+            (500.0, 100.0),
+            length_km=510.0,
+            geometry=[(0.0, 0.0), (500.0, 100.0)],
+        )
+        graph.add_edge(
+            (500.0, 100.0),
+            (1000.0, 0.0),
+            length_km=510.0,
+            geometry=[(500.0, 100.0), (1000.0, 0.0)],
+        )
 
         # Path 2: A --- C --- D (shorter)
-        graph.add_edge((0.0, 0.0), (500.0, -100.0), length_km=510.0)
-        graph.add_edge((500.0, -100.0), (1000.0, 0.0), length_km=510.0)
+        graph.add_edge(
+            (0.0, 0.0),
+            (500.0, -100.0),
+            length_km=510.0,
+            geometry=[(0.0, 0.0), (500.0, -100.0)],
+        )
+        graph.add_edge(
+            (500.0, -100.0),
+            (1000.0, 0.0),
+            length_km=510.0,
+            geometry=[(500.0, -100.0), (1000.0, 0.0)],
+        )
 
         metros = [
             MetroCluster("metro1", "metro-a", "Metro A", "001", 100.0, 0.0, 0.0, 25.0),
@@ -190,6 +233,7 @@ class TestCorridorDiscovery:
                 anchor_point,
                 edge_type="metro_anchor",
                 length_km=0.0,
+                geometry=[metro.node_key, anchor_point],
             )
 
         config = CorridorsConfig()
@@ -220,8 +264,8 @@ class TestCorridorDiscovery:
         B = (60000.0, 80000.0)  # detour up (arbitrary coords, units in meters)
         C = (100000.0, 0.0)
 
-        graph.add_edge(A, B, length_km=100.0)
-        graph.add_edge(B, C, length_km=100.0)
+        graph.add_edge(A, B, length_km=100.0, geometry=[A, B])
+        graph.add_edge(B, C, length_km=100.0, geometry=[B, C])
 
         metros = [
             MetroCluster(
@@ -250,6 +294,7 @@ class TestCorridorDiscovery:
                 anchor_point,
                 edge_type="metro_anchor",
                 length_km=0.0,
+                geometry=[metro.node_key, anchor_point],
             )
 
         config = CorridorsConfig()
@@ -289,8 +334,8 @@ class TestCorridorDiscovery:
         B = (400000.0, 300000.0)  # arbitrary detour coordinate (meters)
         C = (800000.0, 0.0)
 
-        graph.add_edge(A, B, length_km=600.0)
-        graph.add_edge(B, C, length_km=600.0)
+        graph.add_edge(A, B, length_km=600.0, geometry=[A, B])
+        graph.add_edge(B, C, length_km=600.0, geometry=[B, C])
 
         metros = [
             MetroCluster(
@@ -319,6 +364,7 @@ class TestCorridorDiscovery:
                 anchor_point,
                 edge_type="metro_anchor",
                 length_km=0.0,
+                geometry=[metro.node_key, anchor_point],
             )
 
         # Euclidean ~800 km; path = 1200 km
@@ -349,6 +395,7 @@ class TestCorridorGraphExtraction:
             x=100.0,
             y=200.0,
             radius_km=25.0,
+            name_orig="metro-a",
         )
         full_graph.add_node(
             metro2_coords,
@@ -358,6 +405,7 @@ class TestCorridorGraphExtraction:
             x=200.0,
             y=300.0,
             radius_km=25.0,
+            name_orig="metro-b",
         )
 
         full_graph.add_edge(
@@ -373,6 +421,7 @@ class TestCorridorGraphExtraction:
                 }
             ],
             risk_groups=["corridor_risk_metro-a_metro-b"],
+            geometry=[(150.0, 220.0), (180.0, 280.0)],
         )
 
         metros = [
@@ -380,21 +429,16 @@ class TestCorridorGraphExtraction:
             MetroCluster("002", "metro-b", "Metro B", "002", 100.0, 200.0, 300.0, 25.0),
         ]
 
-        # Populate corridor path registry and tag edges with path id
+        # Populate the corridor path registry.
         path_id = ("001", "002", 0)
         full_graph.graph["corridor_paths"] = {
             path_id: CorridorPath(
-                metros=("001", "002"),
-                path_index=0,
-                nodes=[metro1_coords, metro2_coords],
-                edges=[(metro1_coords, metro2_coords)],
+                edges=[((150.0, 220.0), (180.0, 280.0))],
                 segment_ids=[],
                 length_km=141.4,
                 geometry=[metro1_coords, metro2_coords],
             )
         }
-        e = full_graph[(150.0, 220.0)][(180.0, 280.0)]
-        e["corridor_path_ids"] = {path_id}
 
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
@@ -404,7 +448,7 @@ class TestCorridorGraphExtraction:
 
         assert len(corridor_graph.edges) == 1
 
-        edge_data = corridor_graph[metro1_coords][metro2_coords]
+        edge_data = corridor_graph[metro1_coords][metro2_coords][0]
         assert edge_data["edge_type"] == "corridor"
         assert edge_data["length_km"] == 141.4
         assert edge_data["metro_a"] == "001"
@@ -419,17 +463,25 @@ class TestCorridorGraphExtraction:
         # With length_km=141.4 and euclidean_km≈0.1414, detour ratio ≈ 1000
         assert 900 < edge_data["detour_ratio"] < 1100
 
-    def test_corridor_graph_aggregates_shortest_distance(self):
+    def test_corridor_graph_preserves_all_distances(self):
         full_graph = nx.Graph()
 
         metro1_coords = (0.0, 0.0)
         metro2_coords = (100.0, 100.0)
 
         full_graph.add_node(
-            metro1_coords, node_type="metro", name="metro1", metro_id="001"
+            metro1_coords,
+            node_type="metro",
+            name="metro1",
+            metro_id="001",
+            name_orig="metro1",
         )
         full_graph.add_node(
-            metro2_coords, node_type="metro", name="metro2", metro_id="002"
+            metro2_coords,
+            node_type="metro",
+            name="metro2",
+            metro_id="002",
+            name_orig="metro2",
         )
 
         full_graph.add_edge(
@@ -466,31 +518,24 @@ class TestCorridorGraphExtraction:
         pid_long = ("001", "002", 0)
         pid_short = ("001", "002", 1)
         reg[pid_long] = CorridorPath(
-            metros=("001", "002"),
-            path_index=0,
-            nodes=[metro1_coords, metro2_coords],
             edges=[((10.0, 10.0), (20.0, 20.0))],
             segment_ids=[],
             length_km=150.0,
             geometry=[metro1_coords, metro2_coords],
         )
         reg[pid_short] = CorridorPath(
-            metros=("001", "002"),
-            path_index=1,
-            nodes=[metro1_coords, metro2_coords],
             edges=[((30.0, 30.0), (40.0, 40.0))],
             segment_ids=[],
             length_km=120.0,
             geometry=[metro1_coords, metro2_coords],
         )
         full_graph.graph["corridor_paths"] = reg
-        full_graph[(10.0, 10.0)][(20.0, 20.0)]["corridor_path_ids"] = {pid_long}
-        full_graph[(30.0, 30.0)][(40.0, 40.0)]["corridor_path_ids"] = {pid_short}
 
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
-        edge_data = corridor_graph[metro1_coords][metro2_coords]
-        assert edge_data["length_km"] == 120.0  # Shorter distance
+        edge_data = corridor_graph[metro1_coords][metro2_coords][0]
+        assert edge_data["length_km"] == 150.0
+        assert corridor_graph[metro1_coords][metro2_coords][1]["length_km"] == 120.0
 
     def test_corridor_graph_preserves_risk_groups(self):
         full_graph = nx.Graph()
@@ -499,10 +544,18 @@ class TestCorridorGraphExtraction:
         metro2_coords = (100.0, 100.0)
 
         full_graph.add_node(
-            metro1_coords, node_type="metro", name="metro1", metro_id="001"
+            metro1_coords,
+            node_type="metro",
+            name="metro1",
+            metro_id="001",
+            name_orig="metro1",
         )
         full_graph.add_node(
-            metro2_coords, node_type="metro", name="metro2", metro_id="002"
+            metro2_coords,
+            node_type="metro",
+            name="metro2",
+            metro_id="002",
+            name_orig="metro2",
         )
 
         full_graph.add_edge(
@@ -540,21 +593,16 @@ class TestCorridorGraphExtraction:
         pid = ("001", "002", 0)
         full_graph.graph["corridor_paths"] = {
             pid: CorridorPath(
-                metros=("001", "002"),
-                path_index=0,
-                nodes=[metro1_coords, metro2_coords],
                 edges=[((10.0, 10.0), (20.0, 20.0)), ((30.0, 30.0), (40.0, 40.0))],
                 segment_ids=[],
                 length_km=100.0,
                 geometry=[metro1_coords, metro2_coords],
             )
         }
-        full_graph[(10.0, 10.0)][(20.0, 20.0)]["corridor_path_ids"] = {pid}
-        full_graph[(30.0, 30.0)][(40.0, 40.0)]["corridor_path_ids"] = {pid}
 
         corridor_graph = extract_corridor_graph(full_graph, metros)
 
-        edge_data = corridor_graph[metro1_coords][metro2_coords]
+        edge_data = corridor_graph[metro1_coords][metro2_coords][0]
         risk_groups = set(edge_data["risk_groups"])
         expected_risk_groups = {
             "corridor_risk_metro1_metro2",

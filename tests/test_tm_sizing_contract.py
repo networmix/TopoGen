@@ -1,7 +1,6 @@
 """Traffic sizing must preserve directional load and NetGraph demand semantics."""
 
 import math
-from unittest.mock import patch
 
 import networkx as nx
 import pytest
@@ -10,8 +9,9 @@ from ngraph.analysis.demand import expand_demands
 from ngraph.model.demand.builder import build_demand_set
 
 from topogen.config import TopologyConfig
-from topogen.scenario.graph_pipeline import tm_based_size_capacities
-from topogen.scenario.traffic import _build_traffic_matrix_section
+from topogen.scenario.sizing import tm_based_size_capacities
+from topogen.scenario.traffic import to_demand_sets
+from topogen.traffic_matrix import generate_traffic_matrix
 
 
 def _inputs(base_capacity=1.0):
@@ -55,11 +55,7 @@ def test_capacity_covers_both_directions(respect_min, base, expected):
         {"source_path": "^metro1/dc1", "sink_path": "^metro2/dc1", "demand": 1000.0},
         {"source_path": "^metro2/dc1", "sink_path": "^metro1/dc1", "demand": 100.0},
     ]
-    with patch(
-        "topogen.traffic_matrix.generate_traffic_matrix",
-        return_value={"default": demands},
-    ):
-        tm_based_size_capacities(graph, metros, settings, config)
+    tm_based_size_capacities(graph, metros, settings, config, {"default": demands})
     edge = graph["metro1/pop1"]["metro2/pop1"]["corridor"]
     assert edge["base_capacity"] == expected
     assert edge["target_capacity"] == expected
@@ -76,7 +72,7 @@ def test_uniform_sizing_matches_netgraph_pairwise_expansion(dc_counts):
         for dc in range(1, count + 1):
             network.add_node(Node(f"metro{metro}/dc{dc}/dc"))
     demand_set = build_demand_set(
-        _build_traffic_matrix_section(metros, settings, config)
+        to_demand_sets(generate_traffic_matrix(metros, settings, config))
     )
     expanded = expand_demands(network, demand_set.get_set("default"))
     # NetGraph divides the volume among all ordered, distinct DC pairs;
@@ -87,7 +83,13 @@ def test_uniform_sizing_matches_netgraph_pairwise_expansion(dc_counts):
         if d.src_name.startswith("metro1/") and d.dst_name.startswith("metro2/")
     )
     assert expected > 0
-    tm_based_size_capacities(graph, metros, settings, config)
+    tm_based_size_capacities(
+        graph,
+        metros,
+        settings,
+        config,
+        generate_traffic_matrix(metros, settings, config),
+    )
     assert graph["metro1/pop1"]["metro2/pop1"]["corridor"][
         "base_capacity"
     ] == math.ceil(expected)
@@ -96,12 +98,8 @@ def test_uniform_sizing_matches_netgraph_pairwise_expansion(dc_counts):
 def test_unknown_sizing_selector_is_not_silently_dropped():
     graph, metros, settings, config = _inputs()
     demands = [{"source_path": "unknown", "sink_path": "^metro2/dc1", "demand": 100.0}]
-    with patch(
-        "topogen.traffic_matrix.generate_traffic_matrix",
-        return_value={"default": demands},
-    ):
-        with pytest.raises(ValueError, match="unsupported.*endpoint"):
-            tm_based_size_capacities(graph, metros, settings, config)
+    with pytest.raises(ValueError, match="unsupported.*endpoint"):
+        tm_based_size_capacities(graph, metros, settings, config, {"default": demands})
 
 
 def test_sizing_preserves_corridors_between_distinct_pop_pairs():
@@ -114,5 +112,52 @@ def test_sizing_preserves_corridors_between_distinct_pop_pairs():
         key="corridor",
         **graph["metro1/pop1"]["metro2/pop1"]["corridor"],
     )
-    tm_based_size_capacities(graph, metros, settings, config)
+    tm_based_size_capacities(
+        graph,
+        metros,
+        settings,
+        config,
+        generate_traffic_matrix(metros, settings, config),
+    )
     assert [data["base_capacity"] for _, _, data in graph.edges(data=True)] == [5, 5]
+
+
+def test_uniform_volume_is_shared_between_dc_sites_not_devices():
+    _, metros, settings, config = _inputs()
+    network = Network()
+    for site, count in (("metro1/dc1", 1), ("metro1/dc2", 2), ("metro2/dc1", 3)):
+        for index in range(count):
+            network.add_node(Node(f"{site}/r{index}"))
+    demands = build_demand_set(
+        to_demand_sets(generate_traffic_matrix(metros, settings, config))
+    )
+    expanded = expand_demands(network, demands.get_set("default")).demands
+    outgoing = {}
+    for demand in expanded:
+        source = demand.src_name.rsplit("/", 1)[0]
+        target = demand.dst_name.rsplit("/", 1)[0]
+        assert source != target
+        outgoing[source] = outgoing.get(source, 0) + demand.volume
+    assert outgoing == pytest.approx(
+        {"metro1/dc1": 10, "metro1/dc2": 10, "metro2/dc1": 10}
+    )
+
+
+@pytest.mark.parametrize(
+    "source", ["^metro1garbage", "^metro1/dc0", "^metro1/dc1|metro2/dc1"]
+)
+def test_sizing_rejects_partial_endpoint_matches(source):
+    graph, metros, settings, config = _inputs()
+    demands = [{"source_path": source, "sink_path": "^metro2/dc1", "demand": 10}]
+    with pytest.raises(ValueError, match="unsupported.*endpoint"):
+        tm_based_size_capacities(graph, metros, settings, config, {"default": demands})
+
+
+@pytest.mark.parametrize("volume", [-1, float("nan"), float("inf")])
+def test_sizing_rejects_invalid_demand_volume(volume):
+    graph, metros, settings, config = _inputs()
+    demands = [
+        {"source_path": "^metro1/dc1", "sink_path": "^metro2/dc1", "demand": volume}
+    ]
+    with pytest.raises(ValueError, match="finite non-negative"):
+        tm_based_size_capacities(graph, metros, settings, config, {"default": demands})

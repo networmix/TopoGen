@@ -1,3 +1,5 @@
-"""Scenario-building subpackage."""
+"""Build NetGraph scenarios from corridor multigraphs."""
 
-from __future__ import annotations
+from .assembly import build_scenario
+
+__all__ = ["build_scenario"]

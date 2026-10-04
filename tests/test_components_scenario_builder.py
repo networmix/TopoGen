@@ -6,7 +6,7 @@ from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import (
     TopologyConfig,
 )
-from topogen.scenario_builder import (
+from topogen.scenario.libraries import (
     _build_blueprints_section,
     _build_components_section,
 )
@@ -22,10 +22,11 @@ class TestComponentsScenarioBuilder:
             "dc": "CoreRouter",
         }
         config.components.optics = {
-            "core-core": "800G-ZR+",
-            # Add a couple to exercise inclusion; actual adjacency tests are elsewhere
-            "leaf-spine": "800G-DR4",
-            "spine-leaf": "1600G-2xDR4",
+            "core->core": "800G-ZR+",
+            "leaf->spine": "800G-DR4",
+            "spine->leaf": "800G-DR4",
+            "core->leaf": "1600G-2xDR4",
+            "leaf->core": "1600G-2xDR4",
         }
         return config
 
@@ -33,7 +34,9 @@ class TestComponentsScenarioBuilder:
         config = self.create_test_config()
         used_blueprints = {"SingleRouter", "FullMesh4"}
 
-        components = _build_components_section(config, used_blueprints)
+        components = _build_components_section(
+            config, _build_blueprints_section(used_blueprints, config)
+        )
 
         assert isinstance(components, dict)
         assert len(components) > 0
@@ -56,7 +59,9 @@ class TestComponentsScenarioBuilder:
         assert clos_name is not None, "No Clos-style blueprint found"
         used_blueprints = {clos_name}
 
-        components = _build_components_section(config, used_blueprints)
+        components = _build_components_section(
+            config, _build_blueprints_section(used_blueprints, config)
+        )
 
         assert isinstance(components, dict)
         assert "CoreRouter" in components
@@ -77,7 +82,9 @@ class TestComponentsScenarioBuilder:
         )
         assert clos_name is not None, "No Clos-style blueprint found"
         used_blueprints = {clos_name}
-        components = _build_components_section(config, used_blueprints)
+        components = _build_components_section(
+            config, _build_blueprints_section(used_blueprints, config)
+        )
         assert "CoreRouter" in components
 
     def test_build_components_section_missing_component_warning(self):
@@ -85,10 +92,12 @@ class TestComponentsScenarioBuilder:
 
         config.components.hw_component["spine"] = "NonExistentChassis"
 
-        used_blueprints = {"Clos_64_256"}
+        used_blueprints = {"SingleRouter"}
 
-        components = _build_components_section(config, used_blueprints)
-        assert isinstance(components, dict)
+        with pytest.raises(ValueError, match="Unknown components"):
+            _build_components_section(
+                config, _build_blueprints_section(used_blueprints, config)
+            )
 
     def test_build_blueprints_section_basic(self):
         config = self.create_test_config()
@@ -191,7 +200,9 @@ class TestComponentsScenarioBuilder:
         config = self.create_test_config()
 
         used_blueprints = {"SingleRouter"}
-        components = _build_components_section(config, used_blueprints)
+        components = _build_components_section(
+            config, _build_blueprints_section(used_blueprints, config)
+        )
 
         assert "UnusedChassis1" not in components
         assert "UnusedChassis2" not in components
@@ -204,7 +215,9 @@ class TestComponentsScenarioBuilder:
         config = self.create_test_config()
         used_blueprints = set()
 
-        components = _build_components_section(config, used_blueprints)
+        components = _build_components_section(
+            config, _build_blueprints_section(used_blueprints, config)
+        )
         blueprints = _build_blueprints_section(used_blueprints, config)
 
         assert isinstance(components, dict)

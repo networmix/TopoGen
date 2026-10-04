@@ -5,14 +5,17 @@ These tests avoid heavy I/O by stubbing subcommand functions and log setup.
 
 from __future__ import annotations
 
-import builtins as py_builtins
 import importlib
 import logging
 from argparse import Namespace
+from contextlib import ExitStack
+from functools import partial
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 
 def _invoke_main(argv: list[str], *, stub_subcommand: bool = False):
@@ -27,64 +30,38 @@ def _invoke_main(argv: list[str], *, stub_subcommand: bool = False):
     called: dict[str, bool] = {"build": False, "generate": False, "info": False}
     level_holder: dict[str, int | None] = {"level": None}
 
-    def _noop_cmd(_args):  # type: ignore[no-untyped-def]
-        print("noop")
-
-    patchers = []
-
-    patchers.append(
-        patch(
-            "topogen.log_config.set_global_log_level",
-            side_effect=lambda lvl: level_holder.__setitem__("level", lvl),
-        )
-    )
-
-    if stub_subcommand:
-        patchers.extend(
-            [
-                patch.object(
-                    cli,
-                    "build_command",
-                    side_effect=lambda a: called.__setitem__("build", True),
-                ),
-                patch.object(
-                    cli,
-                    "generate_command",
-                    side_effect=lambda a: called.__setitem__("generate", True),
-                ),
-                patch.object(
-                    cli,
-                    "info_command",
-                    side_effect=lambda a: called.__setitem__("info", True),
-                ),
-            ]
-        )
-
-    for p in patchers:
-        p.start()
+    def record(command, _args):
+        called[command] = True
+        print("stub command output")
 
     out = SimpleNamespace(code=0, stdout="", called=None, level=None)
-    saved_print = py_builtins.print
-    try:
-        with (
-            patch("sys.stdout", new_callable=StringIO) as buf,
-            patch("sys.argv", ["topogen"] + argv),
-        ):
-            try:
-                cli.main()
-            except SystemExit as e:
-                out.code = int(getattr(e, "code", 0) or 0)
-            out.stdout = buf.getvalue()
-            out.level = level_holder["level"]
-            for name, was_called in called.items():
-                if was_called:
-                    out.called = name
-                    break
-    finally:
-        # Restore global print in case --quiet modified it
-        py_builtins.print = saved_print
-        for p in reversed(patchers):
-            p.stop()
+    with (
+        ExitStack() as patches,
+        patch("sys.stdout", new_callable=StringIO) as buf,
+        patch("sys.argv", ["topogen"] + argv),
+    ):
+        patches.enter_context(
+            patch(
+                "topogen.log_config.set_global_log_level",
+                side_effect=lambda lvl: level_holder.__setitem__("level", lvl),
+            )
+        )
+        if stub_subcommand:
+            for command in called:
+                patches.enter_context(
+                    patch.object(
+                        cli, f"{command}_command", side_effect=partial(record, command)
+                    )
+                )
+        try:
+            cli.main()
+        except SystemExit as exc:
+            out.code = exc.code
+        out.stdout = buf.getvalue()
+        out.level = level_holder["level"]
+        out.called = next(
+            (name for name, was_called in called.items() if was_called), None
+        )
 
     return out
 
@@ -107,8 +84,13 @@ def test_default_log_level_is_info():
 
 
 def test_quiet_suppresses_print_output():
-    res = _invoke_main(["--quiet", "info", "-c", "config.yml"], stub_subcommand=True)
+    res = _invoke_main(["--quiet", "info", "config.yml"], stub_subcommand=True)
+    assert res.code == 0
+    assert res.called == "info"
     assert res.stdout == ""
+    visible = _invoke_main(["info", "config.yml"], stub_subcommand=True)
+    assert visible.code == 0
+    assert "stub command output" in visible.stdout
 
 
 def test_subcommand_dispatch_build_generate_info():
@@ -126,44 +108,33 @@ def test_timer_context_manager_success_and_error():
         s = buf.getvalue()
         assert "Unit test op" in s
 
-    with patch("sys.stdout", new_callable=StringIO):
-        try:
-            with Timer("Failing op"):
-                raise RuntimeError("boom")
-        except RuntimeError:
-            pass
+    with (
+        patch("sys.stdout", new_callable=StringIO) as buf,
+        pytest.raises(RuntimeError, match="boom"),
+        Timer("Failing op"),
+    ):
+        raise RuntimeError("boom")
+    assert "failed after" in buf.getvalue()
 
 
 def test__load_config_file_not_found_exits_with_code_2(tmp_path):
     from topogen.cli import _load_config
 
-    with patch("sys.stdout", new_callable=StringIO):
-        pass
-
     missing = tmp_path / "does_not_exist.yml"
-    with patch(
-        "sys.exit", side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code))
-    ) as _:
-        try:
-            _load_config(missing)
-        except SystemExit as e:
-            assert int(e.code or 0) == 2
+    with pytest.raises(SystemExit) as exc:
+        _load_config(missing)
+    assert exc.value.code == 2
 
 
 def test__load_config_generic_error_exits_with_code_2():
     import topogen.cli as cli
 
-    importlib.reload(cli)
-
-    with patch.object(cli.TopologyConfig, "from_yaml", side_effect=ValueError("bad")):
-        with patch(
-            "sys.exit",
-            side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code)),
-        ):
-            try:
-                cli._load_config(Path("config.yml"))  # type: ignore[name-defined]
-            except SystemExit as e:  # noqa: F841
-                assert int(e.code or 0) == 2
+    with (
+        patch.object(cli.TopologyConfig, "from_yaml", side_effect=ValueError("bad")),
+        pytest.raises(SystemExit) as exc,
+    ):
+        cli._load_config(Path("config.yml"))
+    assert exc.value.code == 2
 
 
 def test_build_command_success_print_and_non_print():
@@ -176,7 +147,12 @@ def test_build_command_success_print_and_non_print():
         patch.object(cli, "_run_pipeline", return_value="YAML"),
         patch("sys.stdout", new_callable=StringIO) as buf,
     ):
-        args = Namespace(config="config.yml", output="config_scenario.yml", print=True)
+        args = Namespace(
+            config="config.yml",
+            output="config_scenario.yml",
+            print=True,
+            debug_dir=None,
+        )
         cli.build_command(args)
         out = buf.getvalue()
         assert "GENERATED SCENARIO YAML" in out
@@ -187,7 +163,12 @@ def test_build_command_success_print_and_non_print():
         patch.object(cli, "_run_pipeline", return_value="YAML"),
         patch("sys.stdout", new_callable=StringIO) as buf,
     ):
-        args = Namespace(config="config.yml", output="config_scenario.yml", print=False)
+        args = Namespace(
+            config="config.yml",
+            output="config_scenario.yml",
+            print=False,
+            debug_dir=None,
+        )
         cli.build_command(args)
         out = buf.getvalue()
         assert "SUCCESS! Generated topology" in out
@@ -206,40 +187,26 @@ def test_build_command_failure_exit_codes():
         ]:
             with (
                 patch.object(cli, "_run_pipeline", side_effect=exc),
-                patch(
-                    "sys.exit",
-                    side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code)),
-                ) as _,
+                pytest.raises(SystemExit) as error,
             ):
-                try:
-                    cli.build_command(
-                        Namespace(config="c.yml", output="o.yaml", print=False)
+                cli.build_command(
+                    Namespace(
+                        config="c.yml", output="o.yaml", print=False, debug_dir=None
                     )
-                except SystemExit as e:
-                    assert int(e.code or 0) == expected
+                )
+            assert error.value.code == expected
 
 
-def test__run_pipeline_missing_integrated_graph_exits_1():
+def test_run_pipeline_missing_integrated_graph(tmp_path):
+    from topogen import RunContext, TopologyConfig
     from topogen.cli import _run_pipeline
 
-    with patch(
-        "sys.exit", side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code))
-    ):
-        # Force the integrated graph sentinel to be treated as missing regardless of repo state
-        original_exists = Path.exists
-
-        def fake_exists(self: Path) -> bool:  # type: ignore[no-redef]
-            if str(self).endswith("_integrated_graph.json"):
-                return False
-            return original_exists(self)
-
-        with patch("pathlib.Path.exists", new=fake_exists):
-            try:
-                # Provide a minimal TopologyConfig-like object with _source_path used by _run_pipeline
-                fake_cfg = Namespace(_source_path=Path("config.yml"))
-                _run_pipeline(fake_cfg, Path("config_scenario.yml"), print_yaml=False)  # type: ignore[name-defined]
-            except SystemExit as e:
-                assert int(e.code or 0) == 1
+    with pytest.raises(FileNotFoundError, match="Run topogen generate first"):
+        _run_pipeline(
+            TopologyConfig(),
+            tmp_path / "scenario.yml",
+            context=RunContext(tmp_path, "config"),
+        )
 
 
 def test_generate_command_success_and_failure():
@@ -251,20 +218,15 @@ def test_generate_command_success_and_failure():
         patch.object(cli, "_load_config", return_value=Namespace()),
         patch.object(cli, "_run_generation", return_value=None),
     ):
-        cli.generate_command(Namespace(config="config.yml"))
+        cli.generate_command(Namespace(config="config.yml", output=None))
 
     with (
         patch.object(cli, "_load_config", return_value=Namespace()),
         patch.object(cli, "_run_generation", side_effect=RuntimeError("boom")),
-        patch(
-            "sys.exit",
-            side_effect=lambda code=0: (_ for _ in ()).throw(SystemExit(code)),
-        ),
+        pytest.raises(SystemExit) as exc,
     ):
-        try:
-            cli.generate_command(Namespace(config="config.yml"))
-        except SystemExit as e:
-            assert int(e.code or 0) == 1
+        cli.generate_command(Namespace(config="config.yml", output=None))
+    assert exc.value.code == 1
 
 
 def test_info_command_prints_status(tmp_path):
@@ -278,7 +240,11 @@ def test_info_command_prints_status(tmp_path):
     # tiger intentionally missing
 
     fake_cfg = Namespace(
-        data_sources=Namespace(uac_polygons=str(uac), tiger_roads=str(tiger)),
+        data_sources=Namespace(
+            uac_polygons=str(uac),
+            tiger_roads=str(tiger),
+            conus_boundary=str(tmp_path / "boundary.zip"),
+        ),
         projection=Namespace(target_crs="EPSG:5070"),
         clustering=Namespace(metro_clusters=1),
     )
@@ -287,7 +253,7 @@ def test_info_command_prints_status(tmp_path):
         patch.object(cli, "_load_config", return_value=fake_cfg),
         patch("sys.stdout", new_callable=StringIO) as buf,
     ):
-        cli.info_command(Namespace(config="config.yml"))
+        cli.info_command(Namespace(config="config.yml", output=None))
         out = buf.getvalue()
         assert "TopoGen Configuration" in out
         assert "UAC polygons:" in out

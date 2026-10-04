@@ -1,52 +1,25 @@
-from __future__ import annotations
-
 from pathlib import Path
+
+from ngraph import Link, Network, Node
 
 from topogen.visualization import export_blueprint_diagram
 
 
-class _Node:
-    def __init__(self, name: str) -> None:
-        self.name = name
-
-
-class _Link:
-    def __init__(self, src, dst, cap: float) -> None:
-        self.source = src
-        self.target = dst
-        self.capacity = cap
-
-
-def _make_stub_net():
-    class _Net:
-        pass
-
-    net = _Net()
-    net.nodes = {
-        1: _Node("metro1/dc1/A1"),
-        2: _Node("metro1/dc1/B1"),
-        3: _Node("metro2/dc3/X1"),
-    }
-    net.links = {
-        1: _Link(net.nodes[1], net.nodes[2], 10.0),
-        2: _Link(net.nodes[1], net.nodes[3], 20.0),
-    }
-    return net
-
-
 def test_export_blueprint_diagram_smoke(tmp_path: Path) -> None:
-    # One intra-group mesh and one inter-group link.
-    bp = {
-        "nodes": {
-            "G1": {"count": 2},
-            "G2": {"count": 1},
-        },
-        "links": [
-            {"source": "G1", "target": "G1", "pattern": "mesh"},
-            {"source": "G1", "target": "G2", "pattern": "uplink"},
-        ],
-    }
-    net = _make_stub_net()
-    out = tmp_path / "bp.jpg"
-    export_blueprint_diagram("UnitBP", bp, net, "metro1/dc1", out)
-    assert out.exists() and out.stat().st_size > 1000
+    network = Network()
+    for name in (
+        "metro1/dc1/a/r1",
+        "metro1/dc1/a/r2",
+        "metro1/dc1/b/r1",
+        "metro2/dc1/c/r1",
+    ):
+        network.add_node(Node(name, attrs={"role": "core"}))
+    for source, target in (
+        ("metro1/dc1/a/r1", "metro1/dc1/a/r2"),
+        ("metro1/dc1/a/r1", "metro1/dc1/b/r1"),
+        ("metro1/dc1/a/r1", "metro2/dc1/c/r1"),
+    ):
+        network.add_link(Link(source, target, capacity=10))
+    output = tmp_path / "bp.jpg"
+    export_blueprint_diagram("UnitBP", network, "metro1/dc1", output)
+    assert output.exists() and output.stat().st_size > 1000

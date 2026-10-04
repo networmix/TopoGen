@@ -2,16 +2,18 @@
 
 import math
 import tempfile
+from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 import pytest
+import yaml
 from shapely.geometry import Polygon
 
-from topogen.config import ClusteringConfig, FormattingConfig
+from topogen.config import ClusteringConfig
+from topogen.context import RunContext
 from topogen.metro_clusters import MetroCluster, load_metro_clusters
 
 
@@ -27,19 +29,6 @@ class TestMetroCluster:
             centroid_x=586515.2,
             centroid_y=4506242.8,
             radius_km=53.4,
-        )
-
-    @pytest.fixture
-    def another_cluster(self):
-        return MetroCluster(
-            metro_id="51445",
-            name="los-angeles--long-beach--anaheim",
-            name_orig="Los Angeles--Long Beach--Anaheim, CA",
-            uac_code="51445",
-            land_area_km2=4850.3,
-            centroid_x=-2056789.1,
-            centroid_y=3926233.5,
-            radius_km=39.3,
         )
 
     def test_cluster_creation(self, sample_cluster):
@@ -61,61 +50,6 @@ class TestMetroCluster:
         assert coords == (586515.2, 4506242.8)
         assert isinstance(coords, tuple)
         assert len(coords) == 2
-
-    def test_coordinates_array_property(self, sample_cluster):
-        coords_array = sample_cluster.coordinates_array
-        assert isinstance(coords_array, np.ndarray)
-        assert coords_array.shape == (2,)
-        np.testing.assert_array_equal(coords_array, [586515.2, 4506242.8])
-
-    def test_distance_to(self, sample_cluster, another_cluster):
-        distance = sample_cluster.distance_to(another_cluster)
-
-        # Calculate expected distance manually
-        dx = 586515.2 - (-2056789.1)
-        dy = 4506242.8 - 3926233.5
-        expected = math.sqrt(dx * dx + dy * dy)
-
-        assert abs(distance - expected) < 1e-6
-
-    def test_distance_to_same_cluster(self, sample_cluster):
-        distance = sample_cluster.distance_to(sample_cluster)
-        assert distance == 0.0
-
-    def test_overlaps_with_far_clusters(self, sample_cluster, another_cluster):
-        # These clusters are far apart and should not overlap
-        assert not sample_cluster.overlaps_with(another_cluster)
-        assert not another_cluster.overlaps_with(sample_cluster)
-
-    def test_overlaps_with_close_clusters(self):
-        cluster1 = MetroCluster(
-            metro_id="12345",
-            name="cluster-1",
-            name_orig="Cluster 1",
-            uac_code="12345",
-            land_area_km2=100.0,
-            centroid_x=0.0,
-            centroid_y=0.0,
-            radius_km=10.0,
-        )
-
-        cluster2 = MetroCluster(
-            metro_id="67890",
-            name="cluster-2",
-            name_orig="Cluster 2",
-            uac_code="67890",
-            land_area_km2=200.0,
-            centroid_x=15000.0,  # 15 km away
-            centroid_y=0.0,
-            radius_km=10.0,
-        )
-
-        # Clusters with 20km combined radius and 15km separation should overlap
-        assert cluster1.overlaps_with(cluster2)
-        assert cluster2.overlaps_with(cluster1)
-
-    def test_overlaps_with_same_cluster(self, sample_cluster):
-        assert sample_cluster.overlaps_with(sample_cluster)
 
 
 class TestLoadMetroClusters:
@@ -180,17 +114,18 @@ class TestLoadMetroClusters:
 
     def test_load_basic_functionality(self, temp_uac_file, mock_uac_data):
         clustering_config = ClusteringConfig(max_uac_radius_km=100.0)
-        formatting_config = FormattingConfig()
+
         clusters = load_metro_clusters(
             uac_path=temp_uac_file,
             k=3,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
         assert len(clusters) == 3
         assert all(isinstance(c, MetroCluster) for c in clusters)
+        # The direct generate -> build API must emit ordinary YAML scalars.
+        yaml.safe_dump([asdict(cluster) for cluster in clusters])
 
         for i in range(len(clusters)):
             expected_uace = f"UAC{i + 1:02d}"
@@ -202,14 +137,13 @@ class TestLoadMetroClusters:
 
     def test_load_insufficient_areas(self, temp_uac_file):
         clustering_config = ClusteringConfig()
-        formatting_config = FormattingConfig()
+
         with pytest.raises(ValueError, match="Only 5 urban areas available"):
             load_metro_clusters(
                 uac_path=temp_uac_file,
                 k=10,  # More than the 5 available
                 target_crs="EPSG:3857",
                 clustering_config=clustering_config,
-                formatting_config=formatting_config,
             )
 
     def test_override_selects_largest_match_with_non_numeric_index(
@@ -225,7 +159,6 @@ class TestLoadMetroClusters:
             clustering_config=ClusteringConfig(
                 max_uac_radius_km=100.0, override_metro_clusters=["Urban Area"]
             ),
-            formatting_config=FormattingConfig(),
         )
         assert [cluster.uac_code for cluster in clusters] == ["UAC01"]
 
@@ -233,25 +166,23 @@ class TestLoadMetroClusters:
         nonexistent_path = Path("nonexistent_file.zip")
 
         clustering_config = ClusteringConfig()
-        formatting_config = FormattingConfig()
+
         with pytest.raises(FileNotFoundError, match="UAC file not found"):
             load_metro_clusters(
                 uac_path=nonexistent_path,
                 k=3,
                 target_crs="EPSG:3857",
                 clustering_config=clustering_config,
-                formatting_config=formatting_config,
             )
 
     def test_radius_calculation(self, temp_uac_file):
         clustering_config = ClusteringConfig(max_uac_radius_km=100.0)
-        formatting_config = FormattingConfig()
+
         clusters = load_metro_clusters(
             uac_path=temp_uac_file,
             k=2,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
         expected_radius_1 = math.sqrt(50 / math.pi)  # r = sqrt(area/π)
@@ -262,13 +193,12 @@ class TestLoadMetroClusters:
 
     def test_numpy_array_indexing(self, temp_uac_file):
         clustering_config = ClusteringConfig(max_uac_radius_km=100.0)
-        formatting_config = FormattingConfig()
+
         clusters = load_metro_clusters(
             uac_path=temp_uac_file,
             k=1,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
         assert isinstance(clusters[0].radius_km, float)
@@ -276,54 +206,53 @@ class TestLoadMetroClusters:
 
     def test_radius_capping(self, temp_uac_file):
         clustering_config = ClusteringConfig(max_uac_radius_km=2.0)  # Very small cap
-        formatting_config = FormattingConfig()
+
         clusters = load_metro_clusters(
             uac_path=temp_uac_file,
             k=1,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
         assert clusters[0].radius_km == 2.0
 
     @patch("topogen.metro_clusters._export_cluster_files")
-    def test_export_files_flag(self, mock_export, temp_uac_file):
+    def test_export_flag_without_context_does_not_write(
+        self, mock_export, temp_uac_file
+    ):
         clustering_config = ClusteringConfig(export_clusters=True)
-        formatting_config = FormattingConfig()
+
         clusters = load_metro_clusters(
             uac_path=temp_uac_file,
             k=2,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
-        mock_export.assert_called_once_with(clusters, "EPSG:3857")
+        assert len(clusters) == 2
+        mock_export.assert_not_called()
 
     @patch("topogen.metro_clusters._export_cluster_files")
     def test_no_export_by_default(self, mock_export, temp_uac_file):
         clustering_config = ClusteringConfig(export_clusters=False)
-        formatting_config = FormattingConfig()
+
         load_metro_clusters(
             uac_path=temp_uac_file,
             k=2,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
         mock_export.assert_not_called()
 
     def test_coordinate_precision(self, temp_uac_file):
         clustering_config = ClusteringConfig()
-        formatting_config = FormattingConfig()
+
         clusters = load_metro_clusters(
             uac_path=temp_uac_file,
             k=1,
             target_crs="EPSG:3857",
             clustering_config=clustering_config,
-            formatting_config=formatting_config,
         )
 
         cluster = clusters[0]
@@ -351,18 +280,17 @@ class TestLoadMetroClusters:
             mock_intersects.return_value = pd.Series([True, True, True, False, False])
 
             clustering_config = ClusteringConfig()
-            formatting_config = FormattingConfig()
+
             clusters = load_metro_clusters(
                 uac_path=temp_uac_file,
                 k=2,
                 target_crs="EPSG:3857",
                 clustering_config=clustering_config,
-                formatting_config=formatting_config,
                 conus_boundary_path=boundary_path,
             )
 
         assert len(clusters) == 2
-        mock_conus_mask.assert_called_once_with(boundary_path, "EPSG:4269")
+        mock_conus_mask.assert_called_once_with(boundary_path, "EPSG:4326")
 
     @patch("topogen.geo_utils.create_conus_mask")
     def test_conus_filtering_multiple_geometries(self, mock_conus_mask, temp_uac_file):
@@ -381,13 +309,12 @@ class TestLoadMetroClusters:
             mock_intersects.return_value = pd.Series([True, True, False, False, False])
 
             clustering_config = ClusteringConfig()
-            formatting_config = FormattingConfig()
+
             clusters = load_metro_clusters(
                 uac_path=temp_uac_file,
                 k=2,
                 target_crs="EPSG:3857",
                 clustering_config=clustering_config,
-                formatting_config=formatting_config,
                 conus_boundary_path=boundary_path,
             )
 
@@ -461,7 +388,12 @@ class TestExportClusterFiles:
                 mock_path_instance.mkdir(parents=True, exist_ok=True)
 
                 with patch.object(gpd.GeoDataFrame, "to_file") as mock_to_file:
-                    _export_cluster_files(sample_clusters, "EPSG:3857")
+                    _export_cluster_files(
+                        sample_clusters,
+                        "EPSG:3857",
+                        RunContext(Path(temp_dir), "test"),
+                        Path("boundaries.zip"),
+                    )
 
                     mock_to_file.assert_called_once()
 
@@ -483,6 +415,26 @@ class TestExportClusterFiles:
 
                 with patch.object(gpd.GeoDataFrame, "to_file"):
                     with pytest.raises(Exception, match="Mock error"):
-                        _export_cluster_files(sample_clusters, "EPSG:3857")
+                        _export_cluster_files(
+                            sample_clusters,
+                            "EPSG:3857",
+                            RunContext(Path(temp_dir), "test"),
+                            Path("boundaries.zip"),
+                        )
 
                     mock_export_map.assert_called_once()
+
+
+def test_unmatched_override_does_not_fall_back_to_largest(tmp_path, monkeypatch):
+    path = tmp_path / "metros.zip"
+    path.touch()
+    frame = gpd.GeoDataFrame(
+        {"NAME20": ["Actual Metro"], "UACE20": ["1"], "ALAND20": [1000]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (0, 0)])],
+        crs="EPSG:5070",
+    )
+    monkeypatch.setattr(gpd, "read_file", lambda *a, **kw: frame)
+    with pytest.raises(ValueError, match="matched no metros"):
+        load_metro_clusters(
+            path, 1, "EPSG:5070", ClusteringConfig(override_metro_clusters=["Typo"])
+        )

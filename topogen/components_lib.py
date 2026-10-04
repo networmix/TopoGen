@@ -6,10 +6,9 @@ The YAML file maps names to definitions; each entry replaces the matching built-
 from __future__ import annotations
 
 from copy import deepcopy
-from pathlib import Path
 from typing import Any
 
-import yaml
+from topogen.library_io import load_user_library
 
 _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
@@ -76,62 +75,9 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
 }
 
 
-def _load_user_library(file_name: str) -> dict[str, Any]:
-    """Read a mapping from ``cwd/lib/<file_name>``, or return {} if absent.
-
-    Raises ValueError for invalid YAML or a non-mapping value.
-    """
-    lib_path = Path.cwd() / "lib" / file_name
-    if not lib_path.exists():
-        return {}
-
-    try:
-        with lib_path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception as exc:  # noqa: BLE001 - provide clear context
-        raise ValueError(f"Failed to parse YAML: {lib_path}") from exc
-
-    if not isinstance(data, dict):
-        raise ValueError(f"User library YAML must be a mapping: {lib_path}")
-
-    return data
-
-
 def get_builtin_components() -> dict[str, dict[str, Any]]:
     """Return a copy of built-in components with user overrides applied."""
     components = deepcopy(_BUILTIN_COMPONENTS)
-    user_components = _load_user_library("components.yml")
+    user_components = load_user_library("components.yml")
     components.update(user_components)
     return components
-
-
-def get_builtin_component(name: str) -> dict[str, Any]:
-    """Return a component from the merged library; raise KeyError if absent."""
-    if name not in _BUILTIN_COMPONENTS:
-        available = list(_BUILTIN_COMPONENTS.keys())
-        raise KeyError(f"Component '{name}' not found. Available: {available}")
-
-    return deepcopy(_BUILTIN_COMPONENTS[name])
-
-
-def list_builtin_component_names() -> list[str]:
-    """List component names from the merged library."""
-    return sorted(_BUILTIN_COMPONENTS.keys())
-
-
-def get_components_by_type(component_type: str) -> dict[str, dict[str, Any]]:
-    """Filter the merged library by component type, such as chassis or optic."""
-    return {
-        name: deepcopy(comp)
-        for name, comp in _BUILTIN_COMPONENTS.items()
-        if comp.get("component_type") == component_type
-    }
-
-
-def get_components_by_role(role: str) -> dict[str, dict[str, Any]]:
-    """Filter the merged library by supported role."""
-    return {
-        name: deepcopy(comp)
-        for name, comp in _BUILTIN_COMPONENTS.items()
-        if comp.get("attrs", {}).get("role") == role
-    }

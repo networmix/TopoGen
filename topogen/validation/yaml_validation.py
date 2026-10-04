@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from importlib import resources as res
 from pathlib import Path
 
 import yaml
@@ -17,13 +16,13 @@ from .scenario_dict import validate_scenario_dict as _validate_scenario_dict
 logger = get_logger(__name__)
 
 
-def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
+def validate_scenario_yaml(
     scenario_yaml: str,
     integrated_graph_path: Path | None = None,
     *,
     run_ngraph: bool = True,
-    hw_component_map: dict[str, object] | None = None,
-    optics_map: dict[str, object] | None = None,
+    hw_component_map: dict[str, str] | None = None,
+    optics_map: dict[str, str] | None = None,
 ) -> list[str]:
     """Validate scenario YAML and return a list of issue strings.
 
@@ -32,13 +31,12 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
         integrated_graph_path: Optional path to integrated graph JSON for
             cross-check of metro coordinates.
         run_ngraph: Check the NetGraph schema, construct a Scenario, and run
-            topology and hardware audits. False runs dictionary checks only.
-        hw_component_map: Optional override for role->platform mapping sourced
-            from configuration. When provided, audits use this instead of any
-            mapping present in the scenario.
-        optics_map: Optional override for role-pair->optic mapping sourced from
-            configuration. When provided, audits use this instead of any mapping
-            present in the scenario.
+            topology, per-demand-set DC capacity and hardware audits. False
+            checks metadata/references only; it does not resolve demand selectors.
+        hw_component_map: Optional role-to-platform assignments for hardware
+            coverage checks. Components must be defined in the scenario.
+        optics_map: Optional directional role assignments for optic coverage
+            checks. Explicit blueprint hardware is audited directly.
 
     Returns:
         List of human-readable issue strings. Empty list when no issues.
@@ -47,32 +45,14 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
 
     try:
         data = yaml.safe_load(scenario_yaml) or {}
-    except Exception as e:
+    except yaml.YAMLError as e:
         return [f"YAML parse error: {e}"]
 
-    if run_ngraph:
-        try:
-            import jsonschema  # type: ignore[import-not-found]
-        except Exception as e:  # pragma: no cover - environment import error
-            issues.append(f"ngraph schema: {e}")
-        else:
-            try:
-                with (
-                    res.files("ngraph.schemas")
-                    .joinpath("scenario.json")
-                    .open("r", encoding="utf-8") as f
-                ):
-                    schema = json.load(f)
-            except Exception as e:
-                issues.append(f"ngraph schema: {e}")
-            else:
-                try:
-                    jsonschema.validate(data, schema)  # type: ignore[arg-type]
-                except Exception as e:
-                    issues.append(f"ngraph schema: {e}")
+    if not isinstance(data, dict):
+        return ["Scenario must be a YAML mapping"]
 
     ig_coords: dict[str, tuple[float, float]] | None = None
-    if integrated_graph_path is not None and integrated_graph_path.exists():
+    if integrated_graph_path is not None:
         try:
             text = integrated_graph_path.read_text(encoding="utf-8")
             ig_json = json.loads(text)
@@ -91,10 +71,6 @@ def validate_scenario_yaml(  # noqa: C901, PLR0912, PLR0915
             )
         )
 
-    try:
-        for _msg in issues:
-            logger.error(_msg)
-    except Exception:  # pragma: no cover
-        pass
-
+    for message in issues:
+        logger.error(message)
     return issues

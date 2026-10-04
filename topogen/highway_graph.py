@@ -104,19 +104,17 @@ def _fix_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if gdf.empty:
         raise ValueError("No valid geometries remain after geometry filter")
 
+    excluded_count = initial_count - len(gdf)
     exploded = gdf.explode(index_parts=False, ignore_index=True)
-    gdf = exploded if isinstance(exploded, gpd.GeoDataFrame) else gdf
+    assert isinstance(exploded, gpd.GeoDataFrame)
+    gdf = exploded
 
-    final_count = len(gdf)
-    excluded_count = initial_count - final_count
-    if excluded_count > 0:
-        logger.info(
-            f"Geometry cleanup: {initial_count:,} -> {final_count:,} segments (excluded {excluded_count:,} invalid)"
-        )
-    else:
-        logger.info(
-            f"Geometry cleanup: {final_count:,} segments (no invalid geometries)"
-        )
+    logger.info(
+        "Geometry cleanup: %d input rows, %d empty/invalid rows removed, %d segments after splitting",
+        initial_count,
+        excluded_count,
+        len(gdf),
+    )
     return gdf
 
 
@@ -144,7 +142,7 @@ def _iter_snapped_edges(lines: list, snap_m: float):
 
 
 def _build_intersection_graph(lines: list, snap_precision_m: float) -> nx.Graph:
-    """Build a graph keyed by snapped coordinate pairs, keeping the shortest edge.
+    """Build a graph keyed by snapped coordinate pairs, merging duplicate segments.
 
     Raise ValueError if no edges can be created.
     """
@@ -155,16 +153,8 @@ def _build_intersection_graph(lines: list, snap_precision_m: float) -> nx.Graph:
     G = nx.Graph()
 
     for p, q, length_km in _iter_snapped_edges(lines, snap_precision_m):
-        if length_km <= 0:
-            continue
-
-        # Add edge, automatically merging parallel edges to keep shorter one
-        if G.has_edge(p, q):
-            existing_length = G.edges[p, q]["length_km"]
-            if length_km < existing_length:
-                G.edges[p, q]["length_km"] = length_km
-        else:
-            G.add_edge(p, q, length_km=length_km)
+        # Snapped endpoints determine length, so repeated segments have equal lengths.
+        G.add_edge(p, q, length_km=length_km)
 
     if len(G.edges) == 0:
         raise ValueError("No valid edges created from geometries")
@@ -193,7 +183,7 @@ def _validate_final_graph(G: nx.Graph, validation_config: ValidationConfig) -> N
         logger.debug(
             f"Highway graph has {len(components)} disconnected components. "
             f"Largest: {component_sizes[0]:,} nodes. "
-            f"Components will be filtered during contraction in integrated pipeline."
+            "The integrated pipeline applies the configured component filter after contraction."
         )
 
     for u, v, data in G.edges(data=True):
@@ -201,11 +191,15 @@ def _validate_final_graph(G: nx.Graph, validation_config: ValidationConfig) -> N
             raise ValueError(f"Edge {u}-{v} missing length_km attribute")
 
         length = data["length_km"]
-        if not isinstance(length, (int, float)) or length <= 0 or np.isnan(length):
+        if (
+            not isinstance(length, (int, float))
+            or length <= 0
+            or not np.isfinite(length)
+        ):
             raise ValueError(f"Edge {u}-{v} has invalid length_km: {length}")
 
     # Check for excessive node degrees (indicates snapping bugs)
-    degrees = [len(list(G.neighbors(node))) for node in G.nodes()]
+    degrees = [G.degree[node] for node in G]
     max_degree = max(degrees) if degrees else 0
     if max_degree > validation_config.max_degree_threshold:
         raise ValueError(
@@ -213,9 +207,7 @@ def _validate_final_graph(G: nx.Graph, validation_config: ValidationConfig) -> N
         )
 
     high_degree_nodes = [
-        node
-        for node in G.nodes()
-        if len(list(G.neighbors(node))) > validation_config.high_degree_warning
+        node for node in G if G.degree[node] > validation_config.high_degree_warning
     ]
     if high_degree_nodes:
         logger.warning(

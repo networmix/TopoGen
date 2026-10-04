@@ -23,15 +23,10 @@ def _net_two_roles():
     return net, link
 
 
-def test_conflicting_optics_mapping_detected():
+def test_legacy_optics_mapping_is_rejected():
     net, _ = _net_two_roles()
-    # No hardware; mapping-only path exercised
-    net.links = {}
-    # Create conflict by mixing unordered and ordered declarations for the same ordered pair
-    d = {"components": {"optics": {"core|agg": "X", "core-agg": "Y"}}}
-    issues = check_link_optics(net, d, {})
-    # Conflict should be recorded for (core,agg)
-    assert any("conflicting values for roles (core,agg)" in s for s in issues)
+    issues = check_link_optics(net, {"core|agg": "X"}, {})
+    assert any("role->role" in issue for issue in issues)
 
 
 def test_missing_hardware_and_unknown_and_capacity_shortfall():
@@ -63,9 +58,7 @@ def test_missing_hardware_and_unknown_and_capacity_shortfall():
     net.links = {"l1": l_missing_src, "l2": l_unknown_src, "l3": l_cap_short}
     comp_lib = {"O": {"capacity": 100.0}}
     # Provide a mapping so the function does not early-return
-    issues = check_link_optics(
-        net, {"components": {"optics": {"core-agg": "O"}}}, comp_lib
-    )
+    issues = check_link_optics(net, {"core->agg": "O", "agg->core": "O"}, comp_lib)
     assert any("missing hardware on source end" in s for s in issues)
     assert any("unknown component on source end" in s for s in issues)
     assert any("hardware capacity shortfall" in s for s in issues)
@@ -77,7 +70,7 @@ def test_missing_mapping_paths_when_no_hardware_present():
     l_plain = make_link("A", "B", 10.0, "plain")
     net.links = {"e": l_plain}
     # Mapping exists only for (core,agg); this will require source-end hardware
-    d = {"components": {"optics": {"core-agg": "O"}}}
+    d = {"core->agg": "O", "agg->core": "O"}
     issues = check_link_optics(net, d, {"O": {"capacity": 100}})
     assert any(
         "missing source-end mapping" in s

@@ -17,6 +17,7 @@ def test_export_site_graph_map(tmp_path: Path) -> None:
     G.add_node(
         "metro1/pop1",
         metro_idx=1,
+        metro_name="Metro 1",
         site_kind="pop",
         site_ordinal=1,
         pos_x=1000.0,
@@ -28,6 +29,7 @@ def test_export_site_graph_map(tmp_path: Path) -> None:
     G.add_node(
         "metro1/dc1",
         metro_idx=1,
+        metro_name="Metro 1",
         site_kind="dc",
         site_ordinal=1,
         pos_x=1020.0,

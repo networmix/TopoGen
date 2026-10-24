@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "topogen"
-version = "0.5.0"
+version = "0.5.1"
 description = "Generate NetGraph backbone scenarios from US Census urban areas and TIGER/Line roads."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
@@ -37,8 +37,8 @@ dependencies = [
     # Strict schema validation at runtime
     "jsonschema",
     # NetGraph ecosystem
-    "ngraph>=0.24.0",
-    "netgraph-core>=0.10.0",
+    "ngraph>=0.24.1,<0.25.0",
+    "netgraph-core>=0.10.0,<0.12",
 ]
 
 # Dev / CI extras

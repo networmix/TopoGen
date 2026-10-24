@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-25
+
+### Changed
+
+- **Dependencies**: Require `ngraph>=0.24.1,<0.25.0` and `netgraph-core>=0.10.0,<0.12` to stay on the supported NetGraph API.
+
 ## [0.5.0] - 2026-10-04
 
 ### Fixed

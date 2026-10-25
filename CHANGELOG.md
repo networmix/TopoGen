@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.2] - 2026-10-25
 
+### Fixed
+
+- **Workflows**: Derive failure-sampling seeds from the scenario seed instead of fixing the placement step at 42.
+
 ### Changed
 
 - **Docs**: Explain installation, configuration and scenario generation in a standalone pipeline guide.

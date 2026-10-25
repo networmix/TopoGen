@@ -31,7 +31,6 @@ _BUILTIN_WORKFLOWS: dict[str, list[dict[str, Any]]] = {
         {
             "type": "TrafficMatrixPlacement",
             "name": "tm_placement",
-            "seed": 42,
             "demand_set": "baseline_traffic_matrix",
             "failure_policy": "mc_baseline",
             "iterations": 1000,

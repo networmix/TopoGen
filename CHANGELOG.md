@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs**: Explain installation, configuration and scenario generation in a standalone pipeline guide.
+
 ## [0.5.1] - 2026-10-25
 
 ### Changed

@@ -1,14 +1,8 @@
-"""Built-in blueprints with overrides from ``cwd/lib/blueprints.yml``.
-
-The YAML file maps names to definitions; each entry replaces the matching built-in.
-"""
+"""Builtin blueprints definitions."""
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
-
-from topogen.library_io import load_user_library
 
 _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
     "DCRegion": {
@@ -407,11 +401,3 @@ _BUILTIN_BLUEPRINTS: dict[str, dict[str, Any]] = {
         ],
     },
 }
-
-
-def get_builtin_blueprints() -> dict[str, dict[str, Any]]:
-    """Return built-in blueprints with user overrides applied."""
-    blueprints = deepcopy(_BUILTIN_BLUEPRINTS)
-    user_blueprints = load_user_library("blueprints.yml")
-    blueprints.update(user_blueprints)
-    return blueprints

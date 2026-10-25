@@ -1,9 +1,10 @@
 """Geographic paths retain identity, length, geometry, and shared risks."""
 
+from pathlib import Path
+
 import networkx as nx
 import pytest
 
-from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import (
     CorridorsConfig,
     FormattingConfig,
@@ -16,6 +17,7 @@ from topogen.integrated_graph import (
     load_from_json,
     save_to_json,
 )
+from topogen.library import load_library, thaw
 from topogen.metro_clusters import MetroCluster
 from topogen.scenario.config import _determine_metro_settings
 from topogen.scenario.graph_pipeline import build_site_graph
@@ -94,7 +96,7 @@ def test_parallel_corridors_survive_json_and_site_expansion(tmp_path):
         selected,
         _determine_metro_settings(selected, config),
         loaded,
-        get_builtin_blueprints(),
+        thaw(load_library(Path("lib")).blueprints),
     )
     wan = [
         d

@@ -1,28 +1,40 @@
-"""Check each demand set against actual external capacity of each DC site."""
+"""Audit resolved demand endpoints against each DC site's external capacity."""
 
 from __future__ import annotations
 
 import math
 import re
 from collections import defaultdict
+from collections.abc import Iterator
+from fractions import Fraction
 
-from ngraph import Network
-from ngraph.analysis.demand import expand_demands
-from ngraph.model.demand.matrix import DemandSet
+from ngraph import (
+    Endpoints,
+    ExpansionLeaf,
+    ExpansionSplit,
+    PreparedScenario,
+    resolve_demands,
+)
 
-_DC = re.compile(r"^(metro\d+/dc\d+)(?:/|$)")
+from topogen.naming import site_of
+from topogen.numeric import decimal
 
 
-def check_dc_capacity(network: Network, demand_sets: DemandSet) -> list[str]:
-    """Resolve selectors with NetGraph and audit separate demand sets separately.
+def _declared_leaves(
+    root: ExpansionSplit | ExpansionLeaf, volume: Fraction
+) -> Iterator[tuple[Endpoints, Fraction]]:
+    """Apportion physical declarations through the public, unquantized tree."""
+    if isinstance(root, ExpansionSplit):
+        for child in root.children:
+            yield from _declared_leaves(child, volume / len(root.children))
+    elif root.endpoints is not None:
+        yield root.endpoints, volume
 
-    Count external device links, not DSL selector rules or internal DC links.
-    Pairwise demand endpoints have exact per-site volumes. A combine endpoint
-    contributes a guaranteed per-DC load only when all members belong to that DC;
-    placement across multiple DCs requires a routing analysis.
-    """
+
+def check_dc_capacity(prepared: PreparedScenario) -> list[str]:
+    network = prepared.scenario.network
     sites = {
-        name: match.group(1) if (match := _DC.match(name)) else None
+        name: site_of(name) if re.fullmatch(r"metro\d+/dc\d+", site_of(name)) else None
         for name in network.nodes
     }
     capacity: dict[str, float] = defaultdict(float)
@@ -39,36 +51,25 @@ def check_dc_capacity(network: Network, demand_sets: DemandSet) -> list[str]:
             if site is not None:
                 capacity[site] += link.capacity
     issues = []
-    for name, demands in demand_sets.sets.items():
-        egress: dict[str, float] = defaultdict(float)
-        ingress: dict[str, float] = defaultdict(float)
-        for index, demand in enumerate(demands):
-            label = f"demand set '{name}' entry {index}"
-            if not math.isfinite(demand.volume) or demand.volume <= 0:
-                issues.append(f"{label}: volume must be positive and finite")
-                continue
-            try:
-                expanded = expand_demands(network, [demand])
-            except ValueError as exc:
-                issues.append(f"{label}: {exc}")
-                continue
-            endpoints: dict[str, set[str | None]] = {}
-            for edge in expanded.augmentations:
-                if edge.source in sites:
-                    endpoints.setdefault(edge.target, set()).add(sites[edge.source])
-                if edge.target in sites:
-                    endpoints.setdefault(edge.source, set()).add(sites[edge.target])
-            for flow in expanded.demands:
-                source = (
-                    {sites[flow.src_name]}
-                    if flow.src_name in sites
-                    else endpoints[flow.src_name]
+    for name, specs in prepared.scenario.demand_sets.items():
+        for index, spec in enumerate(specs.demands):
+            if spec.volume <= 0 or not math.isfinite(spec.volume):
+                issues.append(
+                    f"demand set '{name}' entry {index}: volume must be positive and finite"
                 )
-                target = (
-                    {sites[flow.dst_name]}
-                    if flow.dst_name in sites
-                    else endpoints[flow.dst_name]
-                )
+        resolved = resolve_demands(prepared, specs)
+        egress: dict[str, Fraction] = defaultdict(Fraction)
+        ingress: dict[str, Fraction] = defaultdict(Fraction)
+        for spec, parent in zip(
+            specs.demands, resolved.expansion_template, strict=True
+        ):
+            if spec.volume <= 0 or not math.isfinite(spec.volume):
+                continue
+            for endpoints, volume in _declared_leaves(
+                parent.root, decimal(spec.volume)
+            ):
+                source = {sites[node] for node in endpoints.sources}
+                target = {sites[node] for node in endpoints.destinations}
                 for local, remote, totals in (
                     (source, target, egress),
                     (target, source, ingress),
@@ -76,7 +77,7 @@ def check_dc_capacity(network: Network, demand_sets: DemandSet) -> list[str]:
                     if len(local) == 1:
                         site = next(iter(local))
                         if site is not None and site not in remote:
-                            totals[site] += flow.volume
+                            totals[site] += volume
         for direction, totals in (("egress", egress), ("ingress", ingress)):
             for site, volume in sorted(totals.items()):
                 available = capacity[site]
@@ -84,7 +85,7 @@ def check_dc_capacity(network: Network, demand_sets: DemandSet) -> list[str]:
                     volume, available, rel_tol=1e-9, abs_tol=1e-9
                 ):
                     issues.append(
-                        f"dc capacity: demand set '{name}', {site} {direction} demand {volume:,.6g} "
+                        f"dc capacity: demand set '{name}', {site} {direction} demand {float(volume):,.6g} "
                         f"exceeds adjacency capacity {available:,.6g}"
                     )
     return issues

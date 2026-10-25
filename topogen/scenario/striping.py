@@ -5,10 +5,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from ngraph import Network
-from ngraph.dsl.blueprints.expand import expand_network_dsl
-from ngraph.dsl.selectors import normalize_selector
-from ngraph.model.selectors import select_nodes
+import yaml
+from ngraph import Scenario
+from ngraph.model.selectors import normalize_selector, select_nodes
 
 
 def _natural_key(path: str) -> tuple:
@@ -20,29 +19,41 @@ def _natural_key(path: str) -> tuple:
 class StripePlanner:
     """Cache each blueprint inventory and merge stripe attributes within one build."""
 
-    def __init__(self, blueprints: dict[str, Any]) -> None:
-        self._blueprints = blueprints
-        self._inventories: dict[str, Network] = {}
+    def __init__(self, blueprints: dict[str, Any], names: set[str]) -> None:
+        self._prefixes = {
+            name: f"stripe_probe{index}" for index, name in enumerate(sorted(names))
+        }
         self._rules: dict[str, dict[str, str]] = {}
+        self._network = (
+            Scenario.from_yaml(
+                yaml.safe_dump(
+                    {
+                        "blueprints": blueprints,
+                        "network": {
+                            "nodes": {
+                                prefix: {"blueprint": name}
+                                for name, prefix in self._prefixes.items()
+                            }
+                        },
+                    }
+                )
+            ).network
+            if names
+            else None
+        )
 
     def groups(
         self, blueprint: str, striping: dict[str, Any], match: dict[str, Any]
     ) -> dict[str, list[str]]:
-        if blueprint not in self._inventories:
-            network = expand_network_dsl(
-                {
-                    "blueprints": self._blueprints,
-                    "network": {"nodes": {"stripe_probe": {"blueprint": blueprint}}},
-                }
-            )
-            self._inventories[blueprint] = network
+        prefix = self._prefixes[blueprint]
+        assert self._network is not None
         groups = select_nodes(
-            self._inventories[blueprint],
-            normalize_selector({"path": "stripe_probe", "match": match}, "link"),
+            self._network,
+            normalize_selector({"path": "^" + prefix + "/", "match": match}, "link"),
             default_active_only=False,
         )
         selected = {
-            node.name.removeprefix("stripe_probe/"): node.attrs
+            node.name.removeprefix(prefix + "/"): node.attrs
             for nodes in groups.values()
             for node in nodes
         }

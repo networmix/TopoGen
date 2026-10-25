@@ -1,15 +1,15 @@
 """Integration tests for the build functionality."""
 
 import re
+from pathlib import Path
 
 import networkx as nx
 import pytest
 import yaml
 
-from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import TopologyConfig
+from topogen.library import load_library, thaw
 from topogen.scenario import build_scenario
-from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestBuildIntegration:
@@ -71,7 +71,7 @@ class TestBuildIntegration:
         config.build.build_defaults.site_blueprint = "SingleRouter"
 
         # Resolve a Clos-style blueprint and a mesh/core blueprint dynamically
-        bps = get_builtin_blueprints()
+        bps = thaw(load_library(Path("lib")).blueprints)
         clos_name = next(
             (
                 name
@@ -101,9 +101,11 @@ class TestBuildIntegration:
 
     def test_build_scenario_complete(self, sample_integrated_graph, sample_config):
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(sample_integrated_graph, sample_config)
+        yaml_str = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
 
         scenario_data = yaml.safe_load(yaml_str)
 
@@ -178,9 +180,11 @@ class TestBuildIntegration:
 
     def test_scenario_yaml_format(self, sample_integrated_graph, sample_config):
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(sample_integrated_graph, sample_config)
+        yaml_str = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
 
         scenario_data = yaml.safe_load(yaml_str)
         assert scenario_data is not None
@@ -200,16 +204,20 @@ class TestBuildIntegration:
         """Disabling yaml anchors should remove &/* alias tokens from YAML text."""
         # Default: anchors enabled (may or may not appear depending on sharing)
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_with_default = build_scenario(sample_integrated_graph, sample_config)
+        yaml_with_default = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
         assert yaml_with_default
 
         sample_config.output.formatting.yaml_anchors = False
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_no_anchors = build_scenario(sample_integrated_graph, sample_config)
+        yaml_no_anchors = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
 
         data = yaml.safe_load(yaml_no_anchors)
         assert data is not None
@@ -222,9 +230,11 @@ class TestBuildIntegration:
 
     def test_metro_override_application(self, sample_integrated_graph, sample_config):
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(sample_integrated_graph, sample_config)
+        yaml_str = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         blueprints = scenario_data["blueprints"]
@@ -263,9 +273,11 @@ class TestBuildIntegration:
         self, sample_integrated_graph, sample_config
     ):
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(sample_integrated_graph, sample_config)
+        yaml_str = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         adjacency = scenario_data["network"]["links"]
@@ -324,9 +336,9 @@ class TestBuildIntegration:
 
         empty_graph = nx.MultiGraph()
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(empty_graph, config)
+        yaml_str = build_scenario(empty_graph, config, load_library(Path("lib"))).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         assert "blueprints" in scenario_data
@@ -339,7 +351,7 @@ class TestBuildIntegration:
         config.build.build_defaults.pop_per_metro = 2
         config.build.build_defaults.site_blueprint = "SingleRouter"
         # Pick a Clos-style blueprint dynamically if present
-        bps = get_builtin_blueprints()
+        bps = thaw(load_library(Path("lib")).blueprints)
         clos_name = next(
             (
                 name
@@ -369,9 +381,9 @@ class TestBuildIntegration:
         )
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(graph, config)
+        yaml_str = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         groups = scenario_data["network"]["nodes"]
@@ -395,16 +407,20 @@ class TestBuildIntegration:
     ):
         """Top-level scenario 'seed' should exist and reflect config override."""
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(sample_integrated_graph, sample_config)
+        yaml_str = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
         scenario_data = yaml.safe_load(yaml_str)
         assert scenario_data.get("seed") == 42
 
         sample_config.output.scenario_seed = 123
         sample_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str2 = build_scenario(sample_integrated_graph, sample_config)
+        yaml_str2 = build_scenario(
+            sample_integrated_graph, sample_config, load_library(Path("lib"))
+        ).yaml
         scenario_data2 = yaml.safe_load(yaml_str2)
         assert scenario_data2.get("seed") == 123

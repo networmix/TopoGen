@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from topogen.blueprints_lib import get_builtin_blueprints
-from topogen.components_lib import get_builtin_components
+from topogen.library import Library, thaw
 
 if TYPE_CHECKING:  # pragma: no cover - import-time types only
     from topogen.config import TopologyConfig
 
 
 def _build_components_section(
-    config: "TopologyConfig", blueprints: dict[str, Any]
+    config: "TopologyConfig", blueprints: dict[str, Any], library: Library
 ) -> dict[str, Any]:
     """Build the components section of the NetGraph scenario.
 
@@ -20,7 +19,7 @@ def _build_components_section(
     components referenced by configuration and finalized blueprint assignments.
     Scan after role overrides so replaced hardware does not remain a dependency.
     """
-    components = get_builtin_components()
+    components = thaw(library.components)
     referenced_components = set(config.components.hw_component.values()) | set(
         config.components.optics.values()
     )
@@ -45,12 +44,12 @@ def _build_components_section(
 
 
 def _build_blueprints_section(
-    used_blueprints: set[str], config: "TopologyConfig"
+    used_blueprints: set[str], config: "TopologyConfig", library: Library
 ) -> dict[str, Any]:
     """Build the blueprints section with component assignments."""
     from copy import deepcopy
 
-    builtin_blueprints = get_builtin_blueprints()
+    builtin_blueprints = thaw(library.blueprints)
     role_to_platform = config.components.hw_component
     if not isinstance(role_to_platform, dict):
         raise ValueError("components.hw_component must be a mapping")

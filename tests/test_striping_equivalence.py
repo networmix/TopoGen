@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import networkx as nx
 import yaml
+from ngraph import Scenario
 
 from topogen.config import TopologyConfig
+from topogen.library import load_library
 from topogen.scenario import build_scenario
-from topogen.workflows_lib import get_builtin_workflows
 
 
 def _make_sample_integrated_graph() -> nx.Graph:
@@ -65,7 +68,7 @@ def _baseline_config() -> TopologyConfig:
     cfg.build.tm_sizing.enabled = False
     cfg.components.optics = {}
     # Pick a valid built-in workflow to satisfy assembly
-    wf = next(iter(get_builtin_workflows().keys()))
+    wf = next(iter(load_library(Path("lib")).workflows.keys()))
     cfg.workflows.assignments.default = wf
     return cfg
 
@@ -79,10 +82,8 @@ def _striped_width1_config() -> TopologyConfig:
 
 
 def _expand_yaml(yaml_text: str):
-    from ngraph.dsl.blueprints.expand import expand_network_dsl
-
     data = yaml.safe_load(yaml_text)
-    return expand_network_dsl(data)
+    return Scenario.from_yaml(yaml.safe_dump(data)).network
 
 
 def _site_of(node_name: str) -> str:
@@ -95,12 +96,12 @@ def test_width1_equivalence_inter_and_dc_to_pop():
 
     # Baseline
     cfg_base = _baseline_config()
-    yaml_base = build_scenario(graph, cfg_base)
+    yaml_base = build_scenario(graph, cfg_base, load_library(Path("lib"))).yaml
     net_base = _expand_yaml(yaml_base)
 
     # Striped width=1
     cfg_striped = _striped_width1_config()
-    yaml_striped = build_scenario(graph, cfg_striped)
+    yaml_striped = build_scenario(graph, cfg_striped, load_library(Path("lib"))).yaml
     net_striped = _expand_yaml(yaml_striped)
 
     # Collect endpoint site pairs for each link_type

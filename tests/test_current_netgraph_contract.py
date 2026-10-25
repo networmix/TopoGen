@@ -1,4 +1,4 @@
-"""Reject invalid NetGraph inputs before TopoGen emits a scenario."""
+"""Configuration and library boundaries reject unsupported declarations."""
 
 from pathlib import Path
 
@@ -6,57 +6,63 @@ import pytest
 import yaml
 
 from topogen.config import TopologyConfig
-from topogen.scenario.policies import _build_workflow_section
-from topogen.traffic_matrix import generate_traffic_matrix
+from topogen.library import load_library
 
 
 @pytest.mark.parametrize(
-    "extra,error",
+    "extra",
     [
-        ({"placement_rounds": "auto"}, "Unrecognized key"),
-        ({"parallelism": 1.5}, "parallelism must be"),
-        (
-            {"alpha": 1.0, "alpha_from_step": "msd"},
-            "Set either alpha or alpha_from_step, not both",
-        ),
+        {"placement_rounds": "auto"},
+        {"workers": 1.5},
+        {"alpha": 1, "alpha_from_step": "msd"},
     ],
 )
-def test_custom_workflow_rejected_before_emission(tmp_path, monkeypatch, extra, error):
-    monkeypatch.chdir(tmp_path)
-    library = tmp_path / "lib"
-    library.mkdir()
-    step = {"type": "TrafficMatrixPlacement", "name": "placement", **extra}
-    (library / "workflows.yml").write_text(yaml.safe_dump({"custom": [step]}))
-    config = TopologyConfig()
-    config.workflows.assignments.default = "custom"
-    with pytest.raises(ValueError, match=f"Workflow 'custom': .*{error}"):
-        _build_workflow_section(config)
+def test_custom_workflow_rejected_at_library_load(tmp_path, extra):
+    step = {"type": "TrafficMatrixPlacement", "name": "p", "demand_set": "tm", **extra}
+    (tmp_path / "workflows.yml").write_text(yaml.safe_dump({"custom": [step]}))
+    with pytest.raises(ValueError, match="Workflow 'custom'"):
+        load_library(tmp_path)
 
 
-@pytest.mark.parametrize("policy", [1, True, "1", "", "  ", "unknown"])
-def test_yaml_flow_policy_requires_preset_name(tmp_path, policy):
-    path = tmp_path / "config.yml"
-    data = yaml.safe_load(
-        (
-            Path(__file__).resolve().parents[1] / "examples/small_baseline.yml"
-        ).read_text()
+@pytest.mark.parametrize("policy", [1, True, "1", "", "  ", "unknown", "TE_WCMP_UNLIM"])
+def test_config_requires_current_preset_name(policy):
+    raw = yaml.safe_load(Path("examples/small_baseline.yml").read_text())
+    raw["traffic"]["flow_policy_config"] = {0: policy}
+    with pytest.raises(ValueError, match="flow_policy_config"):
+        TopologyConfig._from_dict(raw)
+
+
+@pytest.mark.parametrize("value", ["EQUAL_BALANCED", "PROPORTIONAL", "unknown"])
+def test_removed_sizing_key_is_unknown_even_when_disabled(value):
+    raw = yaml.safe_load(Path("examples/small_baseline.yml").read_text())
+    raw["build"]["tm_sizing"].update(enabled=False, flow_placement=value)
+    with pytest.raises(ValueError, match="Additional properties are not allowed"):
+        TopologyConfig._from_dict(raw)
+
+    from dataclasses import fields
+
+    sizing_type = type(TopologyConfig().build.tm_sizing)
+    known = {field.name for field in fields(sizing_type)}
+    unknown = set(raw["build"]["tm_sizing"]) - known
+    assert len(unknown) == 1
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        sizing_type(**{unknown.pop(): value})
+
+
+@pytest.mark.parametrize(
+    "preset", ["shortest_paths_ecmp", " SHORTEST_PATHS_ECMP ", "Shortest_Paths_Ecmp"]
+)
+def test_preset_spelling_is_canonical_at_load(preset):
+    from ngraph import FlowPolicyPreset
+
+    raw = yaml.safe_load(Path("examples/small_baseline.yml").read_text())
+    raw["traffic"]["flow_policy_config"] = {0: preset}
+    with pytest.raises(ValueError) as error:
+        TopologyConfig._from_dict(raw)
+    assert (
+        str(error.value)
+        == f"traffic.flow_policy_config.0: expected one of {list(FlowPolicyPreset.__members__)}, got {preset!r}"
     )
-    data["traffic"]["flow_policy_config"] = {0: policy}
-    path.write_text(yaml.safe_dump(data))
-    with pytest.raises(ValueError, match="flow_policy_config"):
-        TopologyConfig.from_yaml(path)
-
-
-@pytest.mark.parametrize("model", ["uniform", "gravity", "hose"])
-@pytest.mark.parametrize("policy", [1, "1", "", "unknown"])
-def test_mutated_flow_policy_rejected_before_generation(model, policy):
-    config = TopologyConfig()
-    config.traffic.model = model
-    config.traffic.flow_policy_config = {0: policy}
-    metros = [
-        {"name": "a", "x": 0, "y": 0},
-        {"name": "b", "x": 1000, "y": 0},
-    ]
-    settings = {name: {"dc_regions_per_metro": 1} for name in ["a", "b"]}
-    with pytest.raises(ValueError, match="flow_policy_config"):
-        generate_traffic_matrix(metros, settings, config)
+    for name in FlowPolicyPreset.__members__:
+        raw["traffic"]["flow_policy_config"] = {0: name}
+        assert TopologyConfig._from_dict(raw).traffic.flow_policy_config == {0: name}

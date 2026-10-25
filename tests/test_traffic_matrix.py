@@ -1,357 +1,253 @@
-"""Functional tests for traffic matrix generation algorithms.
+"""Traffic records preserve model rules and offer every distinct site pair."""
 
-These tests validate the math of the uniform, gravity, and hose models directly by
-calling ``topogen.traffic_matrix.generate_traffic_matrix``.
-"""
+from fractions import Fraction
 
-from __future__ import annotations
+import pytest
+import yaml
+from ngraph import Scenario, prepare
 
-from typing import Any
-
-from topogen.config import TopologyConfig
-from topogen.traffic_matrix import generate_traffic_matrix
+from topogen.scenario.traffic import _quantize, generate_traffic, to_demand_sets
 
 
-def _metros_ab() -> list[dict[str, Any]]:
-    # Coordinates in meters (EPSG:5070); A at origin, B at 1 km east
-    return [
-        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
+def test_three_site_uniform_is_six_demands_of_100(site_plan, scenario_config):
+    scenario_config.traffic.mw_per_dc_region = 200
+    matrices = generate_traffic(site_plan, scenario_config.traffic, 42)
+    demands = matrices[0].demands
+    assert len(demands) == 6
+    assert {(d.source, d.target) for d in demands} == {
+        (a, b)
+        for a in ("metro1/dc1", "metro2/dc1", "metro3/dc1")
+        for b in ("metro1/dc1", "metro2/dc1", "metro3/dc1")
+        if a != b
+    }
+    assert all(d.volume == 100 for d in demands)
+    doc = {
+        "network": {
+            "nodes": {
+                f"{site}/n{i}": {}
+                for site in site_plan
+                if "/dc" in site
+                for i in (1, 2)
+            },
+            "links": [],
+        },
+        "demands": to_demand_sets(matrices),
+    }
+    prep = prepare(Scenario.from_yaml(yaml.safe_dump(doc)), demand_sets=("default",))
+    assert all(a.discarded_units == 0 for a in prep.demand_sets["default"].accounting)
+    assert (
+        sum(d.nominal_units for d in prep.demand_sets["default"].demands)
+        * prep.topology.q
+        == 600
+    )
+
+
+@pytest.mark.parametrize(
+    "model,error",
+    [
+        ("uniform", "sites=1, volume=10"),
+        ("gravity", "zero or non-finite total weight"),
+        ("hose", "one DC exceeds"),
+    ],
+)
+def test_one_site_refusal_keeps_other_models(site_plan, scenario_config, model, error):
+    for site in list(site_plan):
+        if not site.startswith("metro1/"):
+            site_plan.remove_node(site)
+    scenario_config.traffic.model = model
+    with pytest.raises(ValueError, match=error):
+        generate_traffic(site_plan, scenario_config.traffic, 42)
+    site_plan.remove_node("metro1/dc1")
+    assert generate_traffic(site_plan, scenario_config.traffic, 42) == ()
+
+
+@pytest.mark.parametrize("model", ["gravity", "hose"])
+def test_two_equal_site_classes_are_7_5_and_2_5(site_plan, scenario_config, model):
+    for site in list(site_plan):
+        if site.startswith("metro3/"):
+            site_plan.remove_node(site)
+    traffic = scenario_config.traffic
+    traffic.model, traffic.priority_ratios = model, {0: 0.75, 1: 0.25}
+    demands = generate_traffic(site_plan, traffic, 42)[0].demands
+    assert [(d.priority, d.volume) for d in demands] == [
+        (0, Fraction("7.5")),
+        (0, Fraction("7.5")),
+        (1, Fraction("2.5")),
+        (1, Fraction("2.5")),
     ]
 
 
-def _metro_settings_two_one_dc() -> dict[str, dict[str, Any]]:
-    return {"A": {"dc_regions_per_metro": 1}, "B": {"dc_regions_per_metro": 1}}
-
-
-def test_uniform_totals() -> None:
-    """Uniform model emits per-class totals equal to offered load times ratio."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "uniform"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 0.75, 1: 0.25}
-    cfg.traffic.matrix_name = "tm"
-    cfg.traffic.flow_policy_config = {
-        0: "SHORTEST_PATHS_ECMP",
-        1: "SHORTEST_PATHS_WCMP",
+def test_pair_quantization_largest_remainder():
+    assert _quantize({(0, 1): 5.1, (0, 2): 3, (1, 2): 1.9}, 10, 2, "floor") == {
+        (1, 2): 2,
+        (0, 1): 6,
+        (0, 2): 2,
     }
 
-    metros = _metros_ab()
-    msettings = _metro_settings_two_one_dc()
 
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    # Two entries: one per class, pairwise regex, with flow policy names attached
-    assert len(demands) == 2
-    offered = cfg.traffic.gbps_per_mw * (2 * cfg.traffic.mw_per_dc_region)
-    per_class = [d for d in demands]
-    per_class.sort(key=lambda d: int(d["priority"]))
-    assert per_class[0]["mode"] == "pairwise"
-    assert abs(float(per_class[0]["demand"]) - offered * 0.75) < 1e-9
-    assert abs(float(per_class[1]["demand"]) - offered * 0.25) < 1e-9
-    assert per_class[0]["flow_policy_config"] == "SHORTEST_PATHS_ECMP"
-    assert per_class[1]["flow_policy_config"] == "SHORTEST_PATHS_WCMP"
-
-
-def test_hose_two_dcs_totals_and_symmetry() -> None:
-    """Hose model with two DCs yields two symmetric entries totaling offered."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "hose"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 1.0}
-    cfg.traffic.matrix_name = "tm"
-    cfg.output.scenario_seed = 123
-
-    metros = _metros_ab()
-    msettings = _metro_settings_two_one_dc()
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    assert len(demands) == 2
-    total = sum(float(d["demand"]) for d in demands)
-    # Offered = 100 * (10+10) = 2000
-    assert abs(total - 2000.0) < 1e-6
-    assert abs(float(demands[0]["demand"]) - float(demands[1]["demand"])) < 1e-6
+@pytest.mark.parametrize(
+    "policy, expected",
+    [
+        ("floor", {(0, 1): 4, (0, 2): 4, (1, 2): 2}),
+        ("nearest", {(0, 1): 4, (0, 2): 4, (1, 2): 2}),
+        ("ceil", {(0, 1): 6, (0, 2): 4, (1, 2): 4}),
+    ],
+)
+def test_pair_quantization_policy_is_observable(policy, expected):
+    assert _quantize({(0, 1): 4.9, (0, 2): 3, (1, 2): 2.1}, 10, 2, policy) == expected
+    # Nearest can overshoot; preserving that behavior distinguishes it from
+    # floor followed by positive-residual redistribution.
+    if policy == "nearest":
+        assert _quantize({(0, 1): 5.1, (0, 2): 3, (1, 2): 1.9}, 10, 2, policy) == {
+            (0, 1): 6,
+            (0, 2): 4,
+            (1, 2): 2,
+        }
 
 
-def test_hose_multiple_samples_named_matrices() -> None:
-    """Hose model emits multiple matrices when samples > 1 with numbered suffixes."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "hose"
-    cfg.traffic.samples = 3
-    cfg.traffic.gbps_per_mw = 50.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 1.0}
-    cfg.traffic.matrix_name = "tm"
-    cfg.output.scenario_seed = 7
-
-    metros = _metros_ab()
-    msettings = _metro_settings_two_one_dc()
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    assert set(tmset.keys()) == {"tm_1", "tm_2", "tm_3"}
-    for _name, demands in tmset.items():
-        assert demands and all(d["mode"] == "pairwise" for d in demands)
-
-
-def test_hose_per_dc_totals_match() -> None:
-    """Per-DC directed totals match T_i when summing over all classes and peers."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "hose"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 0.25, 1: 0.75}
-    cfg.traffic.matrix_name = "tm"
-    cfg.output.scenario_seed = 99
-
-    metros = [
-        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "C", "x": 2000.0, "y": 0.0, "radius_km": 25.0},
-    ]
-    msettings = {m["name"]: {"dc_regions_per_metro": 1} for m in metros}
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    # Compute expected T_i (directed) per DC
-    offered = cfg.traffic.gbps_per_mw * (3 * cfg.traffic.mw_per_dc_region)
-    T = offered / 3.0  # equal MW per DC
-
-    out_by_src: dict[str, float] = {}
-    for d in demands:
-        src = str(d["source_path"]).strip("^")
-        out_by_src[src] = out_by_src.get(src, 0.0) + float(d["demand"])
-
-    assert len(out_by_src) == 3
-    for total in out_by_src.values():
-        assert abs(total - T) < 1e-6
-
-
-def test_hose_deterministic_given_seed() -> None:
-    """Hose sampling is deterministic for the same scenario_seed and params."""
-
-    cfg1 = TopologyConfig()
-    cfg1.traffic.enabled = True
-    cfg1.traffic.model = "hose"
-    cfg1.traffic.samples = 2
-    cfg1.traffic.gbps_per_mw = 80.0
-    cfg1.traffic.mw_per_dc_region = 5.0
-    cfg1.traffic.priority_ratios = {0: 1.0}
-    cfg1.traffic.matrix_name = "tm"
-    cfg1.output.scenario_seed = 2024
-
-    cfg2 = TopologyConfig()
-    cfg2.traffic.enabled = True
-    cfg2.traffic.model = "hose"
-    cfg2.traffic.samples = 2
-    cfg2.traffic.gbps_per_mw = 80.0
-    cfg2.traffic.mw_per_dc_region = 5.0
-    cfg2.traffic.priority_ratios = {0: 1.0}
-    cfg2.traffic.matrix_name = "tm"
-    cfg2.output.scenario_seed = 2024
-
-    metros = [
-        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "C", "x": 2000.0, "y": 0.0, "radius_km": 25.0},
-    ]
-    msettings = {m["name"]: {"dc_regions_per_metro": 1} for m in metros}
-
-    tmset1 = generate_traffic_matrix(metros, msettings, cfg1)
-    tmset2 = generate_traffic_matrix(metros, msettings, cfg2)
-
-    assert tmset1.keys() == tmset2.keys()
-    for k in sorted(tmset1.keys()):
-        d1 = tmset1[k]
-        d2 = tmset2[k]
-        assert len(d1) == len(d2)
-        for a, b in zip(d1, d2, strict=False):
-            assert a["source_path"] == b["source_path"]
-            assert a["sink_path"] == b["sink_path"]
-            assert int(a["priority"]) == int(b["priority"])
-            assert abs(float(a["demand"]) - float(b["demand"])) < 1e-9
-
-
-def test_gravity_two_dcs_symmetric_split_and_total() -> None:
-    """Gravity model: two DCs yield two symmetric entries summing to D_c."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "gravity"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 1.0}
-    cfg.traffic.flow_policy_config = {0: "SHORTEST_PATHS_ECMP"}
-    g = cfg.traffic.gravity
-    g.alpha = 1.0
-    g.beta = 1.0
-    g.min_distance_km = 1.0
-    g.exclude_same_metro = False
-    g.jitter_stddev = 0.0
-    g.rounding_gbps = 0.0
-
-    metros = _metros_ab()
-    msettings = _metro_settings_two_one_dc()
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    assert len(demands) == 2
-    assert all(d["mode"] == "pairwise" for d in demands)
-    total = sum(float(d["demand"]) for d in demands)
-    # Offered = 100 * (10+10) = 2000; split equally A->B and B->A
-    assert abs(total - 2000.0) < 1e-6
-    assert all(d.get("flow_policy_config") == "SHORTEST_PATHS_ECMP" for d in demands)
-
-
-def test_gravity_demands_include_euclidean_km_attr() -> None:
-    """Gravity demands carry per-entry attrs.euclidean_km for the pair.
-
-    Two metros A and B are 1 km apart; all emitted directed entries should
-    include attrs.euclidean_km == 1.0.
-    """
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "gravity"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 1.0}
-
-    g = cfg.traffic.gravity
-    g.alpha = 1.0
-    g.beta = 1.0
-    g.min_distance_km = 1.0
-    g.exclude_same_metro = False
-    g.jitter_stddev = 0.0
-    g.rounding_gbps = 0.0
-
-    metros = _metros_ab()
-    msettings = _metro_settings_two_one_dc()
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    assert demands and all(isinstance(d, dict) for d in demands)
-    for d in demands:
-        attrs = d.get("attrs", {})
-        assert isinstance(attrs, dict)
-        assert "euclidean_km" in attrs
-        assert abs(float(attrs["euclidean_km"]) - 1.0) < 1e-6
-
-
-def test_gravity_top_k_pruning_keeps_best_partners() -> None:
-    """Top-K pruning keeps strongest partners and removes others."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "gravity"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0
-    cfg.traffic.priority_ratios = {0: 1.0}
-    g = cfg.traffic.gravity
-    g.alpha = 1.0
-    g.beta = 1.0
-    g.min_distance_km = 1.0
-    g.exclude_same_metro = False
-    g.jitter_stddev = 0.0
-    g.rounding_gbps = 0.0
-    g.max_partners_per_dc = 1
-
-    metros = [
-        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},  # 1 km from A
-        {"name": "C", "x": 100000.0, "y": 0.0, "radius_km": 25.0},  # 100 km from B
-    ]
-    msettings = {m["name"]: {"dc_regions_per_metro": 1} for m in metros}
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    # Expect two pairs (A<->B and B<->C), so 4 directed entries
-    assert len(demands) == 4
-
-
-def test_gravity_rounding_conserves_total_with_largest_remainders() -> None:
-    """Rounding distributes leftover to highest remainders and conserves total."""
-
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "gravity"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 15.0  # 3 DCs -> 45 MW -> offered 4500
-    cfg.traffic.priority_ratios = {0: 1.0}
-    g = cfg.traffic.gravity
-    g.alpha = 1.0
-    g.beta = 1.0
-    g.min_distance_km = 1.0
-    g.exclude_same_metro = (
-        True  # avoid same-metro pairs in case of multiple DCs per metro
+@pytest.mark.parametrize("counts,total", [((2, 1), 600), ((2, 2), 1200)])
+def test_uniform_unequal_inventory_classes_and_devices(
+    site_plan, scenario_config, counts, total
+):
+    for site in list(site_plan):
+        if site.startswith("metro3/"):
+            site_plan.remove_node(site)
+    for metro, count in enumerate(counts, 1):
+        if count == 2:
+            site_plan.add_node(
+                f"metro{metro}/dc2",
+                **{**site_plan.nodes[f"metro{metro}/dc1"], "site_ordinal": 2},
+            )
+    traffic = scenario_config.traffic
+    traffic.mw_per_dc_region = total / sum(counts)
+    traffic.priority_ratios = {0: 0.75, 1: 0.25}
+    matrices = generate_traffic(site_plan, traffic, 42)
+    demands = matrices[0].demands
+    n = sum(counts)
+    assert len(demands) == 2 * n * (n - 1)
+    assert {d.volume for d in demands if d.priority == 0} == {75}
+    assert {d.volume for d in demands if d.priority == 1} == {25}
+    sites = [site for site in site_plan if "/dc" in site]
+    doc = {
+        "units": {"resolution": 0.25},
+        "network": {
+            "nodes": {f"{site}/n{i}": {} for site in sites for i in (1, 2)},
+            "links": [],
+        },
+        "demands": to_demand_sets(matrices),
+    }
+    prepared = prepare(
+        Scenario.from_yaml(yaml.safe_dump(doc)), demand_sets=("default",)
     )
-    g.jitter_stddev = 0.0
-    g.rounding_gbps = 10.0
-    g.max_partners_per_dc = None
-
-    # DCs at 0, 1, and 2 km produce unequal pair weights.
-    metros = [
-        {"name": "A", "x": 0.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "B", "x": 1000.0, "y": 0.0, "radius_km": 25.0},
-        {"name": "C", "x": 2000.0, "y": 0.0, "radius_km": 25.0},
-    ]
-    msettings = {m["name"]: {"dc_regions_per_metro": 1} for m in metros}
-
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-
-    total = sum(float(d["demand"]) for d in demands)
-    assert abs(total - 4500.0) < 1e-6
+    resolved = prepared.demand_sets["default"]
+    assert all(not a.discarded_units for a in resolved.accounting)
+    assert sum(d.nominal_units for d in resolved.demands) * prepared.topology.q == total
+    for priority, ratio in ((0, 0.75), (1, 0.25)):
+        selected = [d for d in resolved.demands if d.priority == priority]
+        assert len(selected) == n * (n - 1) * 4
+        assert {d.nominal_units * prepared.topology.q for d in selected} == {
+            (75 if priority == 0 else 25) / 4
+        }
+        assert (
+            sum(d.nominal_units for d in selected) * prepared.topology.q
+            == total * ratio
+        )
 
 
-def test_gravity_dc_power_overrides_affect_offered_and_allocation() -> None:
-    """Per-DC MW overrides by name and path change weights and totals."""
+def test_uniform_zero_share_and_zero_power_keep_the_site_inventory(
+    site_plan, scenario_config
+):
+    traffic = scenario_config.traffic
+    traffic.priority_ratios = {0: 0, 1: 1}
+    traffic.flow_policy_config = {0: "TE_MAXFLOW_UNLIM", 1: "SHORTEST_PATHS_ECMP"}
+    traffic.gravity.mw_per_dc_region_overrides = {"Beta": 0, "beta": 0}
+    demands = generate_traffic(site_plan, traffic, 42)[0].demands
+    assert len(demands) == 6
+    assert {d.priority for d in demands} == {1}
+    assert {d.source for d in demands} == {
+        "metro1/dc1",
+        "metro2/dc1",
+        "metro3/dc1",
+    }
+    assert {d.volume for d in demands} == {Fraction(10, 3)}
+    entries = to_demand_sets(generate_traffic(site_plan, traffic, 42))["default"]
+    assert all(d["preset"] == "SHORTEST_PATHS_ECMP" for d in entries)
+    traffic.mw_per_dc_region = 0
+    assert not generate_traffic(site_plan, traffic, 42)[0].demands
+    traffic.enabled = False
+    assert generate_traffic(site_plan, traffic, 42) == ()
 
-    cfg = TopologyConfig()
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "gravity"
-    cfg.traffic.gbps_per_mw = 100.0
-    cfg.traffic.mw_per_dc_region = 10.0  # default
-    cfg.traffic.priority_ratios = {0: 1.0}
-    g = cfg.traffic.gravity
-    g.alpha = 1.0
-    g.beta = 1.0
-    g.min_distance_km = 1.0
-    g.exclude_same_metro = False
-    g.jitter_stddev = 0.0
-    g.rounding_gbps = 0.0
 
-    metros = _metros_ab()
-    msettings = _metro_settings_two_one_dc()
+def test_emission_retains_each_prioritys_own_preset(site_plan, scenario_config):
+    traffic = scenario_config.traffic
+    traffic.priority_ratios = {0: 0.75, 1: 0.25}
+    traffic.flow_policy_config = {0: "TE_MAXFLOW_UNLIM", 1: "SHORTEST_PATHS_ECMP"}
+    entries = to_demand_sets(generate_traffic(site_plan, traffic, 42))["default"]
+    assert len(entries) == 12
+    assert all(
+        d["preset"] == traffic.flow_policy_config[d["priority"]] for d in entries
+    )
 
-    # Override A to 20 MW using metro name, keep B at 10 MW
-    g.mw_per_dc_region_overrides = {"A": 20.0}
 
-    tmset = generate_traffic_matrix(metros, msettings, cfg)
-    demands = tmset[cfg.traffic.matrix_name]
-    total = sum(float(d["demand"]) for d in demands)
-    # Offered = 100 * (20 + 10) = 3000
-    assert abs(total - 3000.0) < 1e-6
+def test_uniform_uses_the_exact_generating_rule_before_float_serialization(
+    site_plan, scenario_config
+):
+    traffic = scenario_config.traffic
+    traffic.mw_per_dc_region = 25
+    traffic.gbps_per_mw = 200
+    traffic.gravity.mw_per_dc_region_overrides = {"beta": 50}
+    demands = generate_traffic(site_plan, traffic, 42)[0].demands
+    assert len(demands) == 6
+    assert {d.volume for d in demands} == {Fraction(10000, 3)}
+    assert sum(d.volume for d in demands) == 20000
+    assert {
+        d["volume"]
+        for d in to_demand_sets(generate_traffic(site_plan, traffic, 42))["default"]
+    } == {float(Fraction(10000, 3))}
+    traffic.priority_ratios = {0: 0.1, 1: 0.9}
+    demands = generate_traffic(site_plan, traffic, 42)[0].demands
+    assert {d.volume for d in demands if d.priority == 0} == {Fraction(1000, 3)}
+    assert {d.volume for d in demands if d.priority == 1} == {Fraction(3000)}
 
-    g.mw_per_dc_region_overrides = {"A": 20.0, "b/dc1": 15.0}
-    tmset2 = generate_traffic_matrix(metros, msettings, cfg)
-    demands2 = tmset2[cfg.traffic.matrix_name]
-    total2 = sum(float(d["demand"]) for d in demands2)
-    # Offered = 100 * (20 + 15) = 3500
-    assert abs(total2 - 3500.0) < 1e-6
+
+@pytest.mark.parametrize(
+    "power,rate", [(9007199254740993, 0.1), (0.1, 9007199254740993)]
+)
+def test_uniform_does_not_round_user_integer_scalars_before_decimal_entry(
+    site_plan, scenario_config, power, rate
+):
+    traffic = scenario_config.traffic
+    traffic.mw_per_dc_region = power
+    traffic.gbps_per_mw = rate
+    traffic.priority_ratios = {0: 1}
+    assert {d.volume for d in generate_traffic(site_plan, traffic, 42)[0].demands} == {
+        Fraction(9007199254740993, 20)
+    }
+
+
+def test_uniform_decimal_powers_and_rate_are_exact_before_summing(
+    site_plan, scenario_config
+):
+    traffic = scenario_config.traffic
+    traffic.gravity.mw_per_dc_region_overrides = {
+        "alpha": 0.1,
+        "beta": 0.2,
+        "gamma": 0.3,
+    }
+    traffic.gbps_per_mw = 0.1
+    assert {d.volume for d in generate_traffic(site_plan, traffic, 42)[0].demands} == {
+        Fraction(1, 100)
+    }
+
+
+def test_uniform_overflow_keeps_the_named_offer_refusal(site_plan, scenario_config):
+    traffic = scenario_config.traffic
+    traffic.mw_per_dc_region = traffic.gbps_per_mw = 1e308
+    with pytest.raises(
+        ValueError, match="Offered traffic must be finite and non-negative"
+    ):
+        generate_traffic(site_plan, traffic, 42)
+    traffic.mw_per_dc_region = traffic.gbps_per_mw = 1e100
+    assert {d.volume for d in generate_traffic(site_plan, traffic, 42)[0].demands} == {
+        Fraction(5 * 10**199)
+    }

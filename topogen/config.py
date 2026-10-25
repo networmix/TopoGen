@@ -23,19 +23,17 @@ logger = get_logger(__name__)
 
 def _validate_flow_policy_names(policies: dict[int, str]) -> None:
     """Validate priority-to-preset mappings."""
-    from ngraph.model.flow import FlowPolicyPreset
+    from ngraph import FlowPolicyPreset
 
     if not isinstance(policies, dict):
         raise ValueError(
             "traffic.flow_policy_config must map priorities to preset names"
         )
-    for value in policies.values():
-        if (
-            not isinstance(value, str)
-            or value.strip().upper() not in FlowPolicyPreset.__members__
-        ):
+    for priority, value in policies.items():
+        if not isinstance(value, str) or value not in FlowPolicyPreset.__members__:
             raise ValueError(
-                f"traffic.flow_policy_config values must be preset names, got {value!r}"
+                f"traffic.flow_policy_config.{priority}: expected one of "
+                f"{list(FlowPolicyPreset.__members__)}, got {value!r}"
             )
 
 
@@ -248,7 +246,6 @@ class BuildTmSizingConfig:
         alpha_dc_to_pop: DC-to-PoP capacity multiplier relative to PoP egress.
         beta_intra_pop: Intra-metro capacity multiplier relative to the smaller
             egress of the two PoPs.
-        flow_placement: ``EQUAL_BALANCED`` or ``PROPORTIONAL`` splitting.
         respect_min_base_capacity: Keep capacities at least at their configured values.
     """
 
@@ -258,7 +255,6 @@ class BuildTmSizingConfig:
     headroom: float = 1.3
     alpha_dc_to_pop: float = 1.2
     beta_intra_pop: float = 0.8
-    flow_placement: str = "EQUAL_BALANCED"
     respect_min_base_capacity: bool = True
 
 
@@ -266,7 +262,8 @@ class BuildTmSizingConfig:
 class ComponentsConfig:
     """Role-to-platform and role-pair-to-optic assignments.
 
-    Definitions come from the built-ins and ``cwd/lib/components.yml``.
+    Definitions come from the library passed to the build: the built-ins plus,
+    in the CLI, ``./lib/components.yml``.
     """
 
     # hw_component: role -> platform component name
@@ -284,7 +281,10 @@ class FailurePolicyAssignments:
 
 @dataclass(slots=True)
 class FailurePoliciesConfig:
-    """Select policies from the built-ins and ``cwd/lib/failure_policies.yml``."""
+    """Select policies from the library passed to the build.
+
+    It contains the built-ins plus, in the CLI, ``./lib/failure_policies.yml``.
+    """
 
     assignments: FailurePolicyAssignments = field(
         default_factory=FailurePolicyAssignments
@@ -300,7 +300,10 @@ class WorkflowAssignments:
 
 @dataclass(slots=True)
 class WorkflowsConfig:
-    """Select workflows from the built-ins and ``cwd/lib/workflows.yml``."""
+    """Select workflows from the library passed to the build.
+
+    It contains the built-ins plus, in the CLI, ``./lib/workflows.yml``.
+    """
 
     assignments: WorkflowAssignments = field(default_factory=WorkflowAssignments)
 
@@ -367,7 +370,7 @@ class TrafficConfig:
         mw_per_dc_region: Power per DC region (MW).
         priority_ratios: Mapping from priority class to ratio. Values must sum to 1.0.
         flow_policy_config: Optional mapping from priority class to NetGraph flow
-            policy preset name, emitted as ``flow_policy`` in the scenario.
+            policy preset name, emitted as ``preset`` in the scenario.
             Keys are integers matching priority classes.
         matrix_name: Name of the demand set in the emitted scenario.
         model: "uniform" (default), "gravity", or "hose".

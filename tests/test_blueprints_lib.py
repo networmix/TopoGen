@@ -1,32 +1,27 @@
-"""Tests for the blueprints library module."""
+"""Every builtin blueprint has devices through the actual public parser."""
 
-from __future__ import annotations
+import pytest
+import yaml
+from ngraph import Scenario
 
-from topogen.blueprints_lib import get_builtin_blueprints
+from topogen.library import load_library, thaw
 
 
-class TestBlueprintsLib:
-    def test_get_builtin_blueprints_returns_dict(self):
-        blueprints = get_builtin_blueprints()
-        assert isinstance(blueprints, dict)
-        assert len(blueprints) > 0
-
-    def test_blueprint_consistency(self):
-        blueprints = get_builtin_blueprints()
-
-        for name, blueprint in blueprints.items():
-            assert "nodes" in blueprint, f"Blueprint {name} missing 'nodes'"
-            assert "links" in blueprint, f"Blueprint {name} missing 'links'"
-            assert isinstance(blueprint["nodes"], dict), (
-                f"Blueprint {name} nodes not dict"
-            )
-            assert isinstance(blueprint["links"], list), (
-                f"Blueprint {name} links not list"
-            )
-
-            for group_name, group_def in blueprint["nodes"].items():
-                assert "count" in group_def, f"Group {group_name} missing count"
-                assert "template" in group_def, f"Group {group_name} missing template"
-                assert isinstance(group_def["count"], int), (
-                    f"Group {group_name} count not int"
-                )
+@pytest.mark.parametrize(
+    "name,nodes,links",
+    [
+        ("DCRegion", 1, 0),
+        ("SingleRouter", 1, 0),
+        ("FullMesh4", 4, 6),
+        ("Clos_L16_S4", 20, 64),
+        ("DragonFly_CustomG4", 16, 40),
+        ("Dragonfly_A3H2G7", 21, 42),
+    ],
+)
+def test_blueprint_inventory(name, nodes, links):
+    document = {
+        "blueprints": thaw(load_library(None).blueprints),
+        "network": {"nodes": {"site": {"blueprint": name}}, "links": []},
+    }
+    network = Scenario.from_yaml(yaml.safe_dump(document)).network
+    assert (len(network.nodes), len(network.links)) == (nodes, links)

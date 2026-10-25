@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import networkx as nx
 import yaml
 
 from topogen.config import TopologyConfig
+from topogen.library import load_library
 from topogen.scenario import build_scenario
-from topogen.workflows_lib import get_builtin_workflows
 
 
 def _single_metro_graph() -> nx.Graph:
@@ -30,6 +32,7 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     graph = _single_metro_graph()
 
     cfg = TopologyConfig()
+    cfg.traffic.enabled = False
     # Two PoPs, one DC region
     cfg.build.build_defaults.pop_per_metro = 2
     cfg.build.build_defaults.dc_regions_per_metro = 1
@@ -37,8 +40,10 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     cfg.build.build_defaults.dc_region_blueprint = "DCRegion"
 
     # Select any available workflow so the scenario builder can proceed without assuming names
-    cfg.workflows.assignments.default = next(iter(get_builtin_workflows().keys()))
-    yaml_str = build_scenario(graph, cfg)
+    cfg.workflows.assignments.default = next(
+        iter(load_library(Path("lib")).workflows.keys())
+    )
+    yaml_str = build_scenario(graph, cfg, load_library(Path("lib"))).yaml
     data = yaml.safe_load(yaml_str)
 
     # Network groups must reflect the configured blueprints and site counts.

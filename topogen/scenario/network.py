@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -11,8 +12,11 @@ import networkx as nx
 import numpy as np
 
 from topogen.config import TopologyConfig
+from topogen.library import thaw
 from topogen.log_config import get_logger
 from topogen.naming import site_edge_id
+
+from .records import LinkHardware, Sizing
 
 logger = get_logger(__name__)
 
@@ -58,6 +62,8 @@ def to_network_sections(
     metros: list[dict[str, Any]],
     metro_settings: dict[str, dict[str, Any]],
     config: TopologyConfig,
+    sizing: Sizing | None = None,
+    hardware: Mapping[str, LinkHardware] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Serialize MultiGraph to NetGraph 'nodes' and 'links' sections."""
     logger.info("Serializing MultiGraph to scenario network sections")
@@ -92,16 +98,19 @@ def to_network_sections(
 
     adjacency: list[dict[str, Any]] = []
     for u, v, k, data in G.edges(keys=True, data=True):
-        cap = data["base_capacity"]
+        edge = site_edge_id(u, v, k)
+        budget = sizing.capacity[edge] if sizing is not None else data["base_capacity"]
+        assigned = hardware[edge] if hardware is not None else None
+        cap = float(assigned.capacity) if assigned is not None else float(budget)
         cost = int(data.get("cost", 1))
         attrs = {
-            **data.get("attrs", {}),
+            **thaw(data.get("attrs", {})),
             "link_type": data.get("link_type", "unknown"),
             "source_metro": data.get("source_metro"),
             "target_metro": data.get("target_metro"),
         }
         # Emit total expected capacity for the adjacency (pre per-link split)
-        tcap = float(data.get("target_capacity", data.get("base_capacity", 0.0)))
+        tcap = float(budget)
         attrs["target_capacity"] = tcap
         # Tag this adjacency with a stable site-edge key and optional adjacency id
         attrs["site_edge"] = site_edge_id(u, v, k)
@@ -119,21 +128,29 @@ def to_network_sections(
             attrs["detour_ratio"] = float(
                 data["detour_ratio"]
             )  # corridor length / euclidean
-        hw = data.get("hardware")
-        if isinstance(hw, dict) and hw:
-            attrs["hardware"] = hw
+        if assigned is not None and assigned.source_optic is not None:
+            attrs["hardware"] = {
+                "source": {
+                    "component": assigned.source_optic,
+                    "count": float(assigned.source_count),
+                },
+                "target": {
+                    "component": assigned.target_optic,
+                    "count": float(assigned.target_count),
+                },
+            }
 
         link_entry: dict[str, Any] = {
             # Preserve role-based match filters on endpoints
             # so DSL expansion restricts nodes within each site.
             "source": (
-                {"path": u, "match": data.get("match")}
-                if isinstance(data.get("match"), dict) and data.get("match")
+                {"path": u, "match": thaw(data.get("match"))}
+                if isinstance(data.get("match"), Mapping) and data.get("match")
                 else u
             ),
             "target": (
-                {"path": v, "match": data.get("match")}
-                if isinstance(data.get("match"), dict) and data.get("match")
+                {"path": v, "match": thaw(data.get("match"))}
+                if isinstance(data.get("match"), Mapping) and data.get("match")
                 else v
             ),
             "pattern": "one_to_one",
@@ -142,7 +159,7 @@ def to_network_sections(
             "attrs": attrs,
         }
         if config.corridors.risk_groups.enabled and data.get("risk_groups"):
-            link_entry["risk_groups"] = data["risk_groups"]
+            link_entry["risk_groups"] = thaw(data["risk_groups"])
 
         adjacency.append(link_entry)
 
@@ -172,7 +189,7 @@ def save_site_graph_json(G: nx.MultiGraph, path: Path, *, json_indent: int = 2) 
     out: dict[str, Any] = {"graph_type": "site_network", "nodes": [], "edges": []}
 
     for node_id, data in G.nodes(data=True):
-        out["nodes"].append({"id": str(node_id), **data})
+        out["nodes"].append({"id": str(node_id), **thaw(data)})
 
     for u, v, k, data in G.edges(keys=True, data=True):
         out["edges"].append(
@@ -180,7 +197,7 @@ def save_site_graph_json(G: nx.MultiGraph, path: Path, *, json_indent: int = 2) 
                 "source": str(u),
                 "target": str(v),
                 "key": str(k),
-                **data,
+                **thaw(data),
             }
         )
 

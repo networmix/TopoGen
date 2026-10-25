@@ -75,7 +75,7 @@ export PATH="$VIRTUAL_ENV/bin:$PATH"
 if [[ "$mode" == setup ]]; then
     python -m pip install -e '.[dev]'
     python -m pip check
-    python -c 'import topogen, ngraph, netgraph_core; print("Workspace environment ready")'
+    python -c 'import topogen, ngraph; print("Workspace environment ready")'
     echo 'Activate with: source venv/bin/activate'
 else
     make check-ci

@@ -8,6 +8,7 @@ from typing import Any
 
 from ngraph import Network
 
+from topogen.numeric import covers
 from topogen.roles import role_optics
 
 
@@ -19,7 +20,7 @@ def check_link_optics(
     except ValueError as exc:
         return [f"optics mapping: {exc}"]
     failures: Counter[str] = Counter()
-    for link in net.links.values():
+    for link_id, link in net.links.items():
         hardware = link.attrs.get("hardware")
         if hardware is None and not expected:
             continue
@@ -51,12 +52,19 @@ def check_link_optics(
                 ] += 1
                 continue
             count = float(assignment.get("count", 1))
-            capacity = float(comp_lib[name]["capacity"]) * count
+            capacity = float(comp_lib[name]["capacity"])
+            if capacity <= 0:
+                failures[
+                    f"optics (blueprint): link '{link_id}' {end} optic '{name}': "
+                    f"capacity must be positive, got {capacity!r}"
+                ] += 1
+                continue
             if (
                 not math.isfinite(count)
                 or count <= 0
                 or not math.isfinite(capacity)
-                or capacity < link.capacity
+                or capacity <= 0
+                or not covers(count, capacity, link.capacity)
             ):
                 failures[
                     f"optics (blueprint): hardware capacity shortfall {label}"

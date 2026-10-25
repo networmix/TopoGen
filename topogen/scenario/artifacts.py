@@ -1,74 +1,111 @@
-"""Optional artifacts from the already resolved site and device networks."""
+"""Publish artifacts after validation, one complete file at a time."""
 
 from __future__ import annotations
 
 import json
 from collections import defaultdict
-from typing import Any
+from dataclasses import asdict
+from typing import TYPE_CHECKING
 
 import networkx as nx
-from ngraph import Network
 
 from topogen.config import TopologyConfig
 from topogen.context import RunContext
+from topogen.library import thaw
+from topogen.naming import site_edge_id, site_of
 
 from .network import save_site_graph_json
+from .publication import write_atomic
+from .records import Build
+
+if TYPE_CHECKING:
+    from topogen.validation import Validation
 
 
-def export_artifacts(
-    graph: nx.MultiGraph,
-    network: Network,
-    config: TopologyConfig,
-    context: RunContext,
-    traffic_matrices: dict[str, Any],
+def write_artifacts(
+    build: Build, validation: Validation, config: TopologyConfig, context: RunContext
 ) -> None:
-    """Export requested files; errors propagate to the caller."""
-    output_dir = context.output_dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-    stem = context.stem
+    """Publish artifacts in order; an error retains earlier completed files."""
+    if validation.issues or validation.prepared is None:
+        raise ValueError("Cannot publish artifacts for an invalid scenario")
+    network = validation.prepared.scenario.network
+    graph = nx.MultiGraph()
+    for site, attrs in build.site_plan.nodes(data=True):
+        graph.add_node(site, **thaw(attrs))
+    for u, v, key, attrs in build.site_plan.edges(keys=True, data=True):
+        edge = site_edge_id(u, v, key)
+        data = thaw(attrs)
+        data["base_capacity"] = data["target_capacity"] = float(
+            build.sizing.capacity[edge]
+        )
+        data["capacity"] = float(build.hardware[edge].capacity)
+        assigned = build.hardware[edge]
+        if assigned.source_optic is not None:
+            data["hardware"] = {
+                "source": {
+                    "component": assigned.source_optic,
+                    "count": float(assigned.source_count),
+                },
+                "target": {
+                    "component": assigned.target_optic,
+                    "count": float(assigned.target_count),
+                },
+            }
+        graph.add_edge(u, v, key=key, **data)
+    output_dir, stem = context.output_dir, context.stem
     if context.debug_dir is not None:
-        context.debug_dir.mkdir(parents=True, exist_ok=True)
-        debug_path = context.debug_dir / f"{stem}_traffic_debug.json"
-        debug_path.write_text(
+        matrices = {
+            m.name: [{**asdict(d), "volume": float(d.volume)} for d in m.demands]
+            for m in build.traffic
+        }
+        payload = (
             json.dumps(
-                {"model": config.traffic.model, "matrices": traffic_matrices}, indent=2
+                {"model": config.traffic.model, "matrices": matrices},
+                indent=2,
+                allow_nan=False,
             )
             + "\n"
         )
-    save_site_graph_json(
-        graph,
+        write_atomic(
+            context.debug_dir / f"{stem}_traffic_debug.json",
+            lambda path: path.write_text(payload) and None,
+        )
+    write_atomic(
         output_dir / f"{stem}_network_graph.json",
-        json_indent=config.output.formatting.json_indent,
+        lambda path: save_site_graph_json(
+            graph, path, json_indent=config.output.formatting.json_indent
+        ),
     )
     if config.visualization.export_site_graph:
         from topogen.visualization import export_site_graph_map
 
-        export_site_graph_map(
-            graph,
+        write_atomic(
             output_dir / f"{stem}_site_graph.jpg",
-            dpi=config.visualization.dpi,
-            target_crs=config.projection.target_crs,
+            lambda path: export_site_graph_map(
+                graph,
+                path,
+                dpi=config.visualization.dpi,
+                target_crs=config.projection.target_crs,
+            ),
         )
     if not config.visualization.export_blueprint_diagrams:
         return
-
     from topogen.visualization import export_blueprint_diagram
 
     attached: dict[str, float] = defaultdict(float)
     for link in network.links.values():
         for endpoint in (link.source, link.target):
-            attached["/".join(endpoint.split("/")[:2])] += link.capacity
-    representatives: dict[str, str] = {}
+            attached[site_of(endpoint)] += link.capacity
+    representatives = {}
     for site, attrs in graph.nodes(data=True):
         blueprint = attrs["site_blueprint"]
         previous = representatives.get(blueprint)
         if previous is None or attached[site] > attached[previous]:
             representatives[blueprint] = site
     for blueprint, site in sorted(representatives.items()):
-        export_blueprint_diagram(
-            blueprint,
-            network,
-            site,
+        write_atomic(
             output_dir / f"{stem}_blueprint_{blueprint}.jpg",
-            dpi=config.visualization.dpi,
+            lambda path, bp=blueprint, selected=site: export_blueprint_diagram(
+                bp, network, selected, path, dpi=config.visualization.dpi
+            ),
         )

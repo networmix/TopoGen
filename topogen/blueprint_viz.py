@@ -8,6 +8,8 @@ from dataclasses import dataclass
 import networkx as nx
 from ngraph import Network
 
+from topogen.naming import site_of
+
 
 @dataclass(frozen=True, slots=True)
 class AbstractView:
@@ -78,14 +80,10 @@ def collect_concrete_site(
     Links are ``(source, target, capacity)`` tuples.
     """
 
-    def _site_head(name: str) -> str:
-        parts = str(name).split("/", 2)
-        return "/".join(parts[:2]) if len(parts) >= 2 else str(name)
-
     internal_nodes: list[str] = []
     for node in net.nodes.values():
         nname = node.name
-        if _site_head(nname) == selected_site_path:
+        if site_of(nname) == selected_site_path:
             internal_nodes.append(nname)
 
     groups_concrete: dict[str, list[str]] = {}
@@ -101,7 +99,7 @@ def collect_concrete_site(
     internal_links: list[tuple[str, str, float]] = []
     for link in net.links.values():
         s, t, cap = link.source, link.target, link.capacity
-        if _site_head(s) == selected_site_path and _site_head(t) == selected_site_path:
+        if site_of(s) == selected_site_path and site_of(t) == selected_site_path:
             internal_links.append((s, t, cap))
 
     return internal_nodes, node_pos, internal_links

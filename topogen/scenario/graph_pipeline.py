@@ -9,6 +9,7 @@ from typing import Any
 import networkx as nx
 
 from topogen.log_config import get_logger
+from topogen.naming import site_id
 from topogen.roles import role_pair
 
 from .striping import StripePlanner
@@ -23,10 +24,6 @@ def _metro_index_maps(
         {metro["name"]: idx for idx, metro in enumerate(metros, 1)},
         {metro["node_key"]: metro for metro in metros},
     )
-
-
-def _site_node_id(metro_idx: int, kind: str, ordinal: int) -> str:
-    return f"metro{metro_idx}/{kind}{ordinal}"
 
 
 def _assign_site_positions(
@@ -131,8 +128,8 @@ def _add_intra_metro_edges(
         for a, b in itertools.combinations(range(1, count + 1), 2):
             _add_site_edge(
                 G,
-                _site_node_id(idx, "pop", a),
-                _site_node_id(idx, "pop", b),
+                site_id(idx, "pop", a),
+                site_id(idx, "pop", b),
                 f"{adjacency}:{a}-{b}",
                 link,
                 "intra_metro",
@@ -177,7 +174,7 @@ def _add_dc_to_pop_edges(
                 ("dc", dcs, dc_groups),
             ):
                 for ordinal in range(1, count + 1):
-                    stripes.attach(_site_node_id(idx, kind, ordinal), attribute, groups)
+                    stripes.attach(site_id(idx, kind, ordinal), attribute, groups)
             match = _stripe_match(attribute, next(iter(pop_groups)))
         for dc in range(1, dcs + 1):
             fraction = (dc - 1) * pops / dcs
@@ -195,8 +192,8 @@ def _add_dc_to_pop_edges(
                 )
                 _add_site_edge(
                     G,
-                    _site_node_id(idx, "dc", dc),
-                    _site_node_id(idx, "pop", pop),
+                    site_id(idx, "dc", dc),
+                    site_id(idx, "pop", pop),
                     f"{adjacency}:{dc}-{pop}",
                     link,
                     "dc_to_pop",
@@ -246,15 +243,13 @@ def _add_inter_metro_edges(
             labels = list(left)
             for idx, count, groups in ((ai, ap, left), (bi, bp, right)):
                 for ordinal in range(1, count + 1):
-                    stripes.attach(
-                        _site_node_id(idx, "pop", ordinal), attribute, groups
-                    )
+                    stripes.attach(site_id(idx, "pop", ordinal), attribute, groups)
         for ordinal, (p, q) in enumerate(pairs):
             label = labels[ordinal % len(labels)] if labels else None
             _add_site_edge(
                 G,
-                _site_node_id(ai, "pop", p),
-                _site_node_id(bi, "pop", q),
+                site_id(ai, "pop", p),
+                site_id(bi, "pop", q),
                 f"{adjacency}:{p}-{q}",
                 link,
                 "inter_metro_corridor",
@@ -317,7 +312,7 @@ def build_site_graph(
         pop_blueprint = metro_settings[name]["site_blueprint"]
         dc_blueprint = metro_settings[name]["dc_region_blueprint"]
         for p in range(1, s + 1):
-            node_id = _site_node_id(idx, "pop", p)
+            node_id = site_id(idx, "pop", p)
             G.add_node(
                 node_id,
                 metro_idx=idx,
@@ -327,7 +322,7 @@ def build_site_graph(
                 site_blueprint=pop_blueprint,
             )
         for j in range(1, d + 1):
-            node_id = _site_node_id(idx, "dc", j)
+            node_id = site_id(idx, "dc", j)
             G.add_node(
                 node_id,
                 metro_idx=idx,
@@ -339,7 +334,18 @@ def build_site_graph(
 
     _assign_site_positions(G, metros, metro_idx_map)
 
-    stripes = StripePlanner(blueprints)
+    striped = set()
+    for value in metro_settings.values():
+        if value["dc_regions_per_metro"] and value["dc_to_pop_link"].get("striping"):
+            striped.update((value["site_blueprint"], value["dc_region_blueprint"]))
+    for u, v in integrated_graph.edges():
+        left, right = (
+            metro_settings[metro_by_node[u]["name"]],
+            metro_settings[metro_by_node[v]["name"]],
+        )
+        if left["inter_metro_link"].get("striping"):
+            striped.update((left["site_blueprint"], right["site_blueprint"]))
+    stripes = StripePlanner(blueprints, striped)
     _add_intra_metro_edges(G, metros, metro_settings, metro_idx_map)
     _add_dc_to_pop_edges(G, metros, metro_settings, metro_idx_map, stripes)
     _add_inter_metro_edges(

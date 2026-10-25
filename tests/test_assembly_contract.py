@@ -1,110 +1,324 @@
-"""Behavioral contracts shared by sizing, device expansion and hardware."""
+"""Hardware division, both endpoints and reachable empty-expansion failures."""
 
-import math
+from fractions import Fraction
 
-import networkx as nx
+import pytest
 import yaml
-from ngraph.dsl.blueprints.expand import expand_network_dsl
 
-from topogen.config import TopologyConfig
+from topogen.library import Library, load_library, thaw
 from topogen.scenario import build_scenario
+from topogen.validation import validate_scenario
 
 
-def test_optics_follow_each_site_edge_capacity():
-    """Different PoP egress budgets in one metro need different optic counts."""
-    graph = nx.MultiGraph()
-    for i, name in enumerate(("alpha", "beta")):
-        graph.add_node(
-            (i * 100_000.0, 0.0),
-            node_type="metro",
-            name=name,
-            metro_id=name,
-            x=i * 100_000.0,
-            y=0.0,
-            radius_km=10.0,
-            name_orig=name,
-        )
-    graph.add_edge((0.0, 0.0), (100_000.0, 0.0), edge_type="corridor", length_km=100.0)
-    cfg = TopologyConfig()
-    defaults = cfg.build.build_defaults
-    defaults.pop_per_metro = 3
-    defaults.dc_regions_per_metro = 1
-    defaults.inter_metro_link.mode = "one_to_one"
-    defaults.inter_metro_link.attrs = {"owner": "fixture"}
-    defaults.intra_metro_link.role_pairs = ["core|core"]
-    defaults.inter_metro_link.role_pairs = ["core|core"]
-    defaults.dc_to_pop_link.role_pairs = ["dc|core"]
-    cfg.build.build_overrides = {"beta": {"pop_per_metro": 2}}
-    cfg.build.tm_sizing.enabled = True
-    cfg.traffic.enabled = True
-    cfg.traffic.model = "uniform"
-    cfg.traffic.mw_per_dc_region = 100.0
-    cfg.traffic.gbps_per_mw = 200.0
-    cfg.components.hw_component = {"core": "CoreRouter", "dc": ""}
-    cfg.components.optics = {
-        "core->core": "800G-ZR+",
-        "dc->core": "800G-ZR+",
-        "core->dc": "800G-ZR+",
+def hardware_case(corridor_graph, config, optic, devices=1):
+    corridor_graph.remove_node(2)
+    config.build.build_defaults.site_blueprint = "Core"
+    config.build.build_defaults.inter_metro_link.mode = "one_to_one"
+    config.components.optics = {"core->core": "O", "core->dc": "O", "dc->core": "O"}
+    base = load_library(None)
+    blueprints = thaw(base.blueprints)
+    blueprints["Core"] = {
+        "nodes": {
+            "core": {"count": devices, "template": "core{n}", "attrs": {"role": "core"}}
+        },
+        "links": [],
     }
+    components = thaw(base.components)
+    components["O"] = {"capacity": optic, "ports": 0}
+    return Library(blueprints, components, base.failure_policies, base.workflows)
 
-    scenario = yaml.safe_load(build_scenario(graph, cfg))
-    network = expand_network_dsl(scenario)
-    wan = [
-        link
-        for link in network.links.values()
-        if link.attrs["link_type"] == "inter_metro_corridor"
+
+def test_49_optics_runs_through_assignment_emission_and_validation(
+    corridor_graph, scenario_config
+):
+    cfg = scenario_config
+    cfg.traffic.mw_per_dc_region = 1
+    cfg.traffic.gbps_per_mw = 60.0005
+    cfg.build.tm_sizing.enabled = True
+    cfg.build.tm_sizing.headroom = 1
+    cfg.build.tm_sizing.quantum_gbps = 0
+    cfg.build.tm_sizing.respect_min_base_capacity = False
+    library = hardware_case(corridor_graph, cfg, 1.2245)
+    build = build_scenario(corridor_graph, cfg, library)
+    wan = [hw for edge, hw in build.hardware.items() if "inter_metro" in edge]
+    assert len(wan) == 1 and wan[0].capacity == Fraction("60.0005")
+    assert (wan[0].source_count, wan[0].target_count) == (49, 49)
+    assert not validate_scenario(build.yaml, cfg.components).issues
+    doc = yaml.safe_load(build.yaml)
+    for rule in doc["network"]["links"]:
+        assert type(rule["capacity"]) is float
+        assert type(rule["attrs"]["target_capacity"]) is float
+        for assignment in rule["attrs"]["hardware"].values():
+            assert type(assignment["count"]) is float
+    for link in doc["network"]["links"]:
+        if link["attrs"]["link_type"] == "inter_metro_corridor":
+            link["attrs"]["hardware"]["source"]["count"] = 48
+    assert any(
+        "capacity shortfall" in s
+        for s in validate_scenario(yaml.safe_dump(doc), cfg.components).issues
+    )
+
+
+@pytest.mark.parametrize(
+    "budget,optic,devices,count",
+    [
+        (1, 0.1111111111111111, 3, 3),
+        (775, 36.9047619047619, 3, 7),
+        (2**48, 1 / 64, 1, 2**54),
+        (10**14, 1e-290, 1, 10**304),
+        (10**16, 9999999999999999, 1, 1),
+        (6117552732154677, 21465.09354, 5, 57000010001),
+    ],
+)
+def test_written_device_and_held_optic_boundaries(
+    corridor_graph, scenario_config, budget, optic, devices, count
+):
+    cfg = scenario_config
+    cfg.build.build_defaults.inter_metro_link.capacity = budget
+    library = hardware_case(corridor_graph, cfg, optic, devices)
+    build = build_scenario(corridor_graph, cfg, library)
+    wan = [hw for edge, hw in build.hardware.items() if "inter_metro" in edge]
+    assert len(wan) == 1 and wan[0].capacity == Fraction(budget, devices)
+    assert wan[0].source_count == wan[0].target_count == count
+    assert not validate_scenario(build.yaml, cfg.components).issues
+
+
+@pytest.mark.parametrize("budget,optic", [(8106479329266893, 0.9), (10**14, 1e-300)])
+def test_unwritable_count_refuses_by_link_end_optic(
+    corridor_graph, scenario_config, budget, optic
+):
+    cfg = scenario_config
+    cfg.build.build_defaults.inter_metro_link.capacity = budget
+    library = hardware_case(corridor_graph, cfg, optic)
+    with pytest.raises(
+        ValueError,
+        match="Adjacency .* source optic 'O': optic count .* cannot be written exactly",
+    ):
+        build_scenario(corridor_graph, cfg, library)
+
+
+def test_empty_internal_blueprint_rule_refuses_in_e2(corridor_graph, scenario_config):
+    base = load_library(None)
+    bps = thaw(base.blueprints)
+    bps["SingleRouter"]["links"] = [
+        {"source": "missing", "target": "core", "capacity": 1, "cost": 1}
     ]
-    assert wan and all(link.attrs["owner"] == "fixture" for link in wan)
-    capacities = {link.capacity for link in network.links.values()}
-    assert len(capacities) > 1
-    for link in network.links.values():
-        for endpoint in ("source", "target"):
-            hardware = link.attrs["hardware"][endpoint]
-            component = scenario["components"][hardware["component"]]
-            expected = math.ceil(link.capacity / component["capacity"])
-            assert hardware["count"] == expected, (
-                link.source,
-                link.target,
-                link.capacity,
-                hardware,
-            )
+    library = Library(bps, base.components, base.failure_policies, base.workflows)
+    with pytest.raises(
+        ValueError, match="blueprint 'SingleRouter' link rule 0 expands to no links"
+    ):
+        build_scenario(corridor_graph, scenario_config, library)
 
 
-def test_directional_optics_are_resolved_for_each_endpoint():
-    import pytest
+def test_exact_derived_step_changes_230_to_220(corridor_graph, scenario_config):
+    cfg = scenario_config
+    cfg.traffic.mw_per_dc_region = 200
+    cfg.build.tm_sizing.enabled = True
+    cfg.build.tm_sizing.headroom = 1
+    cfg.build.tm_sizing.quantum_gbps = 10
+    cfg.build.tm_sizing.alpha_dc_to_pop = 1.1
+    cfg.build.tm_sizing.respect_min_base_capacity = False
+    library = hardware_case(corridor_graph, cfg, 10)
+    build = build_scenario(corridor_graph, cfg, library)
+    dc = [h for edge, h in build.hardware.items() if "dc_to_pop" in edge]
+    assert len(dc) == 2 and all(
+        h.capacity == 220 and h.source_count == h.target_count == 22 for h in dc
+    )
+    assert not validate_scenario(build.yaml, cfg.components).issues
+
+
+@pytest.mark.parametrize("striped", [False, True])
+def test_stripe_match_sees_finalized_platforms(
+    corridor_graph, scenario_config, striped
+):
+    cfg = scenario_config
+    cfg.build.build_defaults.site_blueprint = "FullMesh4"
+    cfg.build.build_defaults.inter_metro_link.striping = (
+        {"mode": "width", "width": 2} if striped else {}
+    )
+    cfg.build.build_defaults.inter_metro_link.mode = "one_to_one"
+    cfg.build.build_defaults.inter_metro_link.match = {
+        "conditions": [
+            {"attr": "hardware.component", "op": "==", "value": "CoreRouter"}
+        ]
+    }
+    cfg.components.hw_component = {"core": "CoreRouter", "dc": ""}
+    build = build_scenario(corridor_graph, cfg, load_library(None))
+    assert all(
+        len(hw.device_links) == (2 if striped else 4)
+        for edge, hw in build.hardware.items()
+        if "inter_metro" in edge
+    )
+    assert "800G-DR4" in yaml.safe_load(build.yaml)["components"]
+    assert not validate_scenario(build.yaml, cfg.components).issues
+
+
+def test_directional_optics_are_assigned_to_their_own_end(
+    corridor_graph, scenario_config
+):
+    base = load_library(None)
+    components = thaw(base.components)
+    components.update(
+        small={"capacity": 100, "ports": 0}, large={"capacity": 200, "ports": 0}
+    )
+    library = Library(
+        base.blueprints, components, base.failure_policies, base.workflows
+    )
+    cfg = scenario_config
+    cfg.components.optics = {
+        "core->core": "large",
+        "core->dc": "small",
+        "dc->core": "large",
+    }
+    build = build_scenario(corridor_graph, cfg, library)
+    dc = [hw for edge, hw in build.hardware.items() if "dc_to_pop" in edge]
+    assert len(dc) == 3
+    assert all(
+        (hw.source_optic, hw.source_count, hw.target_optic, hw.target_count)
+        == ("small", 4, "large", 2)
+        for hw in dc
+    )
+    assert not validate_scenario(build.yaml, cfg.components).issues
+
+
+def test_expansion_stages_are_batched_and_private_tags_do_not_escape(
+    corridor_graph, scenario_config, monkeypatch
+):
+    from ngraph import Scenario
+
+    cfg = scenario_config
+    cfg.build.build_defaults.site_blueprint = "FullMesh4"
+    cfg.build.build_defaults.inter_metro_link.striping = {"mode": "width", "width": 2}
+    cfg.build.build_defaults.inter_metro_link.mode = "one_to_one"
+    original = Scenario.from_yaml
+    calls = []
+
+    def counted(*args, **kwargs):
+        parsed = original(*args, **kwargs)
+        calls.append(parsed)
+        return parsed
+
+    monkeypatch.setattr(Scenario, "from_yaml", counted)
+    library = load_library(None)
+    build = build_scenario(corridor_graph, cfg, library)
+    assert len(calls) == 2
+    assert "_topogen_rule" not in build.yaml
+    assert all(name.startswith("stripe_probe") for name in calls[0].network.nodes)
+    assert len(calls[1].network.nodes) > len(calls[0].network.nodes)
+    assert not validate_scenario(build.yaml, cfg.components).issues
+    assert len(calls) == 3
+    assert all(
+        "_topogen_rule" not in link.attrs for link in calls[2].network.links.values()
+    )
+
+
+def test_empty_site_adjacency_is_refused_before_hardware_assignment():
+    import networkx as nx
 
     from topogen.naming import site_edge_id
-    from topogen.scenario.expansion import resolve_network
+    from topogen.scenario.hardware import expand_sites
 
-    graph = nx.MultiGraph()
-    graph.add_edge("a", "b", key="wan", base_capacity=2400)
-    edge_id = site_edge_id("a", "b", "wan")
-    scenario = {
-        "components": {"small": {"capacity": 800}, "large": {"capacity": 1600}},
+    plan = nx.MultiGraph()
+    plan.add_edge("metro1/pop1", "metro2/pop1", key="wan")
+    edge = site_edge_id("metro1/pop1", "metro2/pop1", "wan")
+    document = {
+        "blueprints": {},
         "network": {
-            "nodes": {
-                "a": {"attrs": {"role": "leaf"}},
-                "b": {"attrs": {"role": "spine"}},
-            },
+            "nodes": {f"metro{i}/pop1/n": {"attrs": {"role": "core"}} for i in (1, 2)},
             "links": [
                 {
-                    "source": "a",
-                    "target": "b",
+                    "source": "^missing$",
+                    "target": "^metro2/pop1/n$",
                     "capacity": 1,
-                    "attrs": {"site_edge": edge_id},
+                    "cost": 1,
+                    "attrs": {"site_edge": edge},
                 }
             ],
         },
     }
-    network = resolve_network(
-        graph, scenario, {"leaf->spine": "small", "spine->leaf": "large"}
-    )
-    expected = {
-        "source": {"component": "small", "count": 3},
-        "target": {"component": "large", "count": 2},
+    with pytest.raises(ValueError, match="Adjacency .* expands to no device links"):
+        expand_sites(plan, document)
+    document["network"]["links"][0]["source"] = "^metro1/pop1/n$"
+    links = expand_sites(plan, document)[edge]
+    assert len(links) == 1
+    assert (links[0].source, links[0].target) == ("metro1/pop1/n", "metro2/pop1/n")
+    assert links[0].source_role == links[0].target_role == "core"
+
+
+def test_combined_exact_uniform_sizing_keeps_the_intended_step(
+    corridor_graph, scenario_config
+):
+    cfg = scenario_config
+    corridor_graph[0][2][0]["length_km"] = 600
+    corridor_graph.add_edge(0, 1, key=1, edge_type="corridor", length_km=450)
+    cfg.build.build_defaults.site_blueprint = "FullMesh4"
+    cfg.build.build_defaults.inter_metro_link.mode = "one_to_one"
+    cfg.build.build_defaults.inter_metro_link.capacity = 800
+    cfg.build.build_defaults.dc_to_pop_link.capacity = 800
+    cfg.build.build_overrides = {
+        "alpha": {"inter_metro_link": {"striping": {"mode": "width", "width": 1}}},
+        "beta": {"inter_metro_link": {"striping": {"mode": "width", "width": 2}}},
     }
-    assert graph["a"]["b"]["wan"]["hardware"] == expected
-    assert scenario["network"]["links"][0]["attrs"]["hardware"] == expected
-    assert next(iter(network.links.values())).attrs["hardware"] == expected
-    with pytest.raises(ValueError, match="no target-end optic mapping"):
-        resolve_network(graph, scenario, {"leaf->spine": "small"})
+    cfg.build.tm_sizing.enabled = True
+    cfg.build.tm_sizing.headroom = 1.28
+    cfg.build.tm_sizing.quantum_gbps = 1600
+    cfg.traffic.mw_per_dc_region = 25
+    cfg.traffic.gbps_per_mw = 200
+    cfg.traffic.gravity.mw_per_dc_region_overrides = {"beta": 50}
+    cfg.components.optics = {
+        "core->core": "800G-ZR+",
+        "core->dc": "800G-ZR+",
+        "dc->core": "800G-ZR+",
+    }
+    build = build_scenario(corridor_graph, cfg, load_library(None))
+    assert {d.volume for d in build.traffic[0].demands} == {Fraction(10000, 3)}
+    assert sorted(build.sizing.load.values()) == [0, Fraction(5000, 3), 5000, 5000]
+    assert sorted(build.sizing.capacity.values()) == [
+        800,
+        3200,
+        6400,
+        6400,
+        12800,
+        12800,
+        17600,
+    ]
+    dc = [hw for edge, hw in build.hardware.items() if "dc_to_pop" in edge]
+    assert sorted(hw.capacity for hw in dc) == [3200, 3200, 4400]
+    assert sorted(hw.source_count for hw in dc) == [4, 4, 6]
+    assert not validate_scenario(build.yaml, cfg.components).issues
+
+
+@pytest.mark.parametrize("capacity", [0, -5])
+@pytest.mark.parametrize("end", ["source", "target"])
+def test_nonpositive_optic_error_names_adjacency_link_end_and_optic(capacity, end):
+    import networkx as nx
+
+    from topogen.config import ComponentsConfig
+    from topogen.scenario.hardware import assign_hardware
+    from topogen.scenario.records import DeviceLink, Sizing
+
+    plan = nx.MultiGraph()
+    plan.add_edge("A", "B", key="k")
+    edge = "A|B|k"
+    expansion = {edge: (DeviceLink("A/core", "B/dc", "core", "dc"),)}
+    sizes = Sizing({}, {edge: Fraction(10)})
+    components = {"OZ": {"capacity": capacity}, "good": {"capacity": 10}}
+    cfg = ComponentsConfig(
+        optics={
+            "core->dc": "OZ" if end == "source" else "good",
+            "dc->core": "OZ" if end == "target" else "good",
+        }
+    )
+    with pytest.raises(ValueError) as error:
+        assign_hardware(plan, sizes, expansion, Library({}, components, {}, {}), cfg)
+    assert (
+        str(error.value)
+        == f"Adjacency 'A|B|k' A/core->B/dc {end} optic 'OZ': optic capacity must be positive, got {float(capacity)!r}"
+    )
+    components["OZ"]["capacity"] = 10
+    assert (
+        assign_hardware(plan, sizes, expansion, Library({}, components, {}, {}), cfg)[
+            edge
+        ].source_count
+        == 1
+    )

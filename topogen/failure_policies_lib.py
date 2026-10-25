@@ -1,14 +1,8 @@
-"""Built-in failure policies with overrides from ``cwd/lib/failure_policies.yml``.
-
-The YAML file maps names to definitions; each entry replaces the matching built-in.
-"""
+"""Builtin failure policies definitions."""
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
-
-from topogen.library_io import load_user_library
 
 _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
     "empty": {"modes": [{"weight": 1.0, "rules": []}]},
@@ -123,11 +117,3 @@ _BUILTIN_FAILURE_POLICIES: dict[str, dict[str, Any]] = {
         ],
     },
 }
-
-
-def get_builtin_failure_policies() -> dict[str, dict[str, Any]]:
-    """Return built-in failure policies with user overrides applied."""
-    policies = deepcopy(_BUILTIN_FAILURE_POLICIES)
-    user_policies = load_user_library("failure_policies.yml")
-    policies.update(user_policies)
-    return policies

@@ -1,11 +1,13 @@
 """Tests for component functionality in scenario builder."""
 
+from pathlib import Path
+
 import pytest
 
-from topogen.blueprints_lib import get_builtin_blueprints
 from topogen.config import (
     TopologyConfig,
 )
+from topogen.library import load_library, thaw
 from topogen.scenario.libraries import (
     _build_blueprints_section,
     _build_components_section,
@@ -35,7 +37,11 @@ class TestComponentsScenarioBuilder:
         used_blueprints = {"SingleRouter", "FullMesh4"}
 
         components = _build_components_section(
-            config, _build_blueprints_section(used_blueprints, config)
+            config,
+            _build_blueprints_section(
+                used_blueprints, config, load_library(Path("lib"))
+            ),
+            load_library(Path("lib")),
         )
 
         assert isinstance(components, dict)
@@ -47,7 +53,7 @@ class TestComponentsScenarioBuilder:
     def test_build_components_section_with_role_assignments(self):
         config = self.create_test_config()
         # Pick any available Clos-style blueprint dynamically
-        bps = get_builtin_blueprints()
+        bps = thaw(load_library(Path("lib")).blueprints)
         clos_name = next(
             (
                 name
@@ -60,7 +66,11 @@ class TestComponentsScenarioBuilder:
         used_blueprints = {clos_name}
 
         components = _build_components_section(
-            config, _build_blueprints_section(used_blueprints, config)
+            config,
+            _build_blueprints_section(
+                used_blueprints, config, load_library(Path("lib"))
+            ),
+            load_library(Path("lib")),
         )
 
         assert isinstance(components, dict)
@@ -71,7 +81,7 @@ class TestComponentsScenarioBuilder:
         """The merged library includes the configured built-in components."""
         config = self.create_test_config()
         # Pick any available Clos-style blueprint dynamically
-        bps = get_builtin_blueprints()
+        bps = thaw(load_library(Path("lib")).blueprints)
         clos_name = next(
             (
                 name
@@ -83,7 +93,11 @@ class TestComponentsScenarioBuilder:
         assert clos_name is not None, "No Clos-style blueprint found"
         used_blueprints = {clos_name}
         components = _build_components_section(
-            config, _build_blueprints_section(used_blueprints, config)
+            config,
+            _build_blueprints_section(
+                used_blueprints, config, load_library(Path("lib"))
+            ),
+            load_library(Path("lib")),
         )
         assert "CoreRouter" in components
 
@@ -96,14 +110,20 @@ class TestComponentsScenarioBuilder:
 
         with pytest.raises(ValueError, match="Unknown components"):
             _build_components_section(
-                config, _build_blueprints_section(used_blueprints, config)
+                config,
+                _build_blueprints_section(
+                    used_blueprints, config, load_library(Path("lib"))
+                ),
+                load_library(Path("lib")),
             )
 
     def test_build_blueprints_section_basic(self):
         config = self.create_test_config()
         used_blueprints = {"SingleRouter"}
 
-        blueprints = _build_blueprints_section(used_blueprints, config)
+        blueprints = _build_blueprints_section(
+            used_blueprints, config, load_library(Path("lib"))
+        )
 
         assert isinstance(blueprints, dict)
         assert "SingleRouter" in blueprints
@@ -118,7 +138,7 @@ class TestComponentsScenarioBuilder:
     def test_build_blueprints_section_with_role_assignments(self):
         config = self.create_test_config()
         # Pick any available Clos-style blueprint dynamically
-        bps = get_builtin_blueprints()
+        bps = thaw(load_library(Path("lib")).blueprints)
         clos_name = next(
             (
                 name
@@ -130,7 +150,9 @@ class TestComponentsScenarioBuilder:
         assert clos_name is not None, "No Clos-style blueprint found"
         used_blueprints = {clos_name}
 
-        blueprints = _build_blueprints_section(used_blueprints, config)
+        blueprints = _build_blueprints_section(
+            used_blueprints, config, load_library(Path("lib"))
+        )
 
         assert clos_name in blueprints
 
@@ -144,7 +166,7 @@ class TestComponentsScenarioBuilder:
     def test_build_blueprints_section_preserves_existing_attrs(self):
         config = self.create_test_config()
         # Pick any available Clos-style blueprint dynamically
-        bps = get_builtin_blueprints()
+        bps = thaw(load_library(Path("lib")).blueprints)
         clos_name = next(
             (
                 name
@@ -156,7 +178,9 @@ class TestComponentsScenarioBuilder:
         assert clos_name is not None, "No Clos-style blueprint found"
         used_blueprints = {clos_name}
 
-        blueprints = _build_blueprints_section(used_blueprints, config)
+        blueprints = _build_blueprints_section(
+            used_blueprints, config, load_library(Path("lib"))
+        )
 
         clos_blueprint = blueprints[clos_name]
         spine_group = clos_blueprint["nodes"]["spine"]
@@ -171,13 +195,17 @@ class TestComponentsScenarioBuilder:
         used_blueprints = {"UnknownBlueprint"}
 
         with pytest.raises(ValueError, match="Unknown blueprint: UnknownBlueprint"):
-            _build_blueprints_section(used_blueprints, config)
+            _build_blueprints_section(
+                used_blueprints, config, load_library(Path("lib"))
+            )
 
     def test_build_blueprints_section_no_role_assignment(self):
         config = TopologyConfig()
         used_blueprints = {"SingleRouter"}
 
-        blueprints = _build_blueprints_section(used_blueprints, config)
+        blueprints = _build_blueprints_section(
+            used_blueprints, config, load_library(Path("lib"))
+        )
 
         assert "SingleRouter" in blueprints
 
@@ -189,7 +217,9 @@ class TestComponentsScenarioBuilder:
 
         used_blueprints = {"FullMesh4"}
 
-        blueprints = _build_blueprints_section(used_blueprints, config)
+        blueprints = _build_blueprints_section(
+            used_blueprints, config, load_library(Path("lib"))
+        )
 
         full_mesh = blueprints["FullMesh4"]
         core_group = full_mesh["nodes"]["core"]
@@ -201,7 +231,11 @@ class TestComponentsScenarioBuilder:
 
         used_blueprints = {"SingleRouter"}
         components = _build_components_section(
-            config, _build_blueprints_section(used_blueprints, config)
+            config,
+            _build_blueprints_section(
+                used_blueprints, config, load_library(Path("lib"))
+            ),
+            load_library(Path("lib")),
         )
 
         assert "UnusedChassis1" not in components
@@ -216,9 +250,15 @@ class TestComponentsScenarioBuilder:
         used_blueprints = set()
 
         components = _build_components_section(
-            config, _build_blueprints_section(used_blueprints, config)
+            config,
+            _build_blueprints_section(
+                used_blueprints, config, load_library(Path("lib"))
+            ),
+            load_library(Path("lib")),
         )
-        blueprints = _build_blueprints_section(used_blueprints, config)
+        blueprints = _build_blueprints_section(
+            used_blueprints, config, load_library(Path("lib"))
+        )
 
         assert isinstance(components, dict)
         assert isinstance(blueprints, dict)

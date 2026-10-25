@@ -30,3 +30,18 @@ def metro_slug(name: str) -> str:
 def site_edge_id(source: str, target: str, key: str) -> str:
     """Identify one site adjacency in the graph's edge iteration order."""
     return f"{source}|{target}|{key}"
+
+
+def site_id(metro: int, kind: str, ordinal: int) -> str:
+    """Name one site within a metro."""
+    return f"metro{metro}/{kind}{ordinal}"
+
+
+def site_of(device: str) -> str:
+    """Return the site prefix of a hierarchical device name."""
+    return "/".join(device.split("/")[:2])
+
+
+def site_selector(site: str) -> str:
+    """Select the devices inside a generated site."""
+    return f"^{site}/.*"

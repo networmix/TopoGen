@@ -1,14 +1,8 @@
-"""Built-in hardware with overrides from ``cwd/lib/components.yml``.
-
-The YAML file maps names to definitions; each entry replaces the matching built-in.
-"""
+"""Builtin components definitions."""
 
 from __future__ import annotations
 
-from copy import deepcopy
 from typing import Any
-
-from topogen.library_io import load_user_library
 
 _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
     # Router Chassis Components
@@ -73,11 +67,3 @@ _BUILTIN_COMPONENTS: dict[str, dict[str, Any]] = {
         "attrs": {},
     },
 }
-
-
-def get_builtin_components() -> dict[str, dict[str, Any]]:
-    """Return a copy of built-in components with user overrides applied."""
-    components = deepcopy(_BUILTIN_COMPONENTS)
-    user_components = load_user_library("components.yml")
-    components.update(user_components)
-    return components

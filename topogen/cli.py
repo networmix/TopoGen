@@ -8,7 +8,6 @@ import sys
 import time
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 from topogen.config import TopologyConfig
 from topogen.context import RunContext
@@ -96,33 +95,14 @@ def build_command(args: argparse.Namespace) -> None:
         sys.exit(1)  # Runtime error
 
 
-def _write_scenario(path: Path, content: str) -> None:
-    """Replace a scenario atomically, only after it has passed validation."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary: Path | None = None
-    try:
-        with NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=path.parent,
-            prefix=f".{path.name}.",
-            delete=False,
-        ) as stream:
-            temporary = Path(stream.name)
-            stream.write(content)
-        temporary.replace(path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
-
-
 def _run_pipeline(
     config: TopologyConfig, output_path: Path, *, context: RunContext
 ) -> str:
     """Build, validate, then publish scenario YAML from the saved corridor graph."""
     from topogen import load_from_json
-    from topogen.scenario import build_scenario
-    from topogen.validation import validate_scenario_yaml
+    from topogen.library import load_library
+    from topogen.scenario import build_scenario, write_artifacts, write_scenario
+    from topogen.validation import validate_scenario
 
     graph_path = context.path("integrated_graph.json")
     if not graph_path.exists():
@@ -136,19 +116,15 @@ def _run_pipeline(
         )
     print(f"Graph loaded: {len(graph.nodes):,} metros, {len(graph.edges):,} corridors")
     with Timer("Generate NetGraph scenario"):
-        scenario_yaml = build_scenario(graph, config, context=context)
-    issues = validate_scenario_yaml(
-        scenario_yaml,
-        integrated_graph_path=graph_path,
-        hw_component_map=config.components.hw_component,
-        optics_map=config.components.optics,
-    )
-    if issues:
-        raise ValueError("Scenario validation failed:\n" + "\n".join(issues))
+        build = build_scenario(graph, config, load_library(Path("lib")))
+    validation = validate_scenario(build.yaml, config.components)
+    if validation.issues:
+        raise ValueError("Scenario validation failed:\n" + "\n".join(validation.issues))
     print("✅ Scenario validation passed")
-    _write_scenario(output_path, scenario_yaml)
+    write_scenario(output_path, build.yaml)
+    write_artifacts(build, validation, config, context)
     print(f"Scenario written to: {output_path}")
-    return scenario_yaml
+    return build.yaml
 
 
 def _run_generation(config: TopologyConfig, context: RunContext) -> None:

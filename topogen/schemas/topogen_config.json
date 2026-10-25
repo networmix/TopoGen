@@ -305,12 +305,6 @@
                             "type": "number",
                             "minimum": 0
                         },
-                        "flow_placement": {
-                            "enum": [
-                                "EQUAL_BALANCED",
-                                "PROPORTIONAL"
-                            ]
-                        },
                         "respect_min_base_capacity": {
                             "type": "boolean"
                         }

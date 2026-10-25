@@ -1,5 +1,7 @@
 """Functional tests for risk groups in scenario generation."""
 
+from pathlib import Path
+
 import networkx as nx
 import pytest
 import yaml
@@ -11,9 +13,9 @@ from topogen.config import (
     RiskGroupsConfig,
     TopologyConfig,
 )
+from topogen.library import load_library
 from topogen.scenario import build_scenario
 from topogen.scenario.risk import _build_risk_groups_section
-from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestScenarioRiskGroups:
@@ -105,9 +107,9 @@ class TestScenarioRiskGroups:
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(graph, config)
+        yaml_str = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         assert "risk_groups" in scenario_data
@@ -181,9 +183,9 @@ class TestScenarioRiskGroups:
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(graph, config)
+        yaml_str = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         assert len(scenario_data["risk_groups"]) == 3
@@ -242,9 +244,9 @@ class TestScenarioRiskGroups:
         config.corridors.risk_groups = RiskGroupsConfig(enabled=False)
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(graph, config)
+        yaml_str = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         assert "risk_groups" not in scenario_data
@@ -282,9 +284,9 @@ class TestScenarioRiskGroups:
         )
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_str = build_scenario(graph, config)
+        yaml_str = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         groups = scenario_data["network"]["nodes"]

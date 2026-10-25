@@ -1,11 +1,14 @@
 """Adjacency modes and stripe identities survive actual blueprint expansion."""
 
+from pathlib import Path
+
 import networkx as nx
 import pytest
 import yaml
-from ngraph.dsl.blueprints.expand import expand_network_dsl
+from ngraph import Scenario
 
 from topogen.config import TopologyConfig
+from topogen.library import load_library
 from topogen.scenario import build_scenario
 
 
@@ -43,7 +46,13 @@ def test_striping_respects_one_to_one_site_mode(tmp_path, monkeypatch):
         "mode": "width",
         "width": 1,
     }
-    network = expand_network_dsl(yaml.safe_load(build_scenario(graph, config)))
+    network = Scenario.from_yaml(
+        yaml.safe_dump(
+            yaml.safe_load(
+                build_scenario(graph, config, load_library(Path("lib"))).yaml
+            )
+        )
+    ).network
     wan = [
         link
         for link in network.links.values()
@@ -76,7 +85,13 @@ def test_stripe_members_keep_full_paths_and_literal_names(
         "mode": "by_attr",
         "attribute": "stripe",
     }
-    network = expand_network_dsl(yaml.safe_load(build_scenario(graph, config)))
+    network = Scenario.from_yaml(
+        yaml.safe_dump(
+            yaml.safe_load(
+                build_scenario(graph, config, load_library(Path("lib"))).yaml
+            )
+        )
+    ).network
     wan = [
         link
         for link in network.links.values()
@@ -110,7 +125,13 @@ def test_striping_preserves_custom_endpoint_match(tmp_path, monkeypatch):
     link = config.build.build_defaults.inter_metro_link
     link.striping = {"mode": "width", "width": 1}
     link.match = {"conditions": [{"attr": "chosen", "op": "==", "value": True}]}
-    network = expand_network_dsl(yaml.safe_load(build_scenario(graph, config)))
+    network = Scenario.from_yaml(
+        yaml.safe_dump(
+            yaml.safe_load(
+                build_scenario(graph, config, load_library(Path("lib"))).yaml
+            )
+        )
+    ).network
     wan = [
         link
         for link in network.links.values()
@@ -131,7 +152,9 @@ def test_disabled_risks_are_not_emitted_from_saved_graph(tmp_path, monkeypatch):
     for _, _, attrs in graph.edges(data=True):
         attrs["risk_groups"] = ["corridor_risk_a_b"]
     config.corridors.risk_groups.enabled = False
-    scenario = yaml.safe_load(build_scenario(graph, config))
+    scenario = yaml.safe_load(
+        build_scenario(graph, config, load_library(Path("lib"))).yaml
+    )
     assert "risk_groups" not in scenario
     assert all("risk_groups" not in link for link in scenario["network"]["links"])
 
@@ -141,7 +164,9 @@ def test_configured_cost_is_a_floor_without_changing_distance(tmp_path, monkeypa
         tmp_path, monkeypatch, {"nodes": {"r": {"count": 1, "attrs": {"role": "core"}}}}
     )
     config.build.build_defaults.inter_metro_link.cost = 500
-    scenario = yaml.safe_load(build_scenario(graph, config))
+    scenario = yaml.safe_load(
+        build_scenario(graph, config, load_library(Path("lib"))).yaml
+    )
     links = [
         link
         for link in scenario["network"]["links"]
@@ -157,6 +182,8 @@ def test_nested_blueprint_dependencies_are_included(tmp_path, monkeypatch):
         monkeypatch,
         {"nodes": {"inner": {"blueprint": "SingleRouter", "attrs": {"role": "core"}}}},
     )
-    scenario = yaml.safe_load(build_scenario(graph, config))
+    scenario = yaml.safe_load(
+        build_scenario(graph, config, load_library(Path("lib"))).yaml
+    )
     assert set(scenario["blueprints"]) == {"Test", "SingleRouter"}
-    assert len(expand_network_dsl(scenario).nodes) == 4
+    assert len(Scenario.from_yaml(yaml.safe_dump(scenario)).network.nodes) == 4

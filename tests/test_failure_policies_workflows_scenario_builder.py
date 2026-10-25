@@ -1,16 +1,18 @@
 """Tests for failure policies and workflows in scenario builder."""
 
+from pathlib import Path
+
 import networkx as nx
 import pytest
 import yaml
 
 from topogen.config import TopologyConfig
+from topogen.library import load_library
 from topogen.scenario import build_scenario
 from topogen.scenario.policies import (
     _build_failure_policy_set_section,
     _build_workflow_section,
 )
-from topogen.workflows_lib import get_builtin_workflows
 
 
 class TestBuildFailurePolicySetSection:
@@ -19,7 +21,9 @@ class TestBuildFailurePolicySetSection:
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(
-            config, _build_workflow_section(config)
+            config,
+            _build_workflow_section(config, load_library(Path("lib"))),
+            load_library(Path("lib")),
         )
 
         assert isinstance(result, dict)
@@ -31,7 +35,9 @@ class TestBuildFailurePolicySetSection:
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(
-            config, _build_workflow_section(config)
+            config,
+            _build_workflow_section(config, load_library(Path("lib"))),
+            load_library(Path("lib")),
         )
 
         assert "single_random_link_failure" in result
@@ -41,7 +47,9 @@ class TestBuildFailurePolicySetSection:
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(
-            config, _build_workflow_section(config)
+            config,
+            _build_workflow_section(config, load_library(Path("lib"))),
+            load_library(Path("lib")),
         )
 
         assert "single_random_link_failure" in result
@@ -51,7 +59,9 @@ class TestBuildFailurePolicySetSection:
         config.failure_policies.assignments.default = "single_random_link_failure"
 
         result = _build_failure_policy_set_section(
-            config, _build_workflow_section(config)
+            config,
+            _build_workflow_section(config, load_library(Path("lib"))),
+            load_library(Path("lib")),
         )
 
         assert "single_random_link_failure" in result
@@ -63,7 +73,11 @@ class TestBuildFailurePolicySetSection:
         with pytest.raises(
             ValueError, match="Default failure policy 'unknown_policy' not found"
         ):
-            _build_failure_policy_set_section(config, _build_workflow_section(config))
+            _build_failure_policy_set_section(
+                config,
+                _build_workflow_section(config, load_library(Path("lib"))),
+                load_library(Path("lib")),
+            )
 
 
 class TestBuildWorkflowSection:
@@ -71,10 +85,10 @@ class TestBuildWorkflowSection:
         config = TopologyConfig()
         # Pick any available built-in workflow to avoid brittle name pinning
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
-        result = _build_workflow_section(config)
+        result = _build_workflow_section(config, load_library(Path("lib")))
 
         assert isinstance(result, list)
         assert len(result) > 0
@@ -84,20 +98,20 @@ class TestBuildWorkflowSection:
         """The selected workflow is a list of steps from the merged library."""
         config = TopologyConfig()
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
-        result = _build_workflow_section(config)
+        result = _build_workflow_section(config, load_library(Path("lib")))
 
         assert isinstance(result, list)
 
     def test_custom_workflow_priority(self):
         config = TopologyConfig()
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
-        result = _build_workflow_section(config)
+        result = _build_workflow_section(config, load_library(Path("lib")))
 
         assert isinstance(result, list)
 
@@ -108,14 +122,16 @@ class TestBuildWorkflowSection:
         with pytest.raises(
             ValueError, match="Default workflow 'unknown_workflow' not found"
         ):
-            _build_workflow_section(config)
+            _build_workflow_section(config, load_library(Path("lib")))
 
 
 class TestBuildScenarioIntegration:
     def create_mock_config(self):
         config = TopologyConfig()
         config.failure_policies.assignments.default = "single_random_link_failure"
-        config.workflows.assignments.default = next(iter(get_builtin_workflows()))
+        config.workflows.assignments.default = next(
+            iter(load_library(Path("lib")).workflows)
+        )
         return config
 
     def create_mock_graph(self):
@@ -151,9 +167,9 @@ class TestBuildScenarioIntegration:
         graph = self.create_mock_graph()
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_output = build_scenario(graph, config)
+        yaml_output = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario = yaml.safe_load(yaml_output)
 
         assert "failures" in scenario
@@ -164,9 +180,9 @@ class TestBuildScenarioIntegration:
         graph = self.create_mock_graph()
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_output = build_scenario(graph, config)
+        yaml_output = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario = yaml.safe_load(yaml_output)
 
         assert "workflow" in scenario
@@ -181,9 +197,9 @@ class TestBuildScenarioIntegration:
         graph = self.create_mock_graph()
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_output = build_scenario(graph, config)
+        yaml_output = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario = yaml.safe_load(yaml_output)
 
         assert "single_random_link_failure" in scenario["failures"]
@@ -191,12 +207,12 @@ class TestBuildScenarioIntegration:
     def test_custom_workflow_in_scenario(self):
         config = self.create_mock_config()
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
         graph = self.create_mock_graph()
 
-        yaml_output = build_scenario(graph, config)
+        yaml_output = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario = yaml.safe_load(yaml_output)
 
         assert len(scenario["workflow"]) >= 1
@@ -207,9 +223,9 @@ class TestBuildScenarioIntegration:
         graph = self.create_mock_graph()
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
-        yaml_output = build_scenario(graph, config)
+        yaml_output = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario = yaml.safe_load(yaml_output)
 
         expected_sections = [
@@ -239,12 +255,12 @@ class TestBuildScenarioIntegration:
         config = self.create_mock_config()
 
         config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
         graph = self.create_mock_graph()
 
-        yaml_output = build_scenario(graph, config)
+        yaml_output = build_scenario(graph, config, load_library(Path("lib"))).yaml
         scenario = yaml.safe_load(yaml_output)
 
         for step in scenario["workflow"]:

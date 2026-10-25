@@ -1,18 +1,24 @@
+from pathlib import Path
 from typing import Any
 
-from ngraph.dsl.blueprints.expand import expand_network_dsl
+import yaml
+from ngraph import Scenario
 
 from topogen.blueprint_viz import build_abstract_view, collect_concrete_site
-from topogen.blueprints_lib import get_builtin_blueprints
+from topogen.library import load_library, thaw
 
 
 def test_builtin_dragonfly_abstract_view_expands_placeholders():
-    network = expand_network_dsl(
-        {
-            "blueprints": get_builtin_blueprints(),
-            "network": {"nodes": {"metro1/pop1": {"blueprint": "Dragonfly_A3H2G7"}}},
-        }
-    )
+    network = Scenario.from_yaml(
+        yaml.safe_dump(
+            {
+                "blueprints": thaw(load_library(Path("lib")).blueprints),
+                "network": {
+                    "nodes": {"metro1/pop1": {"blueprint": "Dragonfly_A3H2G7"}}
+                },
+            }
+        )
+    ).network
     view = build_abstract_view(network, "metro1/pop1")
     groups = {f"G{i}" for i in range(1, 8)}
     assert set(view.graph.nodes) == groups
@@ -26,24 +32,26 @@ def test_builtin_dragonfly_abstract_view_expands_placeholders():
 
 
 def test_dict_selectors_do_not_create_phantom_groups():
-    network = expand_network_dsl(
-        {
-            "network": {
-                "nodes": {
-                    "metro1/pop1/a": {"count": 2, "template": "r{n}"},
-                    "metro1/pop1/b": {"count": 1, "template": "r{n}"},
-                },
-                "links": [
-                    {
-                        "source": {"path": "metro1/pop1/a"},
-                        "target": {"path": "metro1/pop1/b"},
-                        "pattern": "mesh",
-                        "capacity": 10,
-                    }
-                ],
+    network = Scenario.from_yaml(
+        yaml.safe_dump(
+            {
+                "network": {
+                    "nodes": {
+                        "metro1/pop1/a": {"count": 2, "template": "r{n}"},
+                        "metro1/pop1/b": {"count": 1, "template": "r{n}"},
+                    },
+                    "links": [
+                        {
+                            "source": {"path": "metro1/pop1/a"},
+                            "target": {"path": "metro1/pop1/b"},
+                            "pattern": "mesh",
+                            "capacity": 10,
+                        }
+                    ],
+                }
             }
-        }
-    )
+        )
+    ).network
     view = build_abstract_view(network, "metro1/pop1")
     assert set(view.graph) == {"a", "b"}
     assert list(view.graph.edges()) == [("a", "b")]

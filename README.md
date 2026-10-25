@@ -2,14 +2,17 @@
 
 [![CI](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
 
-TopoGen generates backbone network scenarios for the contiguous United States.
-It selects metro locations from Census urban areas, uses highway paths as link
-routes, and adds sites, routers, traffic and failure scenarios for
-[NetGraph](https://github.com/networmix/NetGraph).
+TopoGen creates backbone network scenarios for the contiguous United States.
+It chooses metropolitan areas from Census data and follows highways to connect
+them. It then adds network sites, routers, traffic demands and failure policies.
+The result is a YAML scenario for [NetGraph](https://github.com/networmix/NetGraph).
+
+There are two steps: `generate` chooses the locations and routes; `build` turns
+those routes into a network. NetGraph runs the analysis of that network.
 
 ## Install
 
-Requires Python 3.11+.
+Use Python 3.11 or later. Run these commands in a terminal:
 
 ```bash
 git clone https://github.com/networmix/TopoGen
@@ -19,21 +22,26 @@ source venv/bin/activate
 python -m pip install -e .
 ```
 
-## Download data
+This also installs NetGraph and its computation engine, NetGraph-Core, in the
+versions this release supports. [pyproject.toml](pyproject.toml) lists those
+version ranges and the other dependencies.
 
-Create a `data/` directory and save these Census files there. Keep the ZIP files
-as downloaded; no need to unpack them.
+## Download the geographic data
+
+Create a `data/` directory in the repository and save these files there.
+Keep the ZIP files as downloaded; do not unpack them.
 
 - [Urban areas (2020)](https://www2.census.gov/geo/tiger/TIGER2020/UAC/tl_2020_us_uac20.zip)
 - [Primary roads (2024)](https://www2.census.gov/geo/tiger/TIGER2024/PRIMARYROADS/tl_2024_us_primaryroads.zip)
 - [State boundaries (2024)](https://www2.census.gov/geo/tiger/GENZ2024/shp/cb_2024_us_state_500k.zip)
 
-The example configs already use these filenames. To store data elsewhere, change
-`data_sources` in the config. Paths are relative to your working directory.
+The example configurations use these filenames. To store the files elsewhere,
+change `data_sources` in your configuration. Relative paths start at the directory
+where you run the command.
 
-## Run
+## Build a network
 
-Start with the five-metro example. Run these commands from the repository root:
+Run this five-metro example from the repository root:
 
 ```bash
 cp examples/small_baseline.yml config.yml
@@ -42,56 +50,81 @@ topogen generate config.yml -o output
 topogen build config.yml -o output
 ```
 
-`info` shows the config and whether data files exist. `generate` finds highway
-routes between metros. `build` adds the site topologies, hardware and traffic,
-then validates the NetGraph scenario.
+`info` checks the configuration and shows whether its data files exist.
+`generate` selects the metros: the urban areas you name, then the largest
+remaining ones by land area. It then finds highway routes between nearby metros.
+A route between two metros is called a **corridor**.
 
-Files in `output/` use the config filename as their prefix:
+`build` adds points of presence (PoPs), where backbone routers are located, and
+data-center sites. A **blueprint** describes the devices and links inside a site.
+The build also assigns hardware, creates traffic demands and checks the scenario
+with NetGraph before saving it.
+
+Files in `output/` use the configuration filename as their prefix:
 
 | File | Contents |
 | --- | --- |
-| `config_integrated_graph.json` | Metro locations and highway routes |
-| `config_scenario.yml` | NetGraph scenario, ready to run |
-| `config_*.jpg` | Network maps and site diagrams |
+| `config_integrated_graph.json` | Metro locations and corridors from `generate`; `build` reads it |
+| `config_scenario.yml` | The network, traffic, failure policies and analysis steps |
+| `config_network_graph.json` | Sites and the links between them, with their capacities |
+| `config_*.jpg` | Maps and site diagrams enabled in the configuration |
 
-Map backgrounds need an internet connection. To run the capacity, failure and
-cost analyses defined in the scenario:
+Map backgrounds need an internet connection. To run the analysis steps saved in
+the scenario:
 
 ```bash
 ngraph run output/config_scenario.yml --output output
 ```
 
-## Configure
+## Change the design
 
-Edit `config.yml`. These are the main settings:
+Edit `config.yml`. Capacities and traffic volumes in the supplied examples use
+Gbps; geographic distances use kilometers.
 
-| Setting | Controls |
+| Setting | What it controls |
 | --- | --- |
-| `clustering.metro_clusters` | Number of metros |
-| `clustering.override_metro_clusters` | Metros to include by name |
-| `corridors` | Nearest neighbors, route count and distance limits |
-| `build.build_defaults` | PoPs, data centers, site blueprints and link capacities |
+| `clustering.metro_clusters` | Number of metro locations |
+| `clustering.override_metro_clusters` | Name patterns of urban areas to include; they count toward `metro_clusters` |
+| `corridors` | Nearby metros to connect, route count and distance limits |
+| `build.build_defaults` | PoPs, data-center sites, blueprints, link capacities and costs |
 | `build.build_overrides` | Different settings for selected metros |
-| `build.tm_sizing` | Link sizing from traffic, including headroom |
-| `traffic` | Traffic volume and model: uniform, gravity or hose |
-| `components` | Router and optic assignments |
+| `build.tm_sizing` | Link capacities calculated from traffic, with spare capacity |
+| `traffic` | Traffic volume and distribution model |
+| `components` | Router types and optics for link endpoints |
+| `failure_policies` | Failures to model in the scenario |
+| `workflows` | Analysis steps for NetGraph to run |
+| `visualization` | Maps and diagrams to export |
 
-See [examples/](examples/) for baseline, Clos and Dragonfly configs, and the
-[schema](topogen/schemas/topogen_config.json) for all settings.
+The traffic models are `uniform` (equal traffic between data-center sites),
+`gravity` (traffic weighted by site size and distance), and `hose` (traffic fitted
+to each site's send and receive totals).
 
-Custom definitions go in `lib/blueprints.yml`, `lib/components.yml`,
-`lib/failure_policies.yml` or `lib/workflows.yml`. Each file maps names to
-definitions; matching names replace built-ins.
+Start with the [baseline, Clos and Dragonfly examples](examples/).
+The [configuration schema](topogen/schemas/topogen_config.json) lists every
+accepted field and its allowed values.
 
-After changing geography, rerun `generate` and `build`. For site, hardware or
-traffic changes, rerun `build`. To process all example configs:
+Your own sites, hardware, failures and analyses go in `lib/blueprints.yml`,
+`lib/components.yml`, `lib/failure_policies.yml` and `lib/workflows.yml`.
+TopoGen reads `lib/` in the directory where you run the command. Each file maps
+names to definitions; a name that matches a built-in definition replaces it.
+The repository's `lib/` already adds failure policies and workflows, such as
+`hose_samples_3` for three sampled traffic matrices. See
+[how the pipeline works](dev/PIPELINE.md) for the build rules, Python entry
+points and validation steps.
+
+After changing locations or highway routing, run `generate` and `build` again.
+After changing sites, hardware or traffic, run `build` again.
+
+## Build several configurations
 
 ```bash
 ./build.sh examples output
 ```
 
-This writes each config's results to its own subdirectory. Use `--force` to
-regenerate saved graphs or `--build-only` to rebuild scenarios from them.
+Each configuration gets a subdirectory, such as `output/small_baseline/`.
+The script reuses a saved corridor graph when one exists. Use `--force` to
+regenerate the graphs, or `--build-only` to build scenarios from saved graphs.
+A failed configuration makes the command return a failure status.
 
 ## Development
 
@@ -100,7 +133,8 @@ python -m pip install -e '.[dev]'
 make check-ci
 ```
 
-In a Superset workspace, use `bash .superset/workspace.sh setup` to install the
-development environment.
+This checks formatting, lint, types, example configurations and tests.
+In a Superset workspace, `bash .superset/workspace.sh setup` installs the
+development environment; the Run button runs these checks.
 
-[Changes and migration notes](CHANGELOG.md) · [MIT license](LICENSE)
+[Changelog](CHANGELOG.md) · [MIT license](LICENSE)

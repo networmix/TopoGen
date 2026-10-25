@@ -144,6 +144,10 @@ The scenario YAML contains `seed`, `blueprints`, `components`, the `network`,
 `risk_groups`, failure policies under `failures`, traffic under `demands` and the
 analysis `workflow`. Building the scenario does not execute that workflow.
 
+`output.scenario_seed` controls the traffic generator and the scenario's random
+seed. Built-in analysis steps derive their seeds from it. A custom workflow can
+set a step's seed explicitly to override that behavior.
+
 ## 3. Validate and save
 
 The CLI loads the scenario with NetGraph, which checks the YAML schema, the

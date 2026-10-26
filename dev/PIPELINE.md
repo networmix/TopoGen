@@ -171,7 +171,10 @@ equally between the two directions. A 10 Gbps step therefore permits 15 Gbps in
 each direction, a two-way total of 30. Zero disables rounding. Rounding and the
 distribution of the remainder can change site totals. These models calculate in
 floating point; sizing reads each emitted volume as the exact decimal that its
-float's `repr` writes.
+float's `repr` writes. Some of their sums use Python's built-in `sum`, which
+adds floats more accurately from Python 3.12 on, so the same inputs can give
+gravity and hose volumes that differ in the last digit between Python 3.11 and
+later versions (a relative difference near 10^-16).
 
 `priority_ratios` divides the volume into priority classes, and
 `flow_policy_config` gives each class a NetGraph preset, written as the

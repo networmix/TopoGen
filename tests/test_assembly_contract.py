@@ -108,6 +108,108 @@ def test_empty_internal_blueprint_rule_refuses_in_e2(corridor_graph, scenario_co
         build_scenario(corridor_graph, scenario_config, library)
 
 
+def test_all_self_internal_blueprint_rule_refuses_in_e2(
+    corridor_graph, scenario_config
+):
+    base = load_library(None)
+    bps = thaw(base.blueprints)
+    bps["SingleRouter"]["links"] = [
+        {"source": "core", "target": "core", "capacity": 1, "cost": 1}
+    ]
+    library = Library(bps, base.components, base.failure_policies, base.workflows)
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, scenario_config, library)
+    assert (
+        str(error.value) == "blueprint 'SingleRouter' link rule 0 expands to no links"
+    )
+    assert build_scenario(corridor_graph, scenario_config, base).hardware
+
+
+def test_unreferenced_empty_site_refuses_in_e2(corridor_graph, scenario_config):
+    corridor_graph.remove_nodes_from((1, 2))
+    scenario_config.build.build_defaults.dc_regions_per_metro = 0
+    scenario_config.traffic.enabled = False
+    base = load_library(None)
+    bps = thaw(base.blueprints)
+    bps["SingleRouter"] = {"nodes": {}, "links": []}
+    library = Library(bps, base.components, base.failure_policies, base.workflows)
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, scenario_config, library)
+    assert str(error.value) == "Site 'metro1/pop1' expands to no devices"
+    assert (
+        len(build_scenario(corridor_graph, scenario_config, base).site_plan.sites) == 1
+    )
+
+
+@pytest.mark.parametrize("json_roundtrip", [False, True], ids=["direct", "json"])
+def test_self_corridor_has_named_refusal(tmp_path, json_roundtrip):
+    import networkx as nx
+
+    from topogen.config import TopologyConfig
+    from topogen.corridors import validate_corridor_graph
+    from topogen.integrated_graph import load_from_json, save_to_json
+
+    config = TopologyConfig()
+    config.traffic.enabled = False
+    config.build.tm_sizing.enabled = False
+    config.corridors.risk_groups.enabled = False
+    config.build.build_defaults.dc_regions_per_metro = 0
+    config.build.build_defaults.pop_per_metro = 1
+    graph = nx.MultiGraph()
+    nodes = [(0.0, 0.0), (100000.0, 0.0)]
+    for index, node in enumerate(nodes):
+        graph.add_node(
+            node,
+            node_type="metro",
+            name=f"m{index}",
+            name_orig=f"m{index}",
+            metro_id=str(index),
+            x=node[0],
+            y=node[1],
+            radius_km=10.0,
+        )
+    graph.add_edge(
+        *nodes,
+        key=0,
+        edge_type="corridor",
+        length_km=100.0,
+        geometry=nodes,
+    )
+
+    def build_input(source, label):
+        validate_corridor_graph(source, nodes, config.validation)
+        if not json_roundtrip:
+            return source
+        path = tmp_path / f"{label}.json"
+        save_to_json(
+            source, path, config.projection.target_crs, config.output.formatting
+        )
+        loaded, crs = load_from_json(path)
+        assert crs == config.projection.target_crs
+        return loaded
+
+    broken = graph.copy()
+    broken.add_edge(
+        nodes[0],
+        nodes[0],
+        key=0,
+        edge_type="corridor",
+        length_km=20.0,
+        geometry=[nodes[0], nodes[0]],
+    )
+    library = load_library(None)
+    with pytest.raises(ValueError) as error:
+        build_scenario(build_input(broken, "self-corridor"), config, library)
+    assert str(error.value) == (
+        "Adjacency 'metro1/pop1|metro1/pop1|inter_metro:1-1:path0:1-1' "
+        "expands to no device links"
+    )
+    control = build_scenario(build_input(graph, "ordinary-corridor"), config, library)
+    assert tuple(control.hardware) == (
+        "metro1/pop1|metro2/pop1|inter_metro:1-2:path0:1-1",
+    )
+
+
 def test_exact_derived_step_changes_230_to_220(corridor_graph, scenario_config):
     cfg = scenario_config
     cfg.traffic.mw_per_dc_region = 200
@@ -210,8 +312,9 @@ def test_expansion_stages_are_batched_and_private_tags_do_not_escape(
     )
 
 
+@pytest.mark.parametrize("empty_end", ["source", "target", "match"])
 def test_empty_site_adjacency_is_refused_before_hardware_assignment(
-    corridor_graph, scenario_config
+    corridor_graph, scenario_config, empty_end
 ):
     from dataclasses import replace
 
@@ -233,21 +336,33 @@ def test_empty_site_adjacency_is_refused_before_hardware_assignment(
     )
     plan = plan_sites(corridors, settings, StripeGroups({}))
     first = plan.links[0]
-    broken = replace(
-        plan,
-        links=(
-            replace(
-                first,
-                match={
-                    "conditions": [{"attr": "role", "op": "==", "value": "missing"}]
-                },
+    broken_blueprints = thaw(blueprints)
+    if empty_end == "match":
+        broken = replace(
+            plan,
+            links=(
+                replace(
+                    first,
+                    match={
+                        "conditions": [{"attr": "role", "op": "==", "value": "missing"}]
+                    },
+                ),
+                *plan.links[1:],
             ),
-            *plan.links[1:],
-        ),
-    )
+        )
+    else:
+        broken_blueprints["Empty"] = {"nodes": {}, "links": []}
+        site_id = getattr(first, empty_end)
+        broken = replace(
+            plan,
+            sites=tuple(
+                replace(site, blueprint="Empty") if site.id == site_id else site
+                for site in plan.sites
+            ),
+        )
     with pytest.raises(ValueError) as error:
-        expand_sites(corridors, broken, blueprints, scenario_config)
-    assert first.source in str(error.value) or first.id in str(error.value)
+        expand_sites(corridors, broken, broken_blueprints, scenario_config)
+    assert first.source in str(error.value) and first.target in str(error.value)
     links = expand_sites(corridors, plan, blueprints, scenario_config).links[first.id]
     assert len(links) == 1
     assert links[0].source_role == "core" and links[0].target_role == "dc"

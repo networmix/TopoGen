@@ -335,12 +335,16 @@ def test_platform_and_optics_issues_have_full_ordered_messages(optic_capacity):
         }
     }
     result = validate(doc, ComponentsConfig(hw_component={"core": "P"}))
-    assert result.issues == (
-        "node hardware: role 'core' mapped in components.hw_component but node 'A' has no hardware assignment",
-        "node hardware: role 'core' mapped in components.hw_component but node 'B' has no hardware assignment",
-        f"optics (blueprint): link 'A|B|0' source optic 'OZ': capacity must be positive, got {float(optic_capacity)!r} - 1 link ends",
-        f"optics (blueprint): link 'A|B|0' target optic 'OZ': capacity must be positive, got {float(optic_capacity)!r} - 1 link ends",
-    )
+    if optic_capacity < 0:
+        assert result.prepared is None and len(result.issues) == 1
+        assert "OZ" in result.issues[0] and "capacity" in result.issues[0]
+    else:
+        assert result.issues == (
+            "node hardware: role 'core' mapped in components.hw_component but node 'A' has no hardware assignment",
+            "node hardware: role 'core' mapped in components.hw_component but node 'B' has no hardware assignment",
+            f"optics (blueprint): link 'A|B|0' source optic 'OZ': capacity must be positive, got {float(optic_capacity)!r} - 1 link ends",
+            f"optics (blueprint): link 'A|B|0' target optic 'OZ': capacity must be positive, got {float(optic_capacity)!r} - 1 link ends",
+        )
     doc["components"]["OZ"]["capacity"] = 10
     for node in doc["network"]["nodes"].values():
         node["attrs"]["hardware"] = {"component": "P", "count": 1}

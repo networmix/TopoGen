@@ -87,7 +87,10 @@ returns a `Build`. The command then validates the text and publishes the files
 (section 3).
 
 Stage 6 refuses a site that expands to no devices, a site link that creates no
-device links, and a blueprint link rule that creates no link.
+device links (a corridor from a metro to itself gives one), and a blueprint link
+rule that creates no link. A site link whose ends select no device is refused
+earlier, by NetGraph while it reads the network, with the link's paths in the
+message.
 
 ### Numbers
 

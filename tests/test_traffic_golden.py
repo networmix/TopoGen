@@ -2,6 +2,7 @@
 
 import json
 import re
+import sys
 from pathlib import Path
 
 import networkx as nx
@@ -12,7 +13,11 @@ from topogen.config import TopologyConfig
 from topogen.library import load_library
 from topogen.scenario import build_scenario
 
-DATA = json.loads((Path(__file__).parent / "fixtures/traffic_052.json").read_text())
+# Python 3.12 changed float summation; each interpreter keeps the release's rows.
+REFERENCE = (
+    "traffic_052_py311.json" if sys.version_info[:2] == (3, 11) else "traffic_052.json"
+)
+DATA = json.loads((Path(__file__).parent / "fixtures" / REFERENCE).read_text())
 assert DATA["baseline_commit"] == "3fa6c2995ea0e883da276e49f8cef0a1b0d275e5"
 assert len(DATA["cases"]) == 10
 assert sum("rows" in case for case in DATA["cases"]) == 9

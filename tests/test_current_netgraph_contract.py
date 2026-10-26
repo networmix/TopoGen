@@ -17,11 +17,33 @@ from topogen.library import load_library
         {"alpha": 1, "alpha_from_step": "msd"},
     ],
 )
-def test_custom_workflow_rejected_at_library_load(tmp_path, extra):
+def test_custom_workflow_is_checked_when_selected(
+    tmp_path, extra, corridor_graph, scenario_config
+):
+    from topogen.scenario import build_scenario
+    from topogen.validation import validate_scenario
+
     step = {"type": "TrafficMatrixPlacement", "name": "p", "demand_set": "tm", **extra}
     (tmp_path / "workflows.yml").write_text(yaml.safe_dump({"custom": [step]}))
-    with pytest.raises(ValueError, match="Workflow 'custom'"):
-        load_library(tmp_path)
+    library = load_library(tmp_path)
+    scenario_config.traffic.matrix_name = "tm"
+    unused = build_scenario(corridor_graph, scenario_config, library)
+    assert not validate_scenario(unused.yaml, scenario_config.components).issues
+    scenario_config.workflows.assignments.default = "custom"
+    selected = build_scenario(corridor_graph, scenario_config, library)
+    issues = validate_scenario(selected.yaml, scenario_config.components).issues
+    assert len(issues) == 1 and next(iter(extra)) in issues[0]
+    (tmp_path / "workflows.yml").write_text(
+        yaml.safe_dump(
+            {
+                "custom": [
+                    {"type": "TrafficMatrixPlacement", "name": "p", "demand_set": "tm"}
+                ]
+            }
+        )
+    )
+    selected = build_scenario(corridor_graph, scenario_config, load_library(tmp_path))
+    assert not validate_scenario(selected.yaml, scenario_config.components).issues
 
 
 @pytest.mark.parametrize("policy", [1, True, "1", "", "  ", "unknown", "TE_WCMP_UNLIM"])

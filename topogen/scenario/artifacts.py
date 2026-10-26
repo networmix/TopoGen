@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from dataclasses import asdict
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import networkx as nx
@@ -12,9 +13,8 @@ import networkx as nx
 from topogen.config import TopologyConfig
 from topogen.context import RunContext
 from topogen.library import thaw
-from topogen.naming import site_edge_id, site_of
+from topogen.naming import site_of
 
-from .network import save_site_graph_json
 from .publication import write_atomic
 from .records import Build
 
@@ -30,16 +30,44 @@ def write_artifacts(
         raise ValueError("Cannot publish artifacts for an invalid scenario")
     network = validation.prepared.scenario.network
     graph = nx.MultiGraph()
-    for site, attrs in build.site_plan.nodes(data=True):
-        graph.add_node(site, **thaw(attrs))
-    for u, v, key, attrs in build.site_plan.edges(keys=True, data=True):
-        edge = site_edge_id(u, v, key)
-        data = thaw(attrs)
-        data["base_capacity"] = data["target_capacity"] = float(
-            build.sizing.capacity[edge]
+    sites = {site.id: site for site in build.site_plan.sites}
+    for site in build.site_plan.sites:
+        metro = site.metro
+        graph.add_node(
+            site.id,
+            metro_idx=metro.index,
+            metro_name=metro.name,
+            site_kind=site.kind,
+            site_ordinal=site.ordinal,
+            site_blueprint=site.blueprint,
+            pos_x=site.position[0],
+            pos_y=site.position[1],
+            center_x=metro.x,
+            center_y=metro.y,
+            radius_m=1000.0 * metro.radius_km,
         )
-        data["capacity"] = float(build.hardware[edge].capacity)
-        assigned = build.hardware[edge]
+    for link in build.site_plan.links:
+        data = {
+            "attrs": thaw(link.attrs),
+            "link_type": link.kind,
+            "base_capacity": float(build.sizing.capacity[link.id]),
+            "target_capacity": float(build.sizing.capacity[link.id]),
+            "cost": link.cost,
+            "adjacency_id": link.adjacency_id,
+            "distance_km": link.distance_km,
+            "source_metro": sites[link.source].metro.name,
+            "target_metro": sites[link.target].metro.name,
+            "match": thaw(link.match),
+            "role_pairs": list(link.role_pairs),
+        }
+        if link.kind == "inter_metro_corridor":
+            data.update(
+                risk_groups=list(link.risk_groups),
+                euclidean_km=link.euclidean_km,
+                detour_ratio=link.detour_ratio,
+            )
+        assigned = build.hardware[link.id]
+        data["capacity"] = float(assigned.capacity)
         if assigned.source_optic is not None:
             data["hardware"] = {
                 "source": {
@@ -51,7 +79,7 @@ def write_artifacts(
                     "count": float(assigned.target_count),
                 },
             }
-        graph.add_edge(u, v, key=key, **data)
+        graph.add_edge(link.source, link.target, key=link.id.split("|", 2)[2], **data)
     output_dir, stem = context.output_dir, context.stem
     if context.debug_dir is not None:
         matrices = {
@@ -109,3 +137,26 @@ def write_artifacts(
                 bp, network, selected, path, dpi=config.visualization.dpi
             ),
         )
+
+
+def save_site_graph_json(
+    graph: nx.MultiGraph, path: Path, *, json_indent: int = 2
+) -> None:
+    """Serialize the local artifact projection, preserving parallel edge keys."""
+    payload = {
+        "graph_type": "site_network",
+        "nodes": [
+            {"id": str(name), **thaw(attrs)} for name, attrs in graph.nodes(data=True)
+        ],
+        "edges": [
+            {
+                "source": str(source),
+                "target": str(target),
+                "key": str(key),
+                **thaw(attrs),
+            }
+            for source, target, key, attrs in graph.edges(keys=True, data=True)
+        ],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=json_indent, allow_nan=False))

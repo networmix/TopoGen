@@ -218,7 +218,7 @@ class TestEndToEndRiskGroups:
         metro_groups = [
             g for g in groups.values() if "metro_name" in g.get("attrs", {})
         ]
-        assert len(metro_groups) == 8  # 4 metros x 2 types (PoPs + DC regions)
+        assert len(metro_groups) == 16  # Four metros, two PoPs and two DC sites each.
 
         metro_names = {g["attrs"]["metro_name"] for g in metro_groups}
         assert "denver-aurora" in metro_names

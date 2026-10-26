@@ -7,7 +7,7 @@ import yaml
 
 from topogen.library import Library, WorkflowDefinition, load_library, thaw
 from topogen.scenario import build_scenario
-from topogen.scenario.policies import _build_workflow_section
+from topogen.scenario.document import _workflow
 
 
 def test_builtin_and_identical_user_workflow_have_distinct_binding(
@@ -24,13 +24,11 @@ def test_builtin_and_identical_user_workflow_have_distinct_binding(
     assert not user.workflows[name].follows_configured_matrix
     assert [
         s["demand_set"]
-        for s in _build_workflow_section(scenario_config, builtin)
+        for s in _workflow(scenario_config, builtin)
         if "demand_set" in s
     ] == ["custom_tm", "custom_tm"]
     assert [
-        s["demand_set"]
-        for s in _build_workflow_section(scenario_config, user)
-        if "demand_set" in s
+        s["demand_set"] for s in _workflow(scenario_config, user) if "demand_set" in s
     ] == ["baseline_traffic_matrix", "baseline_traffic_matrix"]
 
 
@@ -61,7 +59,7 @@ def test_build_ignores_cwd_and_reads_no_library(
     second = build_scenario(corridor_graph, scenario_config, library)
     assert first.yaml == second.yaml
     assert not list(tmp_path.glob("*_scenario.yml"))
-    with pytest.raises(ValueError, match="no devices"):
+    with pytest.raises(ValueError, match="DCRegion|metro1/dc1"):
         build_scenario(corridor_graph, scenario_config, load_library(tmp_path / "lib"))
 
 
@@ -72,12 +70,22 @@ def test_bad_library_is_refused_by_name(tmp_path, content):
         load_library(tmp_path)
 
 
-def test_unused_workflow_still_checked(tmp_path):
+def test_only_selected_workflow_is_checked(tmp_path, corridor_graph, scenario_config):
+    from topogen.validation import validate_scenario
+
     (tmp_path / "workflows.yml").write_text(
         "unused: [{type: NetworkStats, unknown: true}]"
     )
-    with pytest.raises(ValueError, match="Workflow 'unused'"):
-        load_library(tmp_path)
+    library = load_library(tmp_path)
+    build = build_scenario(corridor_graph, scenario_config, library)
+    assert not validate_scenario(build.yaml, scenario_config.components).issues
+    scenario_config.workflows.assignments.default = "unused"
+    build = build_scenario(corridor_graph, scenario_config, library)
+    issues = validate_scenario(build.yaml, scenario_config.components).issues
+    assert len(issues) == 1 and "unknown" in issues[0] and "NetworkStats" in issues[0]
+    (tmp_path / "workflows.yml").write_text("unused: [{type: NetworkStats}]")
+    build = build_scenario(corridor_graph, scenario_config, load_library(tmp_path))
+    assert not validate_scenario(build.yaml, scenario_config.components).issues
 
 
 def test_none_library_does_not_read_hostile_cwd(tmp_path, monkeypatch):
@@ -110,9 +118,9 @@ def test_library_snapshots_preserve_set_values_for_netgraph_refusal(
         "blueprints": {"SingleRouter": blueprints["SingleRouter"]},
         "network": {"nodes": {"a": {"blueprint": "SingleRouter"}}},
     }
-    with pytest.raises(ValueError, match="finite JSON") as upstream:
+    with pytest.raises(ValueError, match="attrs") as upstream:
         Scenario.from_yaml(yaml.safe_dump(doc))
-    with pytest.raises(ValueError, match="finite JSON"):
+    with pytest.raises(ValueError, match="attrs"):
         build_scenario(corridor_graph, scenario_config, library)
     assert "attrs" in str(upstream.value)
     blueprints["SingleRouter"]["nodes"]["core"]["attrs"]["bad"] = ["blue", "red"]
@@ -120,3 +128,48 @@ def test_library_snapshots_preserve_set_values_for_netgraph_refusal(
         yaml.safe_dump({"SingleRouter": blueprints["SingleRouter"]})
     )
     assert build_scenario(corridor_graph, scenario_config, load_library(tmp_path)).yaml
+
+
+@pytest.mark.parametrize(
+    "steps", [None, {"type": "NetworkStats"}, ["oops"], "oops", 7, True]
+)
+def test_workflow_shape_is_checked_only_when_selected(
+    tmp_path, corridor_graph, scenario_config, steps
+):
+    from topogen.validation import validate_scenario
+
+    content = yaml.safe_dump({"broken": steps})
+    (tmp_path / "workflows.yml").write_text(content)
+    library = load_library(tmp_path)
+    assert thaw(library.workflows["broken"].steps) == steps
+    assert not library.workflows["broken"].follows_configured_matrix
+    build = build_scenario(corridor_graph, scenario_config, library)
+    assert not validate_scenario(build.yaml, scenario_config.components).issues
+    scenario_config.workflows.assignments.default = "broken"
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, scenario_config, library)
+    assert str(error.value) == "Workflow 'broken' must contain a list of step mappings"
+    assert (tmp_path / "workflows.yml").read_text() == content
+    assert thaw(library.workflows["broken"].steps) == steps
+    (tmp_path / "workflows.yml").write_text("broken: [{type: NetworkStats}]")
+    valid = build_scenario(corridor_graph, scenario_config, load_library(tmp_path))
+    assert not validate_scenario(valid.yaml, scenario_config.components).issues
+
+
+def test_empty_selected_workflow_is_a_valid_list(
+    tmp_path, corridor_graph, scenario_config
+):
+    from topogen.validation import validate_scenario
+
+    (tmp_path / "workflows.yml").write_text("empty: []")
+    scenario_config.workflows.assignments.default = "empty"
+    build = build_scenario(corridor_graph, scenario_config, load_library(tmp_path))
+    assert yaml.safe_load(build.yaml)["workflow"] == []
+    assert not validate_scenario(build.yaml, scenario_config.components).issues
+
+
+@pytest.mark.parametrize("content", ["null", "[broken]", "7", "broken: [invalid: :"])
+def test_workflow_file_itself_must_be_a_yaml_mapping(tmp_path, content):
+    (tmp_path / "workflows.yml").write_text(content)
+    with pytest.raises(ValueError, match="workflows.yml"):
+        load_library(tmp_path)

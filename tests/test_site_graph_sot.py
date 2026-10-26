@@ -49,7 +49,7 @@ def test_sites_section_includes_per_site_blueprint_and_components():
     # Network groups must reflect the configured blueprints and site counts.
     network = data["network"]
     groups = network.get("nodes", {})
-    assert "metro1/pop[1-2]" in groups
-    assert groups["metro1/pop[1-2]"]["blueprint"] == "SingleRouter"
-    assert "metro1/dc[1-1]" in groups
-    assert groups["metro1/dc[1-1]"]["blueprint"] == "DCRegion"
+    assert "metro1/pop1" in groups
+    assert groups["metro1/pop1"]["blueprint"] == "SingleRouter"
+    assert "metro1/dc1" in groups
+    assert groups["metro1/dc1"]["blueprint"] == "DCRegion"

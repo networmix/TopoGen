@@ -213,22 +213,12 @@ def test_dc_pop_many_vs_many_width2_groups_links():
 
 
 def test_stripes_use_numeric_device_order_for_multi_digit_names():
-    from topogen.scenario.striping import StripePlanner
+    from topogen.scenario.striping import _group_devices
 
-    planner = StripePlanner(
-        {
-            "Many": {
-                "nodes": {
-                    "core": {"count": 12, "template": "r{n}", "attrs": {"role": "core"}}
-                },
-                "links": [],
-            }
-        },
-        {"Many"},
-    )
-    assert planner.groups("Many", {"mode": "width", "width": 3}, {}) == {
-        "g1": ["core/r1", "core/r2", "core/r3"],
-        "g2": ["core/r4", "core/r5", "core/r6"],
-        "g3": ["core/r7", "core/r8", "core/r9"],
-        "g4": ["core/r10", "core/r11", "core/r12"],
+    selected = {f"core/r{i}": {} for i in range(1, 13)}
+    assert _group_devices(selected, {"mode": "width", "width": 3}, "Many") == {
+        "g1": ("core/r1", "core/r2", "core/r3"),
+        "g2": ("core/r4", "core/r5", "core/r6"),
+        "g3": ("core/r7", "core/r8", "core/r9"),
+        "g4": ("core/r10", "core/r11", "core/r12"),
     }

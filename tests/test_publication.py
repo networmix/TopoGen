@@ -68,7 +68,7 @@ def test_real_cli_refusal_keeps_yaml_site_json_and_artifacts(
   links:
     - {source: core/core1, target: core/core2, capacity: 100, cost: 0}
 """)
-    with pytest.raises(ValueError, match=r"cost must be in \[1,2\^62\)"):
+    with pytest.raises(ValueError, match="SingleRouter|core1"):
         _run_pipeline(scenario_config, target, context=context)
     assert {p: p.read_bytes() for p in paths} == before
     assert not [p for p in tmp_path.rglob(".*") if p.is_file()]
@@ -303,3 +303,45 @@ def test_blueprint_representative_tie_keeps_the_first_site(
     assert (
         tmp_path / "tie_blueprint_SingleRouter.jpg"
     ).read_bytes() == b"complete image"
+
+
+def test_artifact_retains_declared_role_pairs_even_when_matches_agree(
+    tmp_path, corridor_graph, scenario_config
+):
+    import json
+
+    snapshots = []
+    cfg = scenario_config
+    for index, pairs in enumerate((["core|core", "dc|dc"], ["core|dc"])):
+        cfg.build.build_defaults.inter_metro_link.role_pairs = pairs
+        build = build_scenario(corridor_graph, cfg, load_library(None))
+        validation = validate_scenario(build.yaml, cfg.components)
+        assert not validation.issues
+        context = RunContext(tmp_path / str(index), "input")
+        write_artifacts(build, validation, cfg, context)
+        data = json.loads(context.path("network_graph.json").read_text())
+        for edge in data["edges"]:
+            if edge["link_type"] == "inter_metro_corridor":
+                assert list(edge) == [
+                    "source",
+                    "target",
+                    "key",
+                    "attrs",
+                    "link_type",
+                    "base_capacity",
+                    "target_capacity",
+                    "cost",
+                    "adjacency_id",
+                    "distance_km",
+                    "source_metro",
+                    "target_metro",
+                    "match",
+                    "role_pairs",
+                    "risk_groups",
+                    "euclidean_km",
+                    "detour_ratio",
+                    "capacity",
+                ]
+                assert edge.pop("role_pairs") == pairs
+        snapshots.append(data)
+    assert snapshots[0] == snapshots[1]

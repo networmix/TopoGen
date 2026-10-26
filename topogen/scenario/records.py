@@ -7,27 +7,132 @@ from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any
 
-import networkx as nx
-
-from topogen.library import freeze, thaw
+from topogen.library import freeze
 
 
-def readonly_graph(graph: nx.MultiGraph) -> nx.MultiGraph:
-    """Own graph topology and freeze every nested attribute container."""
-    owned: Any = nx.MultiGraph()
-    owned.graph.update(thaw(graph.graph))
-    for name, attrs in graph.nodes(data=True):
-        owned.add_node(name, **thaw(attrs))
-    for source, target, key, attrs in graph.edges(keys=True, data=True):
-        owned.add_edge(source, target, key=key, **thaw(attrs))
-    owned.graph = freeze(owned.graph)
-    for name, attrs in owned._node.items():
-        owned._node[name] = freeze(attrs)
-    for source, target, key in list(owned.edges(keys=True)):
-        attrs = freeze(owned._adj[source][target][key])
-        owned._adj[source][target][key] = attrs
-        owned._adj[target][source][key] = attrs
-    return nx.freeze(owned)
+@dataclass(frozen=True, slots=True)
+class Metro:
+    index: int
+    name: str
+    name_orig: str
+    metro_id: str
+    x: float
+    y: float
+    radius_km: float
+
+
+@dataclass(frozen=True, slots=True)
+class Corridor:
+    source: Metro
+    target: Metro
+    path: Any
+    length_km: float
+    euclidean_km: float | None
+    detour_ratio: float | None
+    risk_groups: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "path", freeze(self.path))
+        object.__setattr__(self, "risk_groups", tuple(self.risk_groups))
+
+
+@dataclass(frozen=True, slots=True)
+class CorridorGraph:
+    metros: tuple[Metro, ...]
+    corridors: tuple[Corridor, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "metros", tuple(self.metros))
+        object.__setattr__(self, "corridors", tuple(self.corridors))
+
+
+@dataclass(frozen=True, slots=True)
+class LinkSettings:
+    capacity: int
+    cost: int
+    attrs: Mapping[str, Any]
+    match: Mapping[str, Any]
+    role_pairs: tuple[str, ...]
+    striping: Mapping[str, Any]
+    mode: str
+
+    def __post_init__(self) -> None:
+        for name in ("attrs", "match", "striping"):
+            object.__setattr__(self, name, freeze(getattr(self, name)))
+        object.__setattr__(self, "role_pairs", tuple(self.role_pairs))
+
+
+@dataclass(frozen=True, slots=True)
+class MetroSettings:
+    metro: Metro
+    pops: int
+    dcs: int
+    site_blueprint: str
+    dc_blueprint: str
+    links: Mapping[str, LinkSettings]
+    dc_power_mw: tuple[int | float, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "links", freeze(self.links))
+        object.__setattr__(self, "dc_power_mw", tuple(self.dc_power_mw))
+
+
+@dataclass(frozen=True, slots=True)
+class StripeGroups:
+    groups: Mapping[tuple[int, str, str], Mapping[str, tuple[str, ...]]]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "groups", freeze(self.groups))
+
+
+@dataclass(frozen=True, slots=True)
+class Site:
+    id: str
+    metro: Metro
+    kind: str
+    ordinal: int
+    blueprint: str
+    power_mw: int | float | None
+    position: tuple[float, float]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "position", tuple(self.position))
+
+
+@dataclass(frozen=True, slots=True)
+class SiteLink:
+    id: str
+    kind: str
+    source: str
+    target: str
+    cost: int
+    distance_km: int
+    base_capacity: int
+    match: Mapping[str, Any]
+    attrs: Mapping[str, Any]
+    adjacency_id: str
+    role_pairs: tuple[str, ...]
+    risk_groups: tuple[str, ...]
+    euclidean_km: float | None
+    detour_ratio: float | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "match", freeze(self.match))
+        object.__setattr__(self, "attrs", freeze(self.attrs))
+        object.__setattr__(self, "role_pairs", tuple(self.role_pairs))
+        object.__setattr__(self, "risk_groups", tuple(self.risk_groups))
+
+
+@dataclass(frozen=True, slots=True)
+class SitePlan:
+    sites: tuple[Site, ...]
+    links: tuple[SiteLink, ...]
+    node_rules: tuple[Mapping[str, Any], ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "sites", tuple(self.sites))
+        object.__setattr__(self, "links", tuple(self.links))
+        object.__setattr__(self, "node_rules", freeze(self.node_rules))
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +173,14 @@ class DeviceLink:
 
 
 @dataclass(frozen=True, slots=True)
+class SiteExpansion:
+    links: Mapping[str, tuple[DeviceLink, ...]]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "links", freeze(self.links))
+
+
+@dataclass(frozen=True, slots=True)
 class LinkHardware:
     device_links: tuple[DeviceLink, ...]
     capacity: Fraction
@@ -86,9 +199,8 @@ class Build:
     traffic: tuple[TrafficMatrix, ...]
     sizing: Sizing
     hardware: Mapping[str, LinkHardware]
-    site_plan: nx.MultiGraph
+    site_plan: SitePlan
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "traffic", tuple(self.traffic))
         object.__setattr__(self, "hardware", freeze(self.hardware))
-        object.__setattr__(self, "site_plan", readonly_graph(self.site_plan))

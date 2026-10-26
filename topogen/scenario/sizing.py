@@ -9,10 +9,9 @@ from fractions import Fraction
 import networkx as nx
 
 from topogen.config import TopologyConfig
-from topogen.naming import site_edge_id
 from topogen.numeric import decimal
 
-from .records import Sizing, TrafficMatrix
+from .records import SitePlan, Sizing, TrafficMatrix
 
 
 def _split_loads(
@@ -54,13 +53,10 @@ def _split_loads(
 
 
 def size_links(
-    plan: nx.MultiGraph, traffic: tuple[TrafficMatrix, ...], config: TopologyConfig
+    plan: SitePlan, traffic: tuple[TrafficMatrix, ...], config: TopologyConfig
 ) -> Sizing:
-    """Return new exact budgets without changing the plan or traffic."""
-    capacity = {
-        site_edge_id(u, v, key): decimal(data["base_capacity"])
-        for u, v, key, data in plan.edges(keys=True, data=True)
-    }
+    """Return exact budgets without changing any stage's records."""
+    capacity = {link.id: decimal(link.base_capacity) for link in plan.links}
     cfg = config.build.tm_sizing
     if not cfg.enabled:
         return Sizing({}, capacity)
@@ -68,7 +64,7 @@ def size_links(
         raise ValueError(
             "TM sizing is enabled but traffic generation is disabled in configuration"
         )
-    if not any(data["site_kind"] == "dc" for _, data in plan.nodes(data=True)):
+    if not any(site.kind == "dc" for site in plan.sites):
         raise ValueError("TM sizing is enabled but no DC regions are configured")
     name = cfg.matrix_name or config.traffic.matrix_name
     matrices = {matrix.name: matrix for matrix in traffic}
@@ -80,34 +76,32 @@ def size_links(
         raise ValueError(
             f"TM sizing: traffic matrix '{name}' is empty despite enabled traffic"
         )
-    metro_names = {data["metro_name"] for _, data in plan.nodes(data=True)}
+    sites = {site.id: site for site in plan.sites}
     graph = nx.MultiDiGraph()
-    graph.add_nodes_from(metro_names)
+    graph.add_nodes_from({site.metro.name for site in plan.sites})
     corridors = []
-    for u, v, key, data in plan.edges(keys=True, data=True):
-        if data["link_type"] != "inter_metro_corridor":
+    for link in plan.links:
+        if link.kind != "inter_metro_corridor":
             continue
-        source, target = data.get("source_metro"), data.get("target_metro")
-        if not isinstance(source, str) or not isinstance(target, str):
+        if link.source not in sites or link.target not in sites:
             raise ValueError(
-                "TM sizing: inter-metro edge missing source_metro/target_metro attributes"
+                f"TM sizing: unsupported site-link endpoint ({link.source!r} -> {link.target!r})"
             )
-        if source not in metro_names or target not in metro_names:
+        source, target = sites[link.source].metro.name, sites[link.target].metro.name
+        if (
+            isinstance(link.cost, bool)
+            or not isinstance(link.cost, int)
+            or link.cost <= 0
+        ):
             raise ValueError(
-                f"TM sizing: unknown metro name(s) on inter-metro edge: {source!r}, {target!r}"
+                f"TM sizing: corridor {link.source}->{link.target} requires positive integer cost"
             )
-        cost = data["cost"]
-        if isinstance(cost, bool) or not isinstance(cost, int) or cost <= 0:
-            raise ValueError(
-                f"TM sizing: corridor {u}->{v} requires positive integer cost"
-            )
-        edge = site_edge_id(u, v, key)
-        graph.add_edge(source, target, key=edge, cost=cost)
-        graph.add_edge(target, source, key=edge, cost=cost)
-        corridors.append((u, v, edge, source, target))
+        graph.add_edge(source, target, key=link.id, cost=link.cost)
+        graph.add_edge(target, source, key=link.id, cost=link.cost)
+        corridors.append((link, source, target))
     if not corridors:
         raise ValueError(
-            "TM sizing: no inter-metro corridor edges present in site graph"
+            "TM sizing: no inter-metro corridor links present in site plan"
         )
     demands = []
     for demand in matrices[name].demands:
@@ -119,16 +113,12 @@ def size_links(
             ) from exc
         if volume < 0:
             raise ValueError("TM sizing: demand volume must be finite non-negative")
-        if demand.source not in plan or demand.target not in plan:
+        if demand.source not in sites or demand.target not in sites:
             raise ValueError(
                 f"TM sizing: unsupported demand endpoint ({demand.source!r} -> {demand.target!r})"
             )
         demands.append(
-            (
-                plan.nodes[demand.source]["metro_name"],
-                plan.nodes[demand.target]["metro_name"],
-                volume,
-            )
+            (sites[demand.source].metro.name, sites[demand.target].metro.name, volume)
         )
     directed = _split_loads(graph, tuple(demands))
     quantum, headroom = decimal(cfg.quantum_gbps), decimal(cfg.headroom)
@@ -139,23 +129,28 @@ def size_links(
 
     peak = {}
     egress: dict[str, Fraction] = defaultdict(Fraction)
-    for u, v, edge, source, target in corridors:
-        peak[edge] = max(directed[source, target, edge], directed[target, source, edge])
-        if peak[edge]:
-            capacity[edge] = sized(edge, headroom * peak[edge])
-        egress[u] += capacity[edge]
-        egress[v] += capacity[edge]
-    for u, v, key, data in plan.edges(keys=True, data=True):
-        edge = site_edge_id(u, v, key)
-        if data["link_type"] == "dc_to_pop":
-            pop = v if plan.nodes[v]["site_kind"] == "pop" else u
-            if plan.nodes[pop]["site_kind"] != "pop":
+    for link, source, target in corridors:
+        peak[link.id] = max(
+            directed[source, target, link.id], directed[target, source, link.id]
+        )
+        if peak[link.id]:
+            capacity[link.id] = sized(link.id, headroom * peak[link.id])
+        egress[link.source] += capacity[link.id]
+        egress[link.target] += capacity[link.id]
+    for link in plan.links:
+        if link.kind == "dc_to_pop":
+            pop = link.target if sites[link.target].kind == "pop" else link.source
+            if sites[pop].kind != "pop":
                 raise ValueError(
-                    f"TM sizing: DC->PoP edge does not connect to a PoP endpoint: {u}<->{v}"
+                    f"TM sizing: DC->PoP edge does not connect to a PoP endpoint: {link.source}<->{link.target}"
                 )
-            capacity[edge] = sized(edge, decimal(cfg.alpha_dc_to_pop) * egress[pop])
-        elif data["link_type"] == "intra_metro":
-            capacity[edge] = sized(
-                edge, decimal(cfg.beta_intra_pop) * min(egress[u], egress[v])
+            capacity[link.id] = sized(
+                link.id, decimal(cfg.alpha_dc_to_pop) * egress[pop]
+            )
+        elif link.kind == "intra_metro":
+            capacity[link.id] = sized(
+                link.id,
+                decimal(cfg.beta_intra_pop)
+                * min(egress[link.source], egress[link.target]),
             )
     return Sizing(peak, capacity)

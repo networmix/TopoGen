@@ -37,23 +37,35 @@ def scenario_config():
 
 
 @pytest.fixture
-def site_plan():
-    graph = nx.MultiGraph()
-    for i, name in enumerate(("alpha", "beta", "gamma"), 1):
-        graph.add_node(
-            f"metro{i}/dc1",
-            site_kind="dc",
-            site_ordinal=1,
-            metro_name=name,
-            center_x=(i - 1) * 300000.0,
-            center_y=0.0,
+def make_plan(corridor_graph, scenario_config):
+    from copy import deepcopy
+
+    from topogen.scenario.records import StripeGroups
+    from topogen.scenario.sites import (
+        plan_sites,
+        read_corridors,
+        resolve_metro_settings,
+    )
+
+    def make(traffic=None, counts=None):
+        config = deepcopy(scenario_config)
+        if traffic is not None:
+            config.traffic = traffic
+        if counts is not None:
+            config.build.build_overrides = {
+                name: {"dc_regions_per_metro": count}
+                for name, count in zip(("alpha", "beta", "gamma"), counts, strict=True)
+            }
+        corridors = read_corridors(corridor_graph)
+        return plan_sites(
+            corridors,
+            resolve_metro_settings(corridors, config.build, config.traffic),
+            StripeGroups({}),
         )
-        graph.add_node(
-            f"metro{i}/pop1",
-            site_kind="pop",
-            site_ordinal=1,
-            metro_name=name,
-            center_x=(i - 1) * 300000.0,
-            center_y=0.0,
-        )
-    return graph
+
+    return make
+
+
+@pytest.fixture
+def site_plan(make_plan):
+    return make_plan()

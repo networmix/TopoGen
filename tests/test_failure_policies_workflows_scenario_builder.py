@@ -9,9 +9,9 @@ import yaml
 from topogen.config import TopologyConfig
 from topogen.library import load_library
 from topogen.scenario import build_scenario
-from topogen.scenario.policies import (
-    _build_failure_policy_set_section,
-    _build_workflow_section,
+from topogen.scenario.document import (
+    _failure_policies,
+    _workflow,
 )
 
 
@@ -20,9 +20,9 @@ class TestBuildFailurePolicySetSection:
         config = TopologyConfig()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
-        result = _build_failure_policy_set_section(
+        result = _failure_policies(
             config,
-            _build_workflow_section(config, load_library(Path("lib"))),
+            _workflow(config, load_library(Path("lib"))),
             load_library(Path("lib")),
         )
 
@@ -34,9 +34,9 @@ class TestBuildFailurePolicySetSection:
         config = TopologyConfig()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
-        result = _build_failure_policy_set_section(
+        result = _failure_policies(
             config,
-            _build_workflow_section(config, load_library(Path("lib"))),
+            _workflow(config, load_library(Path("lib"))),
             load_library(Path("lib")),
         )
 
@@ -46,9 +46,9 @@ class TestBuildFailurePolicySetSection:
         config = TopologyConfig()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
-        result = _build_failure_policy_set_section(
+        result = _failure_policies(
             config,
-            _build_workflow_section(config, load_library(Path("lib"))),
+            _workflow(config, load_library(Path("lib"))),
             load_library(Path("lib")),
         )
 
@@ -58,9 +58,9 @@ class TestBuildFailurePolicySetSection:
         config = TopologyConfig()
         config.failure_policies.assignments.default = "single_random_link_failure"
 
-        result = _build_failure_policy_set_section(
+        result = _failure_policies(
             config,
-            _build_workflow_section(config, load_library(Path("lib"))),
+            _workflow(config, load_library(Path("lib"))),
             load_library(Path("lib")),
         )
 
@@ -73,9 +73,9 @@ class TestBuildFailurePolicySetSection:
         with pytest.raises(
             ValueError, match="Default failure policy 'unknown_policy' not found"
         ):
-            _build_failure_policy_set_section(
+            _failure_policies(
                 config,
-                _build_workflow_section(config, load_library(Path("lib"))),
+                _workflow(config, load_library(Path("lib"))),
                 load_library(Path("lib")),
             )
 
@@ -88,7 +88,7 @@ class TestBuildWorkflowSection:
             iter(load_library(Path("lib")).workflows.keys())
         )
 
-        result = _build_workflow_section(config, load_library(Path("lib")))
+        result = _workflow(config, load_library(Path("lib")))
 
         assert isinstance(result, list)
         assert len(result) > 0
@@ -101,7 +101,7 @@ class TestBuildWorkflowSection:
             iter(load_library(Path("lib")).workflows.keys())
         )
 
-        result = _build_workflow_section(config, load_library(Path("lib")))
+        result = _workflow(config, load_library(Path("lib")))
 
         assert isinstance(result, list)
 
@@ -111,7 +111,7 @@ class TestBuildWorkflowSection:
             iter(load_library(Path("lib")).workflows.keys())
         )
 
-        result = _build_workflow_section(config, load_library(Path("lib")))
+        result = _workflow(config, load_library(Path("lib")))
 
         assert isinstance(result, list)
 
@@ -122,7 +122,7 @@ class TestBuildWorkflowSection:
         with pytest.raises(
             ValueError, match="Default workflow 'unknown_workflow' not found"
         ):
-            _build_workflow_section(config, load_library(Path("lib")))
+            _workflow(config, load_library(Path("lib")))
 
 
 class TestBuildScenarioIntegration:

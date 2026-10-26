@@ -10,17 +10,14 @@ import heapq
 import math
 import random
 from dataclasses import dataclass
-from typing import Any
 
-import networkx as nx
 import numpy as np
 
 from topogen.config import TrafficConfig
 from topogen.log_config import get_logger
-from topogen.naming import site_selector
 from topogen.numeric import decimal
 
-from .records import SiteDemand, TrafficMatrix
+from .records import SiteDemand, SitePlan, TrafficMatrix
 
 logger = get_logger(__name__)
 Pair = tuple[int, int]
@@ -83,34 +80,23 @@ def _fit_hose_matrix(
 class _DC:
     metro: str
     path: str
-    mass: float
+    mass: int | float
 
 
-def _inventory(plan: nx.MultiGraph, config: TrafficConfig) -> list[_DC]:
-    inventory = []
-    overrides = config.gravity.mw_per_dc_region_overrides
-    for path, attrs in plan.nodes(data=True):
-        if attrs["site_kind"] != "dc":
-            continue
-        name = attrs["metro_name"]
-        prefix = name.lower().replace(" ", "-")
-        ordinal = attrs["site_ordinal"]
-        mass = overrides.get(
-            f"{prefix}/dc{ordinal}", overrides.get(name, config.mw_per_dc_region)
-        )
-        if not math.isfinite(mass) or mass < 0:
-            raise ValueError(
-                f"DC power for {name}/dc{ordinal} must be finite and non-negative"
-            )
-        inventory.append(_DC(name, path, mass))
-    return inventory
+def _inventory(plan: SitePlan) -> list[_DC]:
+    result = []
+    for site in plan.sites:
+        if site.kind == "dc":
+            assert site.power_mw is not None
+            result.append(_DC(site.metro.name, site.id, site.power_mw))
+    return result
 
 
-def _distances(
-    dcs: list[_DC], metros: list[dict[str, Any]], minimum: float
-) -> np.ndarray:
-    positions = {metro["name"]: (metro["x"], metro["y"]) for metro in metros}
-    xy = np.array([positions[dc.metro] for dc in dcs], dtype=float)
+def _distances(plan: SitePlan, minimum: float) -> np.ndarray:
+    xy = np.array(
+        [(site.metro.x, site.metro.y) for site in plan.sites if site.kind == "dc"],
+        dtype=float,
+    )
     return np.maximum(
         np.hypot(xy[:, None, 0] - xy[None, :, 0], xy[:, None, 1] - xy[None, :, 1])
         / 1000,
@@ -271,7 +257,7 @@ def _hose_pairs(matrix: list[list[float]]) -> dict[Pair, float]:
 
 
 def generate_traffic(
-    plan: nx.MultiGraph,
+    plan: SitePlan,
     traffic: TrafficConfig,
     seed: int,
 ) -> tuple[TrafficMatrix, ...]:
@@ -280,19 +266,9 @@ def generate_traffic(
         return ()
     if traffic.model not in {"uniform", "gravity", "hose"}:
         raise ValueError(f"Unknown traffic model: {traffic.model}")
-    dcs = _inventory(plan, traffic)
+    dcs = _inventory(plan)
     if not dcs:
         return ()
-    metros = list(
-        {
-            attrs["metro_name"]: {
-                "name": attrs["metro_name"],
-                "x": attrs["center_x"],
-                "y": attrs["center_y"],
-            }
-            for _, attrs in plan.nodes(data=True)
-        }.values()
-    )
     if traffic.model == "uniform":
         offered_exact = sum(decimal(dc.mass) for dc in dcs) * decimal(
             traffic.gbps_per_mw
@@ -306,7 +282,7 @@ def generate_traffic(
         n = len(dcs)
         if offered_exact > 0 and n < 2:
             raise ValueError(
-                f"uniform traffic requires at least two DC sites: sites={n}, volume={offered_exact}"
+                f"uniform traffic requires at least two DC sites: sites={n}, volume={float(offered_exact)!r}"
             )
         demands = tuple(
             SiteDemand(
@@ -328,7 +304,7 @@ def generate_traffic(
     if not math.isfinite(offered) or offered < 0:
         raise ValueError("Offered traffic must be finite and non-negative")
     if traffic.model == "gravity":
-        distances = _distances(dcs, metros, traffic.gravity.min_distance_km)
+        distances = _distances(plan, traffic.gravity.min_distance_km)
         pairs = _gravity_pairs(dcs, distances, traffic, offered)
         return (
             TrafficMatrix(
@@ -340,7 +316,7 @@ def generate_traffic(
         )
     if offered == 0:
         return ()
-    distances = _distances(dcs, metros, traffic.hose.min_distance_km)
+    distances = _distances(plan, traffic.hose.min_distance_km)
     matrices = []
     for sample in range(1, traffic.samples + 1):
         rng = random.Random(seed * 1000003 + sample)
@@ -357,27 +333,3 @@ def generate_traffic(
             TrafficMatrix(name, _emit_pairs(dcs, pairs, distances, traffic, offered))
         )
     return tuple(matrices)
-
-
-def to_demand_sets(
-    matrices: tuple[TrafficMatrix, ...],
-) -> dict[str, list[dict[str, Any]]]:
-    """Write selectors only at the scenario document boundary."""
-    result = {}
-    for matrix in matrices:
-        entries = []
-        for demand in matrix.demands:
-            entry = {
-                "source": site_selector(demand.source),
-                "target": site_selector(demand.target),
-                "mode": "pairwise",
-                "priority": demand.priority,
-                "volume": float(demand.volume),
-            }
-            if demand.euclidean_km is not None:
-                entry["attrs"] = {"euclidean_km": demand.euclidean_km}
-            if demand.preset is not None:
-                entry["preset"] = demand.preset
-            entries.append(entry)
-        result[matrix.name] = entries
-    return result

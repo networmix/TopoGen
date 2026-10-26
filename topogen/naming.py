@@ -28,7 +28,7 @@ def metro_slug(name: str) -> str:
 
 
 def site_edge_id(source: str, target: str, key: str) -> str:
-    """Identify one site adjacency in the graph's edge iteration order."""
+    """Identify one adjacency oriented by its endpoint site order."""
     return f"{source}|{target}|{key}"
 
 

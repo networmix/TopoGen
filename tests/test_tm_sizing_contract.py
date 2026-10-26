@@ -3,6 +3,7 @@
 import io
 import json
 import random
+from dataclasses import replace
 from fractions import Fraction as F
 
 import networkx as nx
@@ -12,27 +13,63 @@ from ngraph import Scenario, prepare, run, write_json
 
 from topogen.config import TopologyConfig
 from topogen.naming import site_edge_id
-from topogen.scenario.records import SiteDemand, TrafficMatrix
+from topogen.scenario.records import (
+    Metro,
+    Site,
+    SiteDemand,
+    SiteLink,
+    SitePlan,
+    TrafficMatrix,
+)
 from topogen.scenario.sizing import _split_loads, size_links
 
 A = [(1, 2, 1), (1, 2, 1), (1, 3, 1), (2, 4, 1), (3, 4, 1), (3, 4, 1), (3, 4, 1)]
 
 
+def make_link(source, target, kind, cost=1, base=1, key="k"):
+    return SiteLink(
+        site_edge_id(source, target, key),
+        kind,
+        source,
+        target,
+        cost,
+        cost,
+        base,
+        {},
+        {},
+        key,
+        role_pairs=(),
+        risk_groups=(),
+        euclidean_km=None,
+        detour_ratio=None,
+    )
+
+
 def inputs(edges=A, volume=120, target=4):
-    graph = nx.MultiGraph()
-    for node in sorted({n for u, v, _ in edges for n in (u, v)}):
-        for kind in ("dc", "pop"):
-            graph.add_node(f"metro{node}/{kind}1", site_kind=kind, metro_name=str(node))
-    for u, v, cost in edges:
-        graph.add_edge(
-            f"metro{u}/pop1",
-            f"metro{v}/pop1",
-            cost=cost,
-            link_type="inter_metro_corridor",
-            source_metro=str(u),
-            target_metro=str(v),
-            base_capacity=1,
+    metros = {
+        node: Metro(node, str(node), str(node), str(node), node * 1000.0, 0.0, 1.0)
+        for node in sorted({n for u, v, _ in edges for n in (u, v)})
+    }
+    sites = tuple(
+        Site(
+            f"metro{node}/{kind}1",
+            metro,
+            kind,
+            1,
+            "SingleRouter",
+            10 if kind == "dc" else None,
+            (metro.x, metro.y),
         )
+        for node, metro in metros.items()
+        for kind in ("pop", "dc")
+    )
+    links = tuple(
+        make_link(
+            f"metro{u}/pop1", f"metro{v}/pop1", "inter_metro_corridor", cost, key=str(i)
+        )
+        for i, (u, v, cost) in enumerate(edges)
+    )
+    plan = SitePlan(sites, links, node_rules=())
     config = TopologyConfig()
     config.build.tm_sizing.enabled = True
     config.build.tm_sizing.headroom = 1.5
@@ -44,7 +81,7 @@ def inputs(edges=A, volume=120, target=4):
             (SiteDemand("metro1/dc1", f"metro{target}/dc1", 0, F(str(volume))),),
         ),
     )
-    return graph, config, traffic
+    return plan, config, traffic
 
 
 def metro_graph(edges):
@@ -83,9 +120,9 @@ def test_exact_local_parallel_load_vector():
 def test_step_neighbors_and_no_quantum(volume, stepped, exact):
     graph, config, traffic = inputs(volume=volume)
     refs = [
-        site_edge_id(u, v, k)
-        for u, v, k in graph.edges(keys=True)
-        if {u, v} == {"metro3/pop1", "metro4/pop1"}
+        link.id
+        for link in graph.links
+        if {link.source, link.target} == {"metro3/pop1", "metro4/pop1"}
     ]
     assert [size_links(graph, traffic, config).capacity[e] for e in refs] == [
         stepped
@@ -123,44 +160,41 @@ def test_decimal_and_wide_totals(volume, h, q, expected):
 
 def test_peak_minimum_unused_and_derived_budgets():
     graph, config, _ = inputs([(1, 2, 1), (1, 3, 1)], target=2)
-    graph["metro1/pop1"]["metro2/pop1"][0]["base_capacity"] = 100
-    graph["metro1/pop1"]["metro3/pop1"][0]["base_capacity"] = 200
-    graph.add_node("metro1/pop2", site_kind="pop", metro_name="1")
-    graph.add_edge(
-        "metro1/pop2",
-        "metro2/pop1",
-        cost=1,
-        link_type="inter_metro_corridor",
-        source_metro="1",
-        target_metro="2",
-        base_capacity=80,
+    extra_site = Site(
+        "metro1/pop2", graph.sites[0].metro, "pop", 2, "SingleRouter", None, (0.0, 0.0)
     )
-    for dc, pop in (("metro1/dc1", "metro1/pop1"), ("metro2/dc1", "metro1/pop2")):
-        graph.add_edge(dc, pop, link_type="dc_to_pop", base_capacity=1)
-    graph.add_edge(
-        "metro1/pop1", "metro1/pop2", link_type="intra_metro", base_capacity=1
+    graph = replace(
+        graph,
+        sites=(*graph.sites, extra_site),
+        links=(
+            replace(graph.links[0], base_capacity=100),
+            replace(graph.links[1], base_capacity=200),
+            make_link("metro1/pop2", "metro2/pop1", "inter_metro_corridor", base=80),
+            make_link("metro1/dc1", "metro1/pop1", "dc_to_pop"),
+            make_link("metro2/dc1", "metro1/pop2", "dc_to_pop"),
+            make_link("metro1/pop1", "metro1/pop2", "intra_metro"),
+        ),
     )
     zero = (
         TrafficMatrix("default", (SiteDemand("metro1/dc1", "metro2/dc1", 0, F(0)),)),
     )
     result = size_links(graph, zero, config)
-    for u, v, key, data in graph.edges(keys=True, data=True):
-        if data["link_type"] == "dc_to_pop":
-            assert result.capacity[site_edge_id(u, v, key)] == (
-                360 if "metro1/pop1" in (u, v) else 100
+    for link in graph.links:
+        if link.kind == "dc_to_pop":
+            assert result.capacity[link.id] == (
+                360 if "metro1/pop1" in (link.source, link.target) else 100
             )
-        if data["link_type"] == "intra_metro":
-            assert result.capacity[site_edge_id(u, v, key)] == 70
-    # The plan never receives the calculated budgets.
-    assert graph["metro1/pop1"]["metro2/pop1"][0]["base_capacity"] == 100
+        if link.kind == "intra_metro":
+            assert result.capacity[link.id] == 70
+    assert graph.links[0].base_capacity == 100
 
 
 def test_unreachable_demand_refuses_without_mutation():
     graph, config, traffic = inputs([(1, 2, 1), (3, 4, 1)])
-    before = list(graph.edges(keys=True, data=True))
+    before = graph
     with pytest.raises(ValueError, match="no corridor route"):
         size_links(graph, traffic, config)
-    assert list(graph.edges(keys=True, data=True)) == before
+    assert graph == before
     config.build.tm_sizing.enabled = False
     assert list(size_links(graph, traffic, config).capacity.values()) == [1, 1]
 
@@ -240,7 +274,7 @@ def test_random_loads_against_yaml_ecmp():
 )
 def test_directional_peak_and_minimum(respect, base, expected):
     graph, config, _ = inputs([(1, 2, 1)], target=2)
-    graph["metro1/pop1"]["metro2/pop1"][0]["base_capacity"] = base
+    graph = replace(graph, links=(replace(graph.links[0], base_capacity=base),))
     config.build.tm_sizing.headroom = 1
     config.build.tm_sizing.quantum_gbps = 1
     config.build.tm_sizing.respect_min_base_capacity = respect
@@ -251,7 +285,7 @@ def test_directional_peak_and_minimum(respect, base, expected):
     result = size_links(graph, (TrafficMatrix("default", demands),), config)
     assert list(result.load.values()) == [1000]
     assert list(result.capacity.values()) == [expected]
-    assert graph["metro1/pop1"]["metro2/pop1"][0]["base_capacity"] == base
+    assert graph.links[0].base_capacity == base
 
 
 @pytest.mark.parametrize(
@@ -262,9 +296,9 @@ def test_directional_peak_and_minimum(respect, base, expected):
         ("missing_matrix", "available:"),
         ("empty_matrix", "is empty"),
         ("no_corridor", "no inter-metro"),
-        ("unknown_metro", "unknown metro"),
-        ("missing_metadata", "missing source_metro"),
+        ("bad_link_endpoint", "unsupported site-link endpoint"),
         ("bad_cost", "positive integer cost"),
+        ("no_pop", "does not connect to a PoP endpoint"),
         ("negative_volume", "finite non-negative"),
         ("bad_endpoint", "unsupported demand endpoint"),
     ],
@@ -272,23 +306,27 @@ def test_directional_peak_and_minimum(respect, base, expected):
 def test_sizing_refusal_boundaries(bad, error):
     graph, config, traffic = inputs([(1, 2, 1)], target=2)
     assert size_links(graph, traffic, config).capacity
-    edge = graph["metro1/pop1"]["metro2/pop1"][0]
     if bad == "disabled_traffic":
         config.traffic.enabled = False
     elif bad == "no_dc":
-        graph.remove_nodes_from([n for n in graph if "/dc" in n])
+        graph = replace(
+            graph, sites=tuple(site for site in graph.sites if site.kind != "dc")
+        )
     elif bad == "missing_matrix":
         config.build.tm_sizing.matrix_name = "missing"
     elif bad == "empty_matrix":
         traffic = (TrafficMatrix("default", ()),)
     elif bad == "no_corridor":
-        graph.remove_edges_from(list(graph.edges(keys=True)))
-    elif bad == "unknown_metro":
-        edge["source_metro"] = "missing"
-    elif bad == "missing_metadata":
-        del edge["source_metro"]
+        graph = replace(graph, links=())
+    elif bad == "bad_link_endpoint":
+        graph = replace(graph, links=(replace(graph.links[0], source="missing"),))
     elif bad == "bad_cost":
-        edge["cost"] = 0
+        graph = replace(graph, links=(replace(graph.links[0], cost=0),))
+    elif bad == "no_pop":
+        graph = replace(
+            graph,
+            links=(*graph.links, make_link("metro1/dc1", "metro2/dc1", "dc_to_pop")),
+        )
     elif bad == "negative_volume":
         traffic = (
             TrafficMatrix(
@@ -319,7 +357,7 @@ def test_explicit_sizing_matrix_overrides_traffic_default():
 
 def test_minimum_applies_after_quantum_when_base_exceeds_the_step():
     graph, config, traffic = inputs([(1, 2, 1)], volume=100, target=2)
-    graph["metro1/pop1"]["metro2/pop1"][0]["base_capacity"] = 2000
+    graph = replace(graph, links=(replace(graph.links[0], base_capacity=2000),))
     config.build.tm_sizing.headroom = 1
     config.build.tm_sizing.quantum_gbps = 1600
     config.build.tm_sizing.respect_min_base_capacity = True

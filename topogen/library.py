@@ -9,7 +9,6 @@ from types import MappingProxyType
 from typing import Any
 
 import yaml
-from ngraph.workflow.parse import build_workflow_steps
 
 from topogen.blueprints_lib import _BUILTIN_BLUEPRINTS
 from topogen.components_lib import _BUILTIN_COMPONENTS
@@ -41,7 +40,7 @@ def thaw(value: Any) -> Any:
 
 @dataclass(frozen=True, slots=True)
 class WorkflowDefinition:
-    steps: tuple[Mapping[str, Any], ...]
+    steps: Any
     follows_configured_matrix: bool = False
 
     def __post_init__(self) -> None:
@@ -61,7 +60,7 @@ class Library:
 
 
 def load_library(directory: Path | None) -> Library:
-    """Load builtins and optional explicit overrides; validate every workflow."""
+    """Load owned definitions from mapping files; workflow entries are checked on use."""
     tables = {}
     replaced = set()
     for name, builtin in (
@@ -85,13 +84,7 @@ def load_library(directory: Path | None) -> Library:
         tables[name] = table
     workflows = {}
     for name, steps in tables["workflows"].items():
-        if not isinstance(steps, list) or any(not isinstance(s, dict) for s in steps):
-            raise ValueError(f"Workflow '{name}' must contain a list of step mappings")
-        try:
-            build_workflow_steps(steps, derive_seed=lambda _: None)
-        except ValueError as exc:
-            raise ValueError(f"Workflow '{name}': {exc}") from exc
-        workflows[name] = WorkflowDefinition(tuple(steps), name not in replaced)
+        workflows[name] = WorkflowDefinition(steps, name not in replaced)
     return Library(
         tables["blueprints"],
         tables["components"],

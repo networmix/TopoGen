@@ -2,30 +2,38 @@
 
 from __future__ import annotations
 
-import copy
 import math
 from collections import defaultdict
 from collections.abc import Mapping
 from typing import Any
 
-import networkx as nx
 import yaml
 from ngraph import Scenario
 
-from topogen.config import ComponentsConfig
+from topogen.config import ComponentsConfig, TopologyConfig
 from topogen.library import Library, freeze
-from topogen.naming import site_edge_id
 from topogen.numeric import optic_count, written_count
 from topogen.roles import role_optics
 
-from .records import DeviceLink, LinkHardware, Sizing
+from .document import network_document
+from .records import (
+    CorridorGraph,
+    DeviceLink,
+    LinkHardware,
+    SiteExpansion,
+    SitePlan,
+    Sizing,
+)
 
 
 def expand_sites(
-    plan: nx.MultiGraph, document: dict[str, Any]
-) -> Mapping[str, tuple[DeviceLink, ...]]:
+    corridors: CorridorGraph,
+    plan: SitePlan,
+    blueprints: Mapping[str, Any],
+    config: TopologyConfig,
+) -> SiteExpansion:
     """Refuse empty site/adjacency/blueprint rules in the one E2 expansion."""
-    doc = copy.deepcopy(document)
+    doc = network_document(corridors, plan, blueprints, config)
     rules = {}
     for name, blueprint in doc["blueprints"].items():
         for index, rule in enumerate(blueprint.get("links", [])):
@@ -34,9 +42,9 @@ def expand_sites(
             rules[label] = False
     scenario = Scenario.from_yaml(yaml.safe_dump(doc, sort_keys=False))
     network = scenario.network
-    for site in plan:
-        if not any(node.startswith(site + "/") for node in network.nodes):
-            raise ValueError(f"Site '{site}' expands to no devices")
+    for site in plan.sites:
+        if not any(node.startswith(site.id + "/") for node in network.nodes):
+            raise ValueError(f"Site '{site.id}' expands to no devices")
     by_edge: dict[str, list[DeviceLink]] = defaultdict(list)
     for link in network.links.values():
         if label := link.attrs.get("_topogen_rule"):
@@ -53,26 +61,26 @@ def expand_sites(
     for label, produced in rules.items():
         if not produced:
             raise ValueError(f"{label} expands to no links")
-    for u, v, key in plan.edges(keys=True):
-        edge = site_edge_id(u, v, key)
+    for link in plan.links:
+        edge = link.id
         if not by_edge[edge]:
             raise ValueError(f"Adjacency '{edge}' expands to no device links")
-    return freeze({edge: tuple(links) for edge, links in by_edge.items()})
+    return SiteExpansion({edge: tuple(links) for edge, links in by_edge.items()})
 
 
 def assign_hardware(
-    plan: nx.MultiGraph,
+    plan: SitePlan,
     sizing: Sizing,
-    expansion: Mapping[str, tuple[DeviceLink, ...]],
+    expansion: SiteExpansion,
     library: Library,
     components: ComponentsConfig,
 ) -> Mapping[str, LinkHardware]:
     """Divide each budget exactly; cover its written device share at both ends."""
     optics = role_optics(components.optics)
     result = {}
-    for u, v, key in plan.edges(keys=True):
-        edge = site_edge_id(u, v, key)
-        links = expansion[edge]
+    for link in plan.links:
+        edge = link.id
+        links = expansion.links[edge]
         capacity = sizing.capacity[edge] / len(links)
         written = float(capacity)
         if not math.isfinite(written) or written <= 0:
@@ -98,12 +106,12 @@ def assign_hardware(
                     f"Adjacency '{edge}' requires different optics on its {end} ends; select one role pair per adjacency"
                 )
             name = next(iter(names))
-            # Components are normalized to floats by NetGraph when E2 reads them.
+            # NetGraph holds parsed component capacities as floats.
             held = float(library.components[name]["capacity"])
             label = f"Adjacency '{edge}' {links[0].source}->{links[0].target} {end} optic '{name}'"
-            if held <= 0:
+            if not math.isfinite(held) or held <= 0:
                 raise ValueError(
-                    f"{label}: optic capacity must be positive, got {held!r}"
+                    f"{label}: optic capacity must be finite and positive, got {held!r}"
                 )
             count = optic_count(written, held)
             written_count(count, label)

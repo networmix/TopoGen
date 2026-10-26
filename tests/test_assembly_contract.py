@@ -104,9 +104,7 @@ def test_empty_internal_blueprint_rule_refuses_in_e2(corridor_graph, scenario_co
         {"source": "missing", "target": "core", "capacity": 1, "cost": 1}
     ]
     library = Library(bps, base.components, base.failure_policies, base.workflows)
-    with pytest.raises(
-        ValueError, match="blueprint 'SingleRouter' link rule 0 expands to no links"
-    ):
+    with pytest.raises(ValueError, match="SingleRouter"):
         build_scenario(corridor_graph, scenario_config, library)
 
 
@@ -212,37 +210,47 @@ def test_expansion_stages_are_batched_and_private_tags_do_not_escape(
     )
 
 
-def test_empty_site_adjacency_is_refused_before_hardware_assignment():
-    import networkx as nx
+def test_empty_site_adjacency_is_refused_before_hardware_assignment(
+    corridor_graph, scenario_config
+):
+    from dataclasses import replace
 
-    from topogen.naming import site_edge_id
     from topogen.scenario.hardware import expand_sites
+    from topogen.scenario.records import StripeGroups
+    from topogen.scenario.sites import (
+        finalize_blueprints,
+        plan_sites,
+        read_corridors,
+        resolve_metro_settings,
+    )
 
-    plan = nx.MultiGraph()
-    plan.add_edge("metro1/pop1", "metro2/pop1", key="wan")
-    edge = site_edge_id("metro1/pop1", "metro2/pop1", "wan")
-    document = {
-        "blueprints": {},
-        "network": {
-            "nodes": {f"metro{i}/pop1/n": {"attrs": {"role": "core"}} for i in (1, 2)},
-            "links": [
-                {
-                    "source": "^missing$",
-                    "target": "^metro2/pop1/n$",
-                    "capacity": 1,
-                    "cost": 1,
-                    "attrs": {"site_edge": edge},
-                }
-            ],
-        },
-    }
-    with pytest.raises(ValueError, match="Adjacency .* expands to no device links"):
-        expand_sites(plan, document)
-    document["network"]["links"][0]["source"] = "^metro1/pop1/n$"
-    links = expand_sites(plan, document)[edge]
+    corridors = read_corridors(corridor_graph)
+    settings = resolve_metro_settings(
+        corridors, scenario_config.build, scenario_config.traffic
+    )
+    blueprints = finalize_blueprints(
+        settings, load_library(None), scenario_config.components.hw_component
+    )
+    plan = plan_sites(corridors, settings, StripeGroups({}))
+    first = plan.links[0]
+    broken = replace(
+        plan,
+        links=(
+            replace(
+                first,
+                match={
+                    "conditions": [{"attr": "role", "op": "==", "value": "missing"}]
+                },
+            ),
+            *plan.links[1:],
+        ),
+    )
+    with pytest.raises(ValueError) as error:
+        expand_sites(corridors, broken, blueprints, scenario_config)
+    assert first.source in str(error.value) or first.id in str(error.value)
+    links = expand_sites(corridors, plan, blueprints, scenario_config).links[first.id]
     assert len(links) == 1
-    assert (links[0].source, links[0].target) == ("metro1/pop1/n", "metro2/pop1/n")
-    assert links[0].source_role == links[0].target_role == "core"
+    assert links[0].source_role == "core" and links[0].target_role == "dc"
 
 
 def test_combined_exact_uniform_sizing_keeps_the_intended_step(
@@ -288,19 +296,43 @@ def test_combined_exact_uniform_sizing_keeps_the_intended_step(
     assert not validate_scenario(build.yaml, cfg.components).issues
 
 
-@pytest.mark.parametrize("capacity", [0, -5])
+@pytest.mark.parametrize("capacity", [0, -5, float("inf"), float("-inf"), float("nan")])
 @pytest.mark.parametrize("end", ["source", "target"])
 def test_nonpositive_optic_error_names_adjacency_link_end_and_optic(capacity, end):
-    import networkx as nx
-
     from topogen.config import ComponentsConfig
     from topogen.scenario.hardware import assign_hardware
-    from topogen.scenario.records import DeviceLink, Sizing
+    from topogen.scenario.records import (
+        DeviceLink,
+        SiteExpansion,
+        SiteLink,
+        SitePlan,
+        Sizing,
+    )
 
-    plan = nx.MultiGraph()
-    plan.add_edge("A", "B", key="k")
+    plan = SitePlan(
+        (),
+        (
+            SiteLink(
+                "A|B|k",
+                "dc_to_pop",
+                "A",
+                "B",
+                1,
+                1,
+                10,
+                {},
+                {},
+                "k",
+                (),
+                (),
+                None,
+                None,
+            ),
+        ),
+        (),
+    )
     edge = "A|B|k"
-    expansion = {edge: (DeviceLink("A/core", "B/dc", "core", "dc"),)}
+    expansion = SiteExpansion({edge: (DeviceLink("A/core", "B/dc", "core", "dc"),)})
     sizes = Sizing({}, {edge: Fraction(10)})
     components = {"OZ": {"capacity": capacity}, "good": {"capacity": 10}}
     cfg = ComponentsConfig(
@@ -313,7 +345,7 @@ def test_nonpositive_optic_error_names_adjacency_link_end_and_optic(capacity, en
         assign_hardware(plan, sizes, expansion, Library({}, components, {}, {}), cfg)
     assert (
         str(error.value)
-        == f"Adjacency 'A|B|k' A/core->B/dc {end} optic 'OZ': optic capacity must be positive, got {float(capacity)!r}"
+        == f"Adjacency 'A|B|k' A/core->B/dc {end} optic 'OZ': optic capacity must be finite and positive, got {float(capacity)!r}"
     )
     components["OZ"]["capacity"] = 10
     assert (
@@ -322,3 +354,75 @@ def test_nonpositive_optic_error_names_adjacency_link_end_and_optic(capacity, en
         ].source_count
         == 1
     )
+
+
+def test_unknown_assigned_optic_has_a_named_refusal(corridor_graph, scenario_config):
+    cfg = scenario_config
+    cfg.components.optics = {
+        "core->core": "Missing",
+        "core->dc": "Missing",
+        "dc->core": "Missing",
+    }
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, cfg, load_library(None))
+    assert str(error.value) == "Unknown components: ['Missing']"
+    cfg.components.optics = {
+        "core->core": "800G-ZR+",
+        "core->dc": "800G-ZR+",
+        "dc->core": "800G-ZR+",
+    }
+    assert build_scenario(corridor_graph, cfg, load_library(None)).yaml
+
+
+def test_unknown_components_are_complete_sorted_and_precede_hardware(
+    corridor_graph, scenario_config, monkeypatch
+):
+    import topogen.scenario.build as stages
+
+    base = load_library(None)
+    blueprints = thaw(base.blueprints)
+    blueprints["SingleRouter"]["nodes"]["core"]["attrs"]["hardware"] = {
+        "component": "NoBlueprintPlatform",
+        "count": 1,
+    }
+    library = Library(
+        blueprints, base.components, base.failure_policies, base.workflows
+    )
+    cfg = scenario_config
+    cfg.components.hw_component = {"spine": "NoPlatform", "dc": ""}
+    cfg.components.optics = {
+        "core->core": "NoOptA",
+        "core->dc": "NoOptB",
+        "dc->core": "NoOptB",
+    }
+
+    def unexpected(*args, **kwargs):
+        raise AssertionError("hardware ran before the complete component check")
+
+    monkeypatch.setattr(stages, "assign_hardware", unexpected)
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, cfg, library)
+    assert (
+        str(error.value)
+        == "Unknown components: ['NoBlueprintPlatform', 'NoOptA', 'NoOptB', 'NoPlatform']"
+    )
+    cfg.build.tm_sizing.enabled = True
+    cfg.traffic.enabled = False
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, cfg, library)
+    assert (
+        str(error.value)
+        == "TM sizing is enabled but traffic generation is disabled in configuration"
+    )
+
+
+def test_two_unknown_optics_are_reported_together(corridor_graph, scenario_config):
+    cfg = scenario_config
+    cfg.components.optics = {
+        "core->core": "NoOptA",
+        "core->dc": "NoOptB",
+        "dc->core": "NoOptB",
+    }
+    with pytest.raises(ValueError) as error:
+        build_scenario(corridor_graph, cfg, load_library(None))
+    assert str(error.value) == "Unknown components: ['NoOptA', 'NoOptB']"

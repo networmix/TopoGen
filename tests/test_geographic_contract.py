@@ -1,7 +1,5 @@
 """Geographic paths retain identity, length, geometry, and shared risks."""
 
-from pathlib import Path
-
 import networkx as nx
 import pytest
 
@@ -17,12 +15,10 @@ from topogen.integrated_graph import (
     load_from_json,
     save_to_json,
 )
-from topogen.library import load_library, thaw
 from topogen.metro_clusters import MetroCluster
-from topogen.scenario.config import _determine_metro_settings
-from topogen.scenario.graph_pipeline import build_site_graph
-from topogen.scenario.network import _extract_metros_from_graph
-from topogen.scenario.risk import _build_risk_groups_section
+from topogen.scenario.document import _risk_groups
+from topogen.scenario.records import StripeGroups
+from topogen.scenario.sites import plan_sites, read_corridors, resolve_metro_settings
 
 
 def metro(identifier, x):
@@ -91,24 +87,18 @@ def test_parallel_corridors_survive_json_and_site_expansion(tmp_path):
     config = TopologyConfig()
     config.build.build_defaults.pop_per_metro = 1
     config.build.build_defaults.dc_regions_per_metro = 0
-    selected = _extract_metros_from_graph(loaded)
-    sites = build_site_graph(
+    selected = read_corridors(loaded)
+    sites = plan_sites(
         selected,
-        _determine_metro_settings(selected, config),
-        loaded,
-        thaw(load_library(Path("lib")).blueprints),
+        resolve_metro_settings(selected, config.build, config.traffic),
+        StripeGroups({}),
     )
-    wan = [
-        d
-        for _, _, d in sites.edges(data=True)
-        if d["link_type"] == "inter_metro_corridor"
-    ]
+    wan = [link for link in sites.links if link.kind == "inter_metro_corridor"]
     assert len(wan) == 2
-    assert {d["cost"] for d in wan} == {5, 6}
+    assert {link.cost for link in wan} == {5, 6}
 
     assert [
-        risk["attrs"]["distance_km"]
-        for risk in _build_risk_groups_section(loaded, config)
+        risk["attrs"]["distance_km"] for risk in _risk_groups(selected, config)
     ] == [5, 6]
 
 

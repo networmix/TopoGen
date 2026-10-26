@@ -15,7 +15,8 @@ from topogen.config import (
 )
 from topogen.library import load_library
 from topogen.scenario import build_scenario
-from topogen.scenario.risk import _build_risk_groups_section
+from topogen.scenario.document import _risk_groups
+from topogen.scenario.sites import read_corridors
 
 
 class TestScenarioRiskGroups:
@@ -31,6 +32,8 @@ class TestScenarioRiskGroups:
             metro_id="23527",
             radius_km=30.0,
             name_orig="denver-aurora",
+            x=100.0,
+            y=200.0,
         )
         graph.add_node(
             metro2,
@@ -39,6 +42,8 @@ class TestScenarioRiskGroups:
             metro_id="43912",
             radius_km=25.0,
             name_orig="kansas-city",
+            x=200.0,
+            y=300.0,
         )
 
         graph.add_edge(
@@ -53,7 +58,7 @@ class TestScenarioRiskGroups:
         config.corridors = CorridorsConfig()
         config.corridors.risk_groups = RiskGroupsConfig(enabled=True)
 
-        risk_groups = _build_risk_groups_section(graph, config)
+        risk_groups = _risk_groups(read_corridors(graph), config)
 
         assert len(risk_groups) == 1
         rg = risk_groups[0]
@@ -257,11 +262,29 @@ class TestScenarioRiskGroups:
 
     def test_unknown_risk_owner_is_rejected(self):
         graph = nx.MultiGraph()
-        graph.add_node(0, name="a")
-        graph.add_node(1, name="b")
+        graph.add_node(
+            0,
+            node_type="metro",
+            name="a",
+            name_orig="a",
+            metro_id="a",
+            x=0.0,
+            y=0.0,
+            radius_km=1.0,
+        )
+        graph.add_node(
+            1,
+            node_type="metro",
+            name="b",
+            name_orig="b",
+            metro_id="b",
+            x=1000.0,
+            y=0.0,
+            radius_km=1.0,
+        )
         graph.add_edge(0, 1, length_km=10.0, risk_groups=["unknown"])
         with pytest.raises(ValueError, match="no owning corridor path"):
-            _build_risk_groups_section(graph, TopologyConfig())
+            _risk_groups(read_corridors(graph), TopologyConfig())
 
     def test_metro_name_attributes_in_scenario(self):
         graph = nx.MultiGraph()

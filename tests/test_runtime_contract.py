@@ -176,3 +176,49 @@ def test_site_identifiers_and_selectors_have_the_documented_boundaries():
     assert site_edge_id("metro3/pop1", "metro4/pop2", "parallel-2") == (
         "metro3/pop1|metro4/pop2|parallel-2"
     )
+
+
+def test_drawing_stack_is_imported_only_on_use():
+    import os
+    import subprocess
+    import sys
+
+    source = r"""
+import importlib.abc
+import sys
+class BlockDrawings(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.')[0] in {'matplotlib', 'contextily'} or fullname in {'topogen.visualization', 'topogen.blueprint_viz'}:
+            raise AssertionError('eager drawing import: ' + fullname)
+sys.meta_path.insert(0, BlockDrawings())
+import topogen
+import topogen.scenario
+assert not any(name.split('.')[0] in {'matplotlib', 'contextily'} for name in sys.modules)
+assert 'topogen.visualization' not in sys.modules
+assert 'visualization' not in topogen.__all__
+print('lazy import control')
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", source],
+        cwd=Path.cwd(),
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "lazy import control"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import topogen.visualization as drawing; assert callable(drawing.export_site_graph_map); print('explicit drawing import')",
+        ],
+        cwd=Path.cwd(),
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "explicit drawing import"

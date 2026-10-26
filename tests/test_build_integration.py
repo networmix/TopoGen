@@ -119,25 +119,23 @@ class TestBuildIntegration:
         assert "nodes" in network
         assert "links" in network
 
-        # Should have 6 groups (3 metros x 2 types: PoPs + DC regions)
+        # Eight PoP sites and six DC sites each have their own group.
         groups = network["nodes"]
-        assert len(groups) == 6
+        assert len(groups) == 14
 
-        pop_groups = [g for g in groups.keys() if "/pop[" in g]
-        dc_groups = [g for g in groups.keys() if "/dc[" in g]
-        assert len(pop_groups) == 3
-        assert len(dc_groups) == 3
+        pop_groups = [g for g in groups.keys() if "/pop" in g]
+        dc_groups = [g for g in groups.keys() if "/dc" in g]
+        assert len(pop_groups) == 8
+        assert len(dc_groups) == 6
 
-        # Check groups use bracket expansion; Denver has 4 POPs, others use defaults
+        # Group paths name individual sites; Denver has four PoPs.
+        assert {
+            path.split("/")[1]
+            for path, value in groups.items()
+            if value["attrs"]["metro_name"] == "Denver" and "/pop" in path
+        } == {"pop1", "pop2", "pop3", "pop4"}
         for group_name, group_def in groups.items():
-            assert "metro" in group_name
-            if "/pop[" in group_name:
-                if group_def["attrs"].get("metro_name") == "Denver":
-                    assert "pop[1-4]" in group_name
-                else:
-                    assert "pop[1-" in group_name
-            elif "/dc[" in group_name:
-                assert "dc[1-" in group_name
+            assert "[" not in group_name
             assert "blueprint" in group_def
             assert "attrs" in group_def
 
@@ -387,18 +385,18 @@ class TestBuildIntegration:
         scenario_data = yaml.safe_load(yaml_str)
 
         groups = scenario_data["network"]["nodes"]
-        assert len(groups) == 2
+        assert len(groups) == 6
 
-        pop_groups = [g for g in groups.keys() if "/pop[" in g]
-        dc_groups = [g for g in groups.keys() if "/dc[" in g]
-        assert len(pop_groups) == 1
-        assert len(dc_groups) == 1
+        pop_groups = [g for g in groups.keys() if "/pop" in g]
+        dc_groups = [g for g in groups.keys() if "/dc" in g]
+        assert len(pop_groups) == 4
+        assert len(dc_groups) == 2
 
         adjacency = scenario_data["network"]["links"]
         intra_rules = [adj for adj in adjacency if "intra_metro" in str(adj)]
         inter_rules = [adj for adj in adjacency if "inter_metro" in str(adj)]
 
-        # 4 POPs → 6 explicit one_to_one entries in the graph-based pipeline
+        # Four PoPs produce six intra-metro adjacencies.
         assert len(intra_rules) == 6
         assert len(inter_rules) == 0
 

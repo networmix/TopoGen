@@ -85,16 +85,24 @@ def hose_case(powers):
     config.traffic.gbps_per_mw = 1.0
     config.traffic.priority_ratios = {0: 1.0}
     config.traffic.gravity.mw_per_dc_region_overrides = powers
-    plan = nx.MultiGraph()
-    for i, name in enumerate(powers, 1):
-        plan.add_node(
-            f"metro{i}/dc1",
-            site_kind="dc",
-            site_ordinal=1,
-            metro_name=name,
-            center_x=i * 1000.0,
-            center_y=0.0,
-        )
+    from topogen.scenario.records import Metro, Site, SitePlan
+
+    plan = SitePlan(
+        tuple(
+            Site(
+                f"metro{i}/dc1",
+                Metro(i, name, name, name, i * 1000.0, 0.0, 1.0),
+                "dc",
+                1,
+                "DCRegion",
+                mass,
+                (i * 1000.0, 0.0),
+            )
+            for i, (name, mass) in enumerate(powers.items(), 1)
+        ),
+        (),
+        node_rules=(),
+    )
     return config, plan
 
 
@@ -186,7 +194,7 @@ def test_pop_coordinates_without_dc_groups(corridor_graph, scenario_config):
         build_scenario(corridor_graph, scenario_config, load_library(None)).yaml
     )
     for i, (_, metro) in enumerate(corridor_graph.nodes(data=True), 1):
-        attrs = document["network"]["nodes"][f"metro{i}/pop[1-1]"]["attrs"]
+        attrs = document["network"]["nodes"][f"metro{i}/pop1"]["attrs"]
         assert (attrs["location_x"], attrs["location_y"]) == (metro["x"], metro["y"])
 
 

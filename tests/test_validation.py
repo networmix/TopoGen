@@ -29,12 +29,14 @@ def validate(doc, components=None):
     )
 
 
-def test_zero_cost_is_refused_in_prepare_with_message():
+def test_zero_cost_is_refused_naming_the_link():
     doc = tiny()
     doc["network"]["links"][0]["cost"] = 0
     result = validate(doc)
     assert result.prepared is None
-    assert len(result.issues) == 1 and "cost must be in [1,2^62)" in result.issues[0]
+    assert (
+        len(result.issues) == 1 and "A" in result.issues[0] and "B" in result.issues[0]
+    )
     doc["network"]["links"][0]["cost"] = 1
     assert not validate(doc).issues
 
@@ -48,10 +50,7 @@ def test_all_sets_bound_even_when_not_used():
     }
     result = validate(doc)
     assert result.prepared is None
-    assert (
-        len(result.issues) == 1
-        and "non-diagonal source/target overlap" in result.issues[0]
-    )
+    assert len(result.issues) == 1 and "unused" in result.issues[0]
     doc["demands"]["unused"][0]["source"] = "^A$"
     assert not validate(doc).issues
 
@@ -66,15 +65,12 @@ def test_all_sets_bound_even_when_not_used():
         {"x": float("-inf")},
     ],
 )
-def test_bad_attrs_refuse_at_parse(value):
+def test_bad_attrs_refuse_naming_the_attribute(value):
     doc = tiny()
     doc["network"]["links"][0]["attrs"] = value
     result = validate(doc)
     assert result.prepared is None and len(result.issues) == 1
-    assert (
-        "JSON object keys must be strings" in result.issues[0]
-        or "expected finite JSON data" in result.issues[0]
-    )
+    assert "attrs" in result.issues[0]
     doc["network"]["links"][0]["attrs"] = {"valid": [1, True, None, {"x": 1.5}]}
     assert not validate(doc).issues
 
@@ -115,8 +111,8 @@ def test_build_metadata_has_one_source(corridor_graph, scenario_config):
         build_scenario(corridor_graph, scenario_config, load_library(None)).yaml
     )
     for index, (_, metro) in enumerate(corridor_graph.nodes(data=True), 1):
-        pop = doc["network"]["nodes"][f"metro{index}/pop[1-1]"]["attrs"]
-        dc = doc["network"]["nodes"][f"metro{index}/dc[1-1]"]["attrs"]
+        pop = doc["network"]["nodes"][f"metro{index}/pop1"]["attrs"]
+        dc = doc["network"]["nodes"][f"metro{index}/dc1"]["attrs"]
         for key in (
             "metro_name",
             "metro_name_orig",

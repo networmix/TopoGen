@@ -5,13 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from topogen.config import (
+from netlab_topogen.config import (
     TopologyConfig,
 )
-from topogen.library import load_library, thaw
-from topogen.scenario.document import _components, check_components
-from topogen.scenario.records import Metro, MetroSettings
-from topogen.scenario.sites import finalize_blueprints
+from netlab_topogen.library import load_library, thaw
+from netlab_topogen.scenario.document import _components, check_components
+from netlab_topogen.scenario.records import Metro, MetroSettings
+from netlab_topogen.scenario.sites import finalize_blueprints
 
 
 def finalized(names, config, library):

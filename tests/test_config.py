@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from topogen.config import TopologyConfig
+from netlab_topogen.config import TopologyConfig
 
 
 def test_config_from_yaml(tmp_path: Path) -> None:
@@ -122,7 +122,7 @@ def test_dc_regions_config_defaults() -> None:
 
 
 def test_config_validation_missing_files() -> None:
-    from topogen.config import DataSources
+    from netlab_topogen.config import DataSources
 
     config = TopologyConfig()
     config.data_sources = DataSources(
@@ -136,7 +136,7 @@ def test_config_validation_missing_files() -> None:
 
 
 def test_config_validation_invalid_params() -> None:
-    from topogen.config import ClusteringConfig
+    from netlab_topogen.config import ClusteringConfig
 
     config = TopologyConfig()
     config.clustering = ClusteringConfig(metro_clusters=0)

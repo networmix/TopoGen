@@ -7,9 +7,9 @@ import pytest
 import yaml
 from ngraph import Scenario
 
-from topogen.config import TopologyConfig
-from topogen.library import load_library
-from topogen.scenario import build_scenario
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
 
 
 def build_case(tmp_path, monkeypatch, blueprint):

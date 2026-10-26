@@ -5,9 +5,9 @@ from dataclasses import FrozenInstanceError
 import pytest
 import yaml
 
-from topogen.library import Library, WorkflowDefinition, load_library, thaw
-from topogen.scenario import build_scenario
-from topogen.scenario.document import _workflow
+from netlab_topogen.library import Library, WorkflowDefinition, load_library, thaw
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.scenario.document import _workflow
 
 
 def test_builtin_and_identical_user_workflow_have_distinct_binding(
@@ -71,7 +71,7 @@ def test_bad_library_is_refused_by_name(tmp_path, content):
 
 
 def test_only_selected_workflow_is_checked(tmp_path, corridor_graph, scenario_config):
-    from topogen.validation import validate_scenario
+    from netlab_topogen.validation import validate_scenario
 
     (tmp_path / "workflows.yml").write_text(
         "unused: [{type: NetworkStats, unknown: true}]"
@@ -136,7 +136,7 @@ def test_library_snapshots_preserve_set_values_for_netgraph_refusal(
 def test_workflow_shape_is_checked_only_when_selected(
     tmp_path, corridor_graph, scenario_config, steps
 ):
-    from topogen.validation import validate_scenario
+    from netlab_topogen.validation import validate_scenario
 
     content = yaml.safe_dump({"broken": steps})
     (tmp_path / "workflows.yml").write_text(content)
@@ -159,7 +159,7 @@ def test_workflow_shape_is_checked_only_when_selected(
 def test_empty_selected_workflow_is_a_valid_list(
     tmp_path, corridor_graph, scenario_config
 ):
-    from topogen.validation import validate_scenario
+    from netlab_topogen.validation import validate_scenario
 
     (tmp_path / "workflows.yml").write_text("empty: []")
     scenario_config.workflows.assignments.default = "empty"

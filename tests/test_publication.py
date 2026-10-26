@@ -3,12 +3,12 @@
 import networkx as nx
 import pytest
 
-from topogen import RunContext, save_to_json
-from topogen.cli import _run_pipeline
-from topogen.library import load_library
-from topogen.scenario import build_scenario, write_artifacts, write_scenario
-from topogen.scenario.publication import write_atomic
-from topogen.validation import Validation, validate_scenario
+from netlab_topogen import RunContext, save_to_json
+from netlab_topogen.cli import _run_pipeline
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario, write_artifacts, write_scenario
+from netlab_topogen.scenario.publication import write_atomic
+from netlab_topogen.validation import Validation, validate_scenario
 
 
 @pytest.mark.parametrize("partial", [False, True])
@@ -80,7 +80,7 @@ def test_real_cli_refusal_keeps_yaml_site_json_and_artifacts(
         != before[context.path("network_graph.json")]
     )
 
-    import topogen.scenario as scenario
+    import netlab_topogen.scenario as scenario
 
     def fail_artifacts(*args):
         raise OSError("artifact failure after YAML")
@@ -97,7 +97,7 @@ def test_real_cli_refusal_keeps_yaml_site_json_and_artifacts(
 def test_artifact_failure_retains_earlier_files_and_later_destinations(
     tmp_path, monkeypatch, corridor_graph, scenario_config
 ):
-    import topogen.scenario.artifacts as artifacts
+    import netlab_topogen.scenario.artifacts as artifacts
 
     build = build_scenario(corridor_graph, scenario_config, load_library(None))
     validation = validate_scenario(build.yaml, scenario_config.components)
@@ -145,7 +145,7 @@ def test_invalid_validation_writes_nothing(
 def test_artifact_image_suffix_and_failure_order(
     tmp_path, monkeypatch, corridor_graph, scenario_config
 ):
-    import topogen.visualization as drawing
+    import netlab_topogen.visualization as drawing
 
     build = build_scenario(corridor_graph, scenario_config, load_library(None))
     validation = validate_scenario(build.yaml, scenario_config.components)
@@ -195,7 +195,7 @@ def test_atomic_publication_uses_plain_write_mode(
 def test_temp_collision_keeps_the_unowned_file(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    import topogen.scenario.publication as publication
+    import netlab_topogen.scenario.publication as publication
 
     target = tmp_path / "out.yml"
     target.write_bytes(b"old destination")
@@ -216,7 +216,7 @@ def test_site_graph_json_contains_sized_budgets_and_optics(
 ):
     import json
 
-    from topogen.library import Library, thaw
+    from netlab_topogen.library import Library, thaw
 
     corridor_graph.remove_node(2)
     cfg = scenario_config
@@ -271,8 +271,8 @@ def test_site_graph_json_contains_sized_budgets_and_optics(
 def test_blueprint_representative_tie_keeps_the_first_site(
     tmp_path, monkeypatch, corridor_graph, scenario_config
 ):
-    import topogen.visualization as drawing
-    from topogen.library import Library, WorkflowDefinition
+    import netlab_topogen.visualization as drawing
+    from netlab_topogen.library import Library, WorkflowDefinition
 
     corridor_graph.remove_node(2)
     cfg = scenario_config

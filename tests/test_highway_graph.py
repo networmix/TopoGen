@@ -11,8 +11,8 @@ import numpy as np
 import pytest
 from shapely.geometry import LineString
 
-from topogen.config import HighwayProcessingConfig, ValidationConfig
-from topogen.highway_graph import (
+from netlab_topogen.config import HighwayProcessingConfig, ValidationConfig
+from netlab_topogen.highway_graph import (
     _build_intersection_graph,
     _filter_highway_classes,
     _fix_geometries,

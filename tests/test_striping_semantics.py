@@ -8,9 +8,9 @@ import networkx as nx
 import yaml
 from ngraph import Scenario
 
-from topogen.config import TopologyConfig
-from topogen.library import load_library
-from topogen.scenario import build_scenario
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
 
 
 def _expand_yaml(yaml_text: str):
@@ -93,7 +93,7 @@ def _base_cfg() -> TopologyConfig:
 
 @contextlib.contextmanager
 def _patch_blueprints(new_entries: dict[str, dict[str, Any]]):
-    import topogen.blueprints_lib as BL
+    import netlab_topogen.blueprints_lib as BL
 
     removed: list[str] = []
     try:
@@ -213,7 +213,7 @@ def test_dc_pop_many_vs_many_width2_groups_links():
 
 
 def test_stripes_use_numeric_device_order_for_multi_digit_names():
-    from topogen.scenario.striping import _group_devices
+    from netlab_topogen.scenario.striping import _group_devices
 
     selected = {f"core/r{i}": {} for i in range(1, 13)}
     assert _group_devices(selected, {"mode": "width", "width": 3}, "Many") == {

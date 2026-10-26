@@ -5,23 +5,23 @@ from pathlib import Path
 import networkx as nx
 import yaml
 
-from topogen.config import (
+from netlab_topogen.config import (
     BuildConfig,
     BuildDefaults,
     CorridorsConfig,
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.corridors import (
+from netlab_topogen.corridors import (
     CorridorPath,
     extract_corridor_graph,
 )
-from topogen.corridors import (
+from netlab_topogen.corridors import (
     assign_risk_groups as assign_risk_groups_to_corridors,
 )
-from topogen.library import load_library
-from topogen.metro_clusters import MetroCluster
-from topogen.scenario import build_scenario
+from netlab_topogen.library import load_library
+from netlab_topogen.metro_clusters import MetroCluster
+from netlab_topogen.scenario import build_scenario
 
 
 class TestEndToEndRiskGroups:

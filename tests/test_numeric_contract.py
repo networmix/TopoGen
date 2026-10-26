@@ -4,7 +4,7 @@ from fractions import Fraction
 
 import pytest
 
-from topogen.numeric import covers, decimal, optic_count, written_count
+from netlab_topogen.numeric import covers, decimal, optic_count, written_count
 
 
 def test_decimal_entry_has_no_binary_intermediate():

@@ -7,9 +7,9 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen.config import TopologyConfig
-from topogen.library import load_library, thaw
-from topogen.scenario import build_scenario
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library, thaw
+from netlab_topogen.scenario import build_scenario
 
 
 class TestBuildIntegration:

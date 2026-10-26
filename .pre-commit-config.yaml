@@ -14,14 +14,14 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
-        files: ^topogen/schemas/.*\.json$
+        files: ^netlab_topogen/schemas/.*\.json$
       - id: check-merge-conflict
       - id: check-added-large-files
 
   - repo: local
     hooks:
       - id: validate-schema
-        name: Validate TopoGen config schemas
+        name: Validate NetLab-TopoGen config schemas
         entry: make validate
         language: system
         always_run: true

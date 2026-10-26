@@ -2,10 +2,12 @@
 
 import networkx as nx
 
-from topogen.config import CorridorsConfig, RiskGroupsConfig
-from topogen.corridors import assign_risk_groups as assign_risk_groups_to_corridors
-from topogen.metro_clusters import MetroCluster
-from topogen.naming import metro_slug
+from netlab_topogen.config import CorridorsConfig, RiskGroupsConfig
+from netlab_topogen.corridors import (
+    assign_risk_groups as assign_risk_groups_to_corridors,
+)
+from netlab_topogen.metro_clusters import MetroCluster
+from netlab_topogen.naming import metro_slug
 
 
 class TestRiskGroupAssignment:

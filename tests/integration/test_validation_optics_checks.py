@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from topogen.validation.audits.optics_checks import check_link_optics
+from netlab_topogen.validation.audits.optics_checks import check_link_optics
 
 
 def _net_two_roles():

@@ -6,17 +6,17 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen.config import (
+from netlab_topogen.config import (
     BuildConfig,
     BuildDefaults,
     CorridorsConfig,
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.library import load_library
-from topogen.scenario import build_scenario
-from topogen.scenario.document import _risk_groups
-from topogen.scenario.sites import read_corridors
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.scenario.document import _risk_groups
+from netlab_topogen.scenario.sites import read_corridors
 
 
 class TestScenarioRiskGroups:

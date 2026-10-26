@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-from topogen.config import TopologyConfig
-from topogen.library import load_library
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library
 
 
 @pytest.mark.parametrize(
@@ -20,8 +20,8 @@ from topogen.library import load_library
 def test_custom_workflow_is_checked_when_selected(
     tmp_path, extra, corridor_graph, scenario_config
 ):
-    from topogen.scenario import build_scenario
-    from topogen.validation import validate_scenario
+    from netlab_topogen.scenario import build_scenario
+    from netlab_topogen.validation import validate_scenario
 
     step = {"type": "TrafficMatrixPlacement", "name": "p", "demand_set": "tm", **extra}
     (tmp_path / "workflows.yml").write_text(yaml.safe_dump({"custom": [step]}))

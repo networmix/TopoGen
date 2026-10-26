@@ -5,9 +5,9 @@ from fractions import Fraction
 import pytest
 import yaml
 
-from topogen.library import Library, load_library, thaw
-from topogen.scenario import build_scenario
-from topogen.validation import validate_scenario
+from netlab_topogen.library import Library, load_library, thaw
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.validation import validate_scenario
 
 
 def hardware_case(corridor_graph, config, optic, devices=1):
@@ -145,9 +145,9 @@ def test_unreferenced_empty_site_refuses_in_e2(corridor_graph, scenario_config):
 def test_self_corridor_has_named_refusal(tmp_path, json_roundtrip):
     import networkx as nx
 
-    from topogen.config import TopologyConfig
-    from topogen.corridors import validate_corridor_graph
-    from topogen.integrated_graph import load_from_json, save_to_json
+    from netlab_topogen.config import TopologyConfig
+    from netlab_topogen.corridors import validate_corridor_graph
+    from netlab_topogen.integrated_graph import load_from_json, save_to_json
 
     config = TopologyConfig()
     config.traffic.enabled = False
@@ -302,13 +302,14 @@ def test_expansion_stages_are_batched_and_private_tags_do_not_escape(
     library = load_library(None)
     build = build_scenario(corridor_graph, cfg, library)
     assert len(calls) == 2
-    assert "_topogen_rule" not in build.yaml
+    assert "_netlab_topogen_rule" not in build.yaml
     assert all(name.startswith("stripe_probe") for name in calls[0].network.nodes)
     assert len(calls[1].network.nodes) > len(calls[0].network.nodes)
     assert not validate_scenario(build.yaml, cfg.components).issues
     assert len(calls) == 3
     assert all(
-        "_topogen_rule" not in link.attrs for link in calls[2].network.links.values()
+        "_netlab_topogen_rule" not in link.attrs
+        for link in calls[2].network.links.values()
     )
 
 
@@ -318,9 +319,9 @@ def test_empty_site_adjacency_is_refused_before_hardware_assignment(
 ):
     from dataclasses import replace
 
-    from topogen.scenario.hardware import expand_sites
-    from topogen.scenario.records import StripeGroups
-    from topogen.scenario.sites import (
+    from netlab_topogen.scenario.hardware import expand_sites
+    from netlab_topogen.scenario.records import StripeGroups
+    from netlab_topogen.scenario.sites import (
         finalize_blueprints,
         plan_sites,
         read_corridors,
@@ -414,9 +415,9 @@ def test_combined_exact_uniform_sizing_keeps_the_intended_step(
 @pytest.mark.parametrize("capacity", [0, -5, float("inf"), float("-inf"), float("nan")])
 @pytest.mark.parametrize("end", ["source", "target"])
 def test_nonpositive_optic_error_names_adjacency_link_end_and_optic(capacity, end):
-    from topogen.config import ComponentsConfig
-    from topogen.scenario.hardware import assign_hardware
-    from topogen.scenario.records import (
+    from netlab_topogen.config import ComponentsConfig
+    from netlab_topogen.scenario.hardware import assign_hardware
+    from netlab_topogen.scenario.records import (
         DeviceLink,
         SiteExpansion,
         SiteLink,
@@ -492,7 +493,7 @@ def test_unknown_assigned_optic_has_a_named_refusal(corridor_graph, scenario_con
 def test_unknown_components_are_complete_sorted_and_precede_hardware(
     corridor_graph, scenario_config, monkeypatch
 ):
-    import topogen.scenario.build as stages
+    import netlab_topogen.scenario.build as stages
 
     base = load_library(None)
     blueprints = thaw(base.blueprints)

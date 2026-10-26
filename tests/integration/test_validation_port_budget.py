@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from topogen.validation.audits.port_budget import audit_port_budget
+from netlab_topogen.validation.audits.port_budget import audit_port_budget
 
 
 def _net_for_ports():

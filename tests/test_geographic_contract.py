@@ -3,22 +3,30 @@
 import networkx as nx
 import pytest
 
-from topogen.config import (
+from netlab_topogen.config import (
     CorridorsConfig,
     FormattingConfig,
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.corridors import add_corridors, assign_risk_groups, extract_corridor_graph
-from topogen.integrated_graph import (
+from netlab_topogen.corridors import (
+    add_corridors,
+    assign_risk_groups,
+    extract_corridor_graph,
+)
+from netlab_topogen.integrated_graph import (
     _contract_degree2_chains,
     load_from_json,
     save_to_json,
 )
-from topogen.metro_clusters import MetroCluster
-from topogen.scenario.document import _risk_groups
-from topogen.scenario.records import StripeGroups
-from topogen.scenario.sites import plan_sites, read_corridors, resolve_metro_settings
+from netlab_topogen.metro_clusters import MetroCluster
+from netlab_topogen.scenario.document import _risk_groups
+from netlab_topogen.scenario.records import StripeGroups
+from netlab_topogen.scenario.sites import (
+    plan_sites,
+    read_corridors,
+    resolve_metro_settings,
+)
 
 
 def metro(identifier, x):
@@ -103,7 +111,7 @@ def test_parallel_corridors_survive_json_and_site_expansion(tmp_path):
 
 
 def test_component_filter_reports_removed_metro_anchor(monkeypatch):
-    from topogen import integrated_graph as pipeline
+    from netlab_topogen import integrated_graph as pipeline
 
     metros = [metro("main", 0), metro("island", 100_000)]
     roads = nx.Graph()

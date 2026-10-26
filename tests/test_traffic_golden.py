@@ -9,9 +9,9 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen.config import TopologyConfig
-from topogen.library import load_library
-from topogen.scenario import build_scenario
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
 
 # Python 3.12 changed float summation; each interpreter keeps the release's rows.
 REFERENCE = (

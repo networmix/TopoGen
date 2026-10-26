@@ -3,7 +3,7 @@
 import networkx as nx
 import pytest
 
-from topogen.config import TopologyConfig
+from netlab_topogen.config import TopologyConfig
 
 
 @pytest.fixture
@@ -40,8 +40,8 @@ def scenario_config():
 def make_plan(corridor_graph, scenario_config):
     from copy import deepcopy
 
-    from topogen.scenario.records import StripeGroups
-    from topogen.scenario.sites import (
+    from netlab_topogen.scenario.records import StripeGroups
+    from netlab_topogen.scenario.sites import (
         plan_sites,
         read_corridors,
         resolve_metro_settings,

@@ -9,35 +9,37 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen import RunContext, TopologyConfig
-from topogen.cli import _run_pipeline
-from topogen.config import _normalize_int
-from topogen.integrated_graph import load_from_json
-from topogen.library import load_library
-from topogen.scenario import build_scenario
+from netlab_topogen import RunContext, TopologyConfig
+from netlab_topogen.cli import _run_pipeline
+from netlab_topogen.config import _normalize_int
+from netlab_topogen.integrated_graph import load_from_json
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
 
 
 def test_failed_validation_preserves_previous_scenario(tmp_path, monkeypatch):
-    import topogen
-    import topogen.scenario
-    import topogen.validation
+    import netlab_topogen
+    import netlab_topogen.scenario
+    import netlab_topogen.validation
 
     context = RunContext(tmp_path, "input")
     context.path("integrated_graph.json").write_text("{}")
     target = tmp_path / "scenario.yml"
     target.write_text("previous valid scenario")
     monkeypatch.setattr(
-        topogen, "load_from_json", lambda path: (nx.MultiGraph(), "EPSG:5070")
+        netlab_topogen, "load_from_json", lambda path: (nx.MultiGraph(), "EPSG:5070")
     )
     monkeypatch.setattr(
-        topogen.scenario,
+        netlab_topogen.scenario,
         "build_scenario",
         lambda *args, **kwargs: SimpleNamespace(yaml="invalid scenario"),
     )
     monkeypatch.setattr(
-        topogen.validation,
+        netlab_topogen.validation,
         "validate_scenario",
-        lambda *args, **kwargs: topogen.validation.Validation(("bad optics",), None),
+        lambda *args, **kwargs: netlab_topogen.validation.Validation(
+            ("bad optics",), None
+        ),
     )
     with pytest.raises(ValueError, match="bad optics"):
         _run_pipeline(TopologyConfig(), target, context=context)
@@ -106,8 +108,8 @@ def test_old_graph_format_is_rejected(tmp_path):
 
 
 def test_hardware_validation_uses_only_scenario_definitions():
-    from topogen.config import ComponentsConfig
-    from topogen.validation import validate_scenario
+    from netlab_topogen.config import ComponentsConfig
+    from netlab_topogen.validation import validate_scenario
 
     data = {
         "network": {
@@ -130,9 +132,9 @@ def test_hardware_validation_uses_only_scenario_definitions():
 def test_public_stage_signatures_and_exports():
     import inspect
 
-    import topogen.scenario as scenario
-    import topogen.validation as validation
-    from topogen.library import load_library
+    import netlab_topogen.scenario as scenario
+    import netlab_topogen.validation as validation
+    from netlab_topogen.library import load_library
 
     assert scenario.__all__ == [
         "Build",
@@ -168,7 +170,7 @@ def test_public_stage_signatures_and_exports():
 
 
 def test_site_identifiers_and_selectors_have_the_documented_boundaries():
-    from topogen.naming import site_edge_id, site_id, site_of, site_selector
+    from netlab_topogen.naming import site_edge_id, site_id, site_of, site_selector
 
     assert site_id(3, "dc", 2) == "metro3/dc2"
     assert site_of("metro3/dc2/nested/device") == "metro3/dc2"
@@ -188,14 +190,14 @@ import importlib.abc
 import sys
 class BlockDrawings(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname.split('.')[0] in {'matplotlib', 'contextily'} or fullname in {'topogen.visualization', 'topogen.blueprint_viz'}:
+        if fullname.split('.')[0] in {'matplotlib', 'contextily'} or fullname in {'netlab_topogen.visualization', 'netlab_topogen.blueprint_viz'}:
             raise AssertionError('eager drawing import: ' + fullname)
 sys.meta_path.insert(0, BlockDrawings())
-import topogen
-import topogen.scenario
+import netlab_topogen
+import netlab_topogen.scenario
 assert not any(name.split('.')[0] in {'matplotlib', 'contextily'} for name in sys.modules)
-assert 'topogen.visualization' not in sys.modules
-assert 'visualization' not in topogen.__all__
+assert 'netlab_topogen.visualization' not in sys.modules
+assert 'visualization' not in netlab_topogen.__all__
 print('lazy import control')
 """
     result = subprocess.run(
@@ -212,7 +214,7 @@ print('lazy import control')
         [
             sys.executable,
             "-c",
-            "import topogen.visualization as drawing; assert callable(drawing.export_site_graph_map); print('explicit drawing import')",
+            "import netlab_topogen.visualization as drawing; assert callable(drawing.export_site_graph_map); print('explicit drawing import')",
         ],
         cwd=Path.cwd(),
         env=os.environ.copy(),

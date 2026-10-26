@@ -3,8 +3,8 @@
 import pytest
 from ngraph import Network, Node
 
-from topogen.validation.audits.hw_capacity import check_node_hw_capacity
-from topogen.validation.audits.node_role import check_node_roles
+from netlab_topogen.validation.audits.hw_capacity import check_node_hw_capacity
+from netlab_topogen.validation.audits.node_role import check_node_roles
 
 
 @pytest.mark.parametrize("role", [None, False, 12, ""])
@@ -40,7 +40,7 @@ def test_installed_hardware_rules_keep_baseline_boundaries(
 ):
     from ngraph import Link
 
-    from topogen.validation.audits.port_budget import audit_port_budget
+    from netlab_topogen.validation.audits.port_budget import audit_port_budget
 
     net = Network()
     for name in ("A", "B"):

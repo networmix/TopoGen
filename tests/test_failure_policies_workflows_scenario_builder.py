@@ -6,10 +6,10 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen.config import TopologyConfig
-from topogen.library import load_library
-from topogen.scenario import build_scenario
-from topogen.scenario.document import (
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.scenario.document import (
     _failure_policies,
     _workflow,
 )

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from topogen.library import load_library, thaw
+from netlab_topogen.library import load_library, thaw
 
 
 def test_user_blueprints_merge_overrides(tmp_path: Path, monkeypatch) -> None:

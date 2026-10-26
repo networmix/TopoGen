@@ -1,8 +1,8 @@
-# TopoGen
+# NetLab-TopoGen
 
-[![CI](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
+[![CI](https://github.com/networmix/NetLab-TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/NetLab-TopoGen/actions/workflows/python-test.yml)
 
-TopoGen creates backbone network scenarios for the contiguous United States.
+NetLab-TopoGen creates backbone network scenarios for the contiguous United States.
 It chooses metropolitan areas from Census data and follows highways to connect
 them. It then adds network sites, routers, traffic demands and failure policies.
 The result is a YAML scenario for [NetGraph](https://github.com/networmix/NetGraph).
@@ -15,8 +15,8 @@ those routes into a network. NetGraph runs the analysis of that network.
 Use Python 3.11 or later. Run these commands in a terminal:
 
 ```bash
-git clone https://github.com/networmix/TopoGen
-cd TopoGen
+git clone https://github.com/networmix/NetLab-TopoGen
+cd NetLab-TopoGen
 python3 -m venv venv
 source venv/bin/activate
 python -m pip install -e .
@@ -45,9 +45,9 @@ Run this five-metro example from the repository root:
 
 ```bash
 cp examples/small_baseline.yml config.yml
-topogen info config.yml
-topogen generate config.yml -o output
-topogen build config.yml -o output
+netlab-topogen info config.yml
+netlab-topogen generate config.yml -o output
+netlab-topogen build config.yml -o output
 ```
 
 `info` checks the configuration and shows whether its data files exist.
@@ -104,12 +104,12 @@ priority class a NetGraph routing preset, spelled exactly as NetGraph names it,
 such as `TE_MAXFLOW_UNLIM`.
 
 Start with the [baseline, Clos and Dragonfly examples](examples/).
-The [configuration schema](topogen/schemas/topogen_config.json) lists every
+The [configuration schema](netlab_topogen/schemas/netlab_topogen_config.json) lists every
 accepted field and its allowed values.
 
 Your own sites, hardware, failures and analyses go in `lib/blueprints.yml`,
 `lib/components.yml`, `lib/failure_policies.yml` and `lib/workflows.yml`.
-The `topogen` command reads `lib/` in the directory where you run it. Each file
+The `netlab-topogen` command reads `lib/` in the directory where you run it. Each file
 maps names to definitions; a name that matches a built-in definition replaces it.
 Only the workflow the configuration selects is checked, so an unused workflow
 cannot stop a build. The repository's `lib/` already adds failure policies and

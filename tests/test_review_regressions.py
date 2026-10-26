@@ -8,11 +8,11 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen.config import ComponentsConfig, TopologyConfig, _normalize_int
-from topogen.library import load_library
-from topogen.scenario import build_scenario
-from topogen.scenario.traffic import generate_traffic
-from topogen.validation import validate_scenario
+from netlab_topogen.config import ComponentsConfig, TopologyConfig, _normalize_int
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.scenario.traffic import generate_traffic
+from netlab_topogen.validation import validate_scenario
 
 
 def dc_scenario():
@@ -85,7 +85,7 @@ def hose_case(powers):
     config.traffic.gbps_per_mw = 1.0
     config.traffic.priority_ratios = {0: 1.0}
     config.traffic.gravity.mw_per_dc_region_overrides = powers
-    from topogen.scenario.records import Metro, Site, SitePlan
+    from netlab_topogen.scenario.records import Metro, Site, SitePlan
 
     plan = SitePlan(
         tuple(
@@ -181,7 +181,7 @@ def test_unmatched_demand_cannot_hide_behind_another_valid_demand():
 
 @pytest.mark.parametrize("crs", ["EPSG:4326", "EPSG:2263"])
 def test_geographic_or_feet_crs_is_rejected(crs):
-    from topogen.config import ProjectionConfig
+    from netlab_topogen.config import ProjectionConfig
 
     with pytest.raises(ValueError, match="projected.*metre"):
         ProjectionConfig(target_crs=crs)

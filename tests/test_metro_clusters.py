@@ -12,9 +12,9 @@ import pytest
 import yaml
 from shapely.geometry import Polygon
 
-from topogen.config import ClusteringConfig
-from topogen.context import RunContext
-from topogen.metro_clusters import MetroCluster, load_metro_clusters
+from netlab_topogen.config import ClusteringConfig
+from netlab_topogen.context import RunContext
+from netlab_topogen.metro_clusters import MetroCluster, load_metro_clusters
 
 
 class TestMetroCluster:
@@ -216,7 +216,7 @@ class TestLoadMetroClusters:
 
         assert clusters[0].radius_km == 2.0
 
-    @patch("topogen.metro_clusters._export_cluster_files")
+    @patch("netlab_topogen.metro_clusters._export_cluster_files")
     def test_export_flag_without_context_does_not_write(
         self, mock_export, temp_uac_file
     ):
@@ -232,7 +232,7 @@ class TestLoadMetroClusters:
         assert len(clusters) == 2
         mock_export.assert_not_called()
 
-    @patch("topogen.metro_clusters._export_cluster_files")
+    @patch("netlab_topogen.metro_clusters._export_cluster_files")
     def test_no_export_by_default(self, mock_export, temp_uac_file):
         clustering_config = ClusteringConfig(export_clusters=False)
 
@@ -264,7 +264,7 @@ class TestLoadMetroClusters:
 
         assert cluster.land_area_km2 == round(cluster.land_area_km2, 2)
 
-    @patch("topogen.geo_utils.create_conus_mask")
+    @patch("netlab_topogen.geo_utils.create_conus_mask")
     def test_conus_filtering(self, mock_conus_mask, temp_uac_file, mock_uac_data):
         # Create mock CONUS mask that excludes the last 2 areas
         mock_mask_geom = Polygon([(-102, 38), (-98, 38), (-98, 42), (-102, 42)])
@@ -292,7 +292,7 @@ class TestLoadMetroClusters:
         assert len(clusters) == 2
         mock_conus_mask.assert_called_once_with(boundary_path, "EPSG:4326")
 
-    @patch("topogen.geo_utils.create_conus_mask")
+    @patch("netlab_topogen.geo_utils.create_conus_mask")
     def test_conus_filtering_multiple_geometries(self, mock_conus_mask, temp_uac_file):
         # Create mock CONUS mask with multiple geometries (e.g. Alaska + CONUS)
         main_conus = Polygon([(-102, 38), (-98, 38), (-98, 42), (-102, 42)])
@@ -376,12 +376,12 @@ class TestExportClusterFiles:
             ),
         ]
 
-    @patch("topogen.visualization.export_cluster_map")
+    @patch("netlab_topogen.visualization.export_cluster_map")
     def test_export_files_basic(self, mock_export_map, sample_clusters):
-        from topogen.metro_clusters import _export_cluster_files
+        from netlab_topogen.metro_clusters import _export_cluster_files
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("topogen.metro_clusters.Path") as mock_path_class:
+            with patch("netlab_topogen.metro_clusters.Path") as mock_path_class:
                 mock_path_instance = Path(temp_dir) / "processed"
                 mock_path_class.return_value = mock_path_instance
 
@@ -400,15 +400,16 @@ class TestExportClusterFiles:
                     mock_export_map.assert_called_once()
 
     @patch(
-        "topogen.visualization.export_cluster_map", side_effect=Exception("Mock error")
+        "netlab_topogen.visualization.export_cluster_map",
+        side_effect=Exception("Mock error"),
     )
     def test_export_visualization_error_handling(
         self, mock_export_map, sample_clusters
     ):
-        from topogen.metro_clusters import _export_cluster_files
+        from netlab_topogen.metro_clusters import _export_cluster_files
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch("topogen.metro_clusters.Path") as mock_path:
+            with patch("netlab_topogen.metro_clusters.Path") as mock_path:
                 output_dir = Path(temp_dir) / "processed"
                 output_dir.mkdir(parents=True, exist_ok=True)
                 mock_path.return_value = output_dir

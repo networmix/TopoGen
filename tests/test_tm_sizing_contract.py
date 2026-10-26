@@ -11,9 +11,9 @@ import pytest
 import yaml
 from ngraph import Scenario, prepare, run, write_json
 
-from topogen.config import TopologyConfig
-from topogen.naming import site_edge_id
-from topogen.scenario.records import (
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.naming import site_edge_id
+from netlab_topogen.scenario.records import (
     Metro,
     Site,
     SiteDemand,
@@ -21,7 +21,7 @@ from topogen.scenario.records import (
     SitePlan,
     TrafficMatrix,
 )
-from topogen.scenario.sizing import _split_loads, size_links
+from netlab_topogen.scenario.sizing import _split_loads, size_links
 
 A = [(1, 2, 1), (1, 2, 1), (1, 3, 1), (2, 4, 1), (3, 4, 1), (3, 4, 1), (3, 4, 1)]
 

@@ -8,11 +8,11 @@ import networkx as nx
 import pytest
 import yaml
 
-from topogen import TopologyConfig, save_to_json
-from topogen.config import FormattingConfig
-from topogen.library import load_library
-from topogen.scenario import build_scenario
-from topogen.validation import validate_scenario
+from netlab_topogen import TopologyConfig, save_to_json
+from netlab_topogen.config import FormattingConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.validation import validate_scenario
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "dev/PIPELINE.md"

@@ -2,7 +2,7 @@
 
 import yaml
 
-from topogen.library import load_library
+from netlab_topogen.library import load_library
 
 
 def test_failure_policy_override(tmp_path):

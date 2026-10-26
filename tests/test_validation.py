@@ -5,10 +5,10 @@ from copy import deepcopy
 import pytest
 import yaml
 
-from topogen.config import ComponentsConfig
-from topogen.library import load_library
-from topogen.scenario import build_scenario
-from topogen.validation import validate_scenario
+from netlab_topogen.config import ComponentsConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.validation import validate_scenario
 
 
 def tiny():

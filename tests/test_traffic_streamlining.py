@@ -3,8 +3,8 @@
 import random
 from dataclasses import replace
 
-from topogen.scenario.records import Metro, Site
-from topogen.scenario.traffic import generate_traffic
+from netlab_topogen.scenario.records import Metro, Site
+from netlab_topogen.scenario.traffic import generate_traffic
 
 
 def test_gravity_jitter_is_seeded_and_global_prng_unchanged(site_plan, scenario_config):
@@ -41,7 +41,7 @@ def test_ring_coordinates_cannot_change_gravity(site_plan, scenario_config):
 
 
 def test_gravity_top_k_keeps_each_sites_strongest_partner(site_plan, scenario_config):
-    from topogen.scenario.traffic import _top_pairs
+    from netlab_topogen.scenario.traffic import _top_pairs
 
     assert _top_pairs({(0, 1): 10.0, (0, 2): 1.0, (1, 2): 4.0}, 1) == {
         (0, 1): 10.0,
@@ -104,7 +104,7 @@ def test_hose_randomness_is_observable_with_four_sites(site_plan, scenario_confi
 
 
 def test_random_ring_changes_are_inert_for_every_model(scenario_config):
-    from topogen.scenario.records import SitePlan
+    from netlab_topogen.scenario.records import SitePlan
 
     rng = random.Random(20261026)
     counts = {}

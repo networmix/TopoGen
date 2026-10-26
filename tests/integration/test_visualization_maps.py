@@ -6,8 +6,8 @@ import networkx as nx
 import numpy as np
 import pytest
 
-import topogen.geo_utils as geoutils
-import topogen.visualization as viz
+import netlab_topogen.geo_utils as geoutils
+import netlab_topogen.visualization as viz
 
 
 class _ConusStub:
@@ -28,7 +28,7 @@ class _Metro:
 def _patch_context_and_conus(monkeypatch):
     # Avoid network calls and GIS dependencies for basemap and CONUS
     monkeypatch.setattr(viz.cx, "add_basemap", lambda *args, **kwargs: None)
-    # export_* functions import create_conus_mask from topogen.geo_utils at call time
+    # export_* functions import create_conus_mask from netlab_topogen.geo_utils at call time
     monkeypatch.setattr(
         geoutils, "create_conus_mask", lambda *args, **kwargs: _ConusStub()
     )

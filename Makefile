@@ -1,4 +1,4 @@
-# TopoGen development commands
+# NetLab-TopoGen development commands
 
 .PHONY: help venv clean-venv dev install check check-ci lint format test qt build clean check-dist validate info hooks check-python
 
@@ -19,7 +19,7 @@ PRECOMMIT := $(PYTHON) -m pre_commit
 PYRIGHT := $(PYTHON) -m pyright
 
 help:
-	@echo "🔧 TopoGen Development Commands"
+	@echo "🔧 NetLab-TopoGen Development Commands"
 	@echo ""
 	@echo "Setup & Installation:"
 	@echo "  make venv          - Create a local virtualenv (./venv)"
@@ -125,8 +125,8 @@ qt:
 	@$(PYTEST) --no-cov -m "not slow"
 
 validate:
-	@echo "📋 Validating TopoGen config YAMLs..."
-	@$(PYTHON) -c "from pathlib import Path; from topogen.config import TopologyConfig; files=sorted(p for p in Path('examples').rglob('*') if p.suffix in {'.yml', '.yaml'}); [TopologyConfig.from_yaml(p) for p in files]; print(f'Validated {len(files)} TopoGen configs')"
+	@echo "📋 Validating NetLab-TopoGen config YAMLs..."
+	@$(PYTHON) -c "from pathlib import Path; from netlab_topogen.config import TopologyConfig; files=sorted(p for p in Path('examples').rglob('*') if p.suffix in {'.yml', '.yaml'}); [TopologyConfig.from_yaml(p) for p in files]; print(f'Validated {len(files)} NetLab-TopoGen configs')"
 
 # Build and Package
 build:
@@ -160,14 +160,14 @@ check-dist:
 
 # Project Information
 info:
-	@echo "📋 TopoGen Project Information"
+	@echo "📋 NetLab-TopoGen Project Information"
 	@echo "================================"
 	@echo ""
 	@echo "🐍 Python Environment:"
 	@echo "  Python (active): $$($(PYTHON) --version)"
 	@echo "  Python (best):   $$($(PY_BEST) --version 2>/dev/null || echo 'missing')"
 	@$(MAKE) check-python
-	@echo "  Package version: $$($(PYTHON) -c 'import importlib.metadata; print(importlib.metadata.version("topogen"))' 2>/dev/null || echo 'Not installed')"
+	@echo "  Package version: $$($(PYTHON) -c 'import importlib.metadata; print(importlib.metadata.version("netlab-topogen"))' 2>/dev/null || echo 'Not installed')"
 	@echo "  Virtual environment: $$(echo $$VIRTUAL_ENV | sed 's|.*/||' || echo 'None active')"
 	@echo ""
 	@echo "🔧 Development Tools:"

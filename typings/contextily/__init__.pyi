@@ -1,6 +1,6 @@
 """Project-used subset of Contextily's API, checked against version 1.7.1.
 
-Only add_basemap and the arguments used by TopoGen are declared. Check upstream
+Only add_basemap and the arguments used by NetLab-TopoGen are declared. Check upstream
 contextily/plotting.py before extending this subset or updating its signature.
 """
 

@@ -8,11 +8,11 @@ import pytest
 import yaml
 from ngraph import Scenario, prepare, run, write_json
 
-from topogen.config import TopologyConfig
-from topogen.corridors import corridor_risk_name
-from topogen.library import load_library
-from topogen.scenario import build_scenario
-from topogen.validation import validate_scenario
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.corridors import corridor_risk_name
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.validation import validate_scenario
 
 REPO = Path(__file__).resolve().parents[2]
 

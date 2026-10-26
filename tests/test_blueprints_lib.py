@@ -4,7 +4,7 @@ import pytest
 import yaml
 from ngraph import Scenario
 
-from topogen.library import load_library, thaw
+from netlab_topogen.library import load_library, thaw
 
 
 @pytest.mark.parametrize(

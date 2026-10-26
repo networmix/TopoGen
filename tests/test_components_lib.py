@@ -1,6 +1,6 @@
 """Component definitions are owned and contain the referenced builtin hardware."""
 
-from topogen.library import load_library
+from netlab_topogen.library import load_library
 
 
 def test_component_definitions():

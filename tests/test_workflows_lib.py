@@ -9,7 +9,7 @@ import yaml
 from jsonschema import ValidationError
 from ngraph import Scenario, prepare, run, write_json
 
-from topogen.library import load_library
+from netlab_topogen.library import load_library
 
 
 def execute(outputs=None, workers=1, trace=False, capacity=10):

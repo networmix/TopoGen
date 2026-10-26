@@ -1,6 +1,6 @@
-# How TopoGen builds a scenario
+# How NetLab-TopoGen builds a scenario
 
-TopoGen first chooses metro locations and the highway routes between them.
+NetLab-TopoGen first chooses metro locations and the highway routes between them.
 It saves this geography so you can change the network design without processing
 the road data again. A second step adds sites, devices and traffic, and produces
 a NetGraph scenario.
@@ -12,7 +12,7 @@ file is in another directory.
 ## 1. Choose locations and corridors
 
 ```bash
-topogen generate examples/small_baseline.yml -o output
+netlab-topogen generate examples/small_baseline.yml -o output
 ```
 
 `TopologyConfig.from_yaml` loads the settings and checks them against the
@@ -44,15 +44,15 @@ key is the route index, and key 0 is the shortest route. Corridor distances,
 routes and risk groups belong to those edges. Do not convert it to a simple
 graph, which would lose parallel corridors.
 
-Python entry points are `topogen.build_integrated_graph`,
-`topogen.save_to_json` and `topogen.load_from_json`. Serialization stores the
+Python entry points are `netlab_topogen.build_integrated_graph`,
+`netlab_topogen.save_to_json` and `netlab_topogen.load_from_json`. Serialization stores the
 coordinate reference system with the graph. The build command checks it against
 `projection.target_crs`; regenerate the graph if the projection changes.
 
 ## 2. Add sites, devices and traffic
 
 ```bash
-topogen build examples/small_baseline.yml -o output
+netlab-topogen build examples/small_baseline.yml -o output
 ```
 
 The build reads `output/small_baseline_integrated_graph.json`, the saved graph
@@ -64,25 +64,25 @@ The build is a fixed sequence of stages. Each stage takes the results of earlier
 stages and returns a new, read-only result; no stage changes its inputs, and the
 build itself reads and writes no file. The first stage that finds a problem stops
 the build with an error that says what is wrong and where.
-NetGraph reads TopoGen's documents at three points: to list the devices of
+NetGraph reads NetLab-TopoGen's documents at three points: to list the devices of
 striped blueprints, to expand site links into device links, and to validate the
-finished scenario. Traffic generation and link sizing are TopoGen's own
+finished scenario. Traffic generation and link sizing are NetLab-TopoGen's own
 computations.
 
-| # | Stage | What it does | Function (module under `topogen/`) |
+| # | Stage | What it does | Function (module under `netlab_topogen/`) |
 | --- | --- | --- | --- |
 | 1 | Read corridors | Copies the metros and corridors out of the NetworkX graph | `read_corridors` (`scenario/sites.py`) |
 | 2 | Resolve settings | Per metro: PoP and DC counts, blueprints, link settings, and each DC site's power | `resolve_metro_settings` (`scenario/sites.py`) |
 | 3 | Finalize blueprints | The used blueprints and their dependencies, with each role's platform from `components.hw_component` | `finalize_blueprints` (`scenario/sites.py`) |
-| 4 | Stripe devices | NetGraph expands every striped blueprint once; TopoGen groups their devices for striping | `stripe_groups` (`scenario/striping.py`) |
+| 4 | Stripe devices | NetGraph expands every striped blueprint once; NetLab-TopoGen groups their devices for striping | `stripe_groups` (`scenario/striping.py`) |
 | 5 | Plan sites | Sites and the site links between them, in a fixed order | `plan_sites` (`scenario/sites.py`) |
-| 6 | Expand sites | NetGraph expands the whole network once; TopoGen records the device links of each site link | `expand_sites` (`scenario/hardware.py`) |
+| 6 | Expand sites | NetGraph expands the whole network once; NetLab-TopoGen records the device links of each site link | `expand_sites` (`scenario/hardware.py`) |
 | 7 | Generate traffic | Demands between DC sites | `generate_traffic` (`scenario/traffic.py`) |
 | 8 | Size links | Capacity budgets from the traffic | `size_links` (`scenario/sizing.py`) |
 | 9 | Assign hardware | Checks that every named component exists, then divides budgets among device links and counts optics | `check_components` (`scenario/document.py`), `assign_hardware` (`scenario/hardware.py`) |
 | 10 | Write the scenario | The scenario document and its YAML text | `scenario_document`, `to_yaml` (`scenario/document.py`) |
 
-`topogen.scenario.build_scenario(graph, config, library)` runs these stages and
+`netlab_topogen.scenario.build_scenario(graph, config, library)` runs these stages and
 returns a `Build`. The command then validates the text and publishes the files
 (section 3).
 
@@ -192,7 +192,7 @@ above 1, the build writes one set per sample: `<matrix_name>_1`,
 
 ### Link sizing from traffic
 
-When `build.tm_sizing.enabled` is true, TopoGen sizes links for the demand set
+When `build.tm_sizing.enabled` is true, NetLab-TopoGen sizes links for the demand set
 named by `tm_sizing.matrix_name`, which defaults to `traffic.matrix_name`:
 
 1. It treats each metro as one node and each corridor site link as its own edge,
@@ -224,7 +224,7 @@ rounds up to 9,600 Gbps. Each PoP's egress is then 9,600 Gbps, so with
 Because the arithmetic is exact, a capacity that lands exactly on a quantum step
 stays there. With 1 MW per site instead, each direction carries 200 Gbps; with
 headroom 1.1 and a 10 Gbps quantum the corridor needs exactly 220 Gbps and gets
-220. TopoGen 0.5.2 computed 200 × 1.1 in floating point as 220.00000000000003
+220. NetLab-TopoGen 0.5.2 computed 200 × 1.1 in floating point as 220.00000000000003
 and gave the corridor 230. Capacities and optic counts can differ from 0.5.2
 wherever its floating-point arithmetic disagreed with these rules, including
 with `quantum_gbps: 0`: there 0.5.2 wrote this corridor as 220.00000000000003.
@@ -270,12 +270,12 @@ set a step's seed explicitly to override that behavior.
 
 ## 3. Validate and save
 
-`topogen.validation.validate_scenario(text, components)` checks the exact text
+`netlab_topogen.validation.validate_scenario(text, components)` checks the exact text
 that would be written. It loads the scenario with NetGraph and prepares it for
 analysis with every demand set bound, so NetGraph checks the schema, the
 network, the failure policies, the demand sets and the selected workflow. When
 NetGraph refuses the scenario, its message is the only issue. Otherwise
-TopoGen's audits run on the prepared network and report, in this order:
+NetLab-TopoGen's audits run on the prepared network and report, in this order:
 
 1. Every demand set: no traffic that NetGraph would discard.
 2. Data-center capacity: for each demand set, a data-center site's total sent
@@ -315,10 +315,10 @@ baseline from the repository root:
 ```python
 from pathlib import Path
 
-from topogen import RunContext, TopologyConfig, load_from_json
-from topogen.library import load_library
-from topogen.scenario import build_scenario, write_artifacts, write_scenario
-from topogen.validation import validate_scenario
+from netlab_topogen import RunContext, TopologyConfig, load_from_json
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario, write_artifacts, write_scenario
+from netlab_topogen.validation import validate_scenario
 
 config = TopologyConfig.from_yaml(Path("examples/small_baseline.yml"))
 graph, crs = load_from_json(Path("output/small_baseline_integrated_graph.json"))
@@ -344,7 +344,7 @@ budget), `hardware` (each site link's device links, per-device capacity and
 optics) and `site_plan` (the sites, the site links and the striping rules).
 These records are read-only.
 
-`write_artifacts` refuses a validation with issues. `topogen.RunContext` sets
+`write_artifacts` refuses a validation with issues. `netlab_topogen.RunContext` sets
 the output directory, filename prefix and optional debug directory:
 `RunContext(Path("output"), "small_baseline")` names files with the
 `small_baseline_` prefix. The site map downloads its background tiles, so it
@@ -353,7 +353,7 @@ needs an internet connection.
 ## Libraries and output
 
 The built-in library supplies blueprints, hardware components, failure policies
-and workflows. The `topogen` command adds the files `blueprints.yml`,
+and workflows. The `netlab-topogen` command adds the files `blueprints.yml`,
 `components.yml`, `failure_policies.yml` and `workflows.yml` from `lib/` in the
 working directory; from Python, pass the directory to `load_library`. Each file
 is a YAML mapping of names to definitions; custom names are added and matching
@@ -368,7 +368,7 @@ checked, when a scenario uses it: it must be a list of step mappings, and
 validation checks its steps. Other entries in `lib/workflows.yml` do not affect
 the build. Each step uses `type` for its analysis class and `demand_set` when it
 needs traffic, with the step keys of NetGraph 0.25. A workflow written for
-TopoGen 0.5.2 needs these renames: `resolution` to `alpha_tolerance`,
+NetLab-TopoGen 0.5.2 needs these renames: `resolution` to `alpha_tolerance`,
 `parallelism` to `workers`, `store_failure_patterns` to `failure_trace`,
 `include_flow_details` to `outputs.cost_distribution` and `include_used_edges` to
 `outputs.edge_flows`; `alpha_from_field` is gone.
@@ -385,21 +385,21 @@ The `failures` section contains the policy named by
 names. File prefixes come from the configuration filename, not the names inside
 the YAML. The batch script adds one subdirectory per configuration.
 
-`import topogen` does not load Matplotlib or the drawing code. Import
-`topogen.visualization` to draw maps and diagrams yourself.
+`import netlab_topogen` does not load Matplotlib or the drawing code. Import
+`netlab_topogen.visualization` to draw maps and diagrams yourself.
 
 ## Working on the code
 
 | Area | Main files |
 | --- | --- |
-| Settings and CLI | `topogen/config.py`, `topogen/cli.py`, `topogen/context.py` |
-| Geographic processing | `topogen/metro_clusters.py`, `topogen/highway_graph.py`, `topogen/corridors.py`, `topogen/integrated_graph.py` |
-| Libraries | `topogen/library.py` and the built-ins in `topogen/*_lib.py` |
-| Build stages and records | `topogen/scenario/build.py`, `sites.py`, `striping.py`, `traffic.py`, `sizing.py`, `hardware.py`, `document.py`, `records.py` |
-| Exact numbers and optic counts | `topogen/numeric.py` |
-| Publication | `topogen/scenario/publication.py`, `topogen/scenario/artifacts.py` |
-| Scenario checks | `topogen/validation/scenario.py`, `topogen/validation/audits/` |
-| Maps and diagrams | `topogen/visualization.py`, `topogen/blueprint_viz.py` |
+| Settings and CLI | `netlab_topogen/config.py`, `netlab_topogen/cli.py`, `netlab_topogen/context.py` |
+| Geographic processing | `netlab_topogen/metro_clusters.py`, `netlab_topogen/highway_graph.py`, `netlab_topogen/corridors.py`, `netlab_topogen/integrated_graph.py` |
+| Libraries | `netlab_topogen/library.py` and the built-ins in `netlab_topogen/*_lib.py` |
+| Build stages and records | `netlab_topogen/scenario/build.py`, `sites.py`, `striping.py`, `traffic.py`, `sizing.py`, `hardware.py`, `document.py`, `records.py` |
+| Exact numbers and optic counts | `netlab_topogen/numeric.py` |
+| Publication | `netlab_topogen/scenario/publication.py`, `netlab_topogen/scenario/artifacts.py` |
+| Scenario checks | `netlab_topogen/validation/scenario.py`, `netlab_topogen/validation/audits/` |
+| Maps and diagrams | `netlab_topogen/visualization.py`, `netlab_topogen/blueprint_viz.py` |
 
 Run `make check-ci` after changes. It validates the example configurations and
 runs formatting, lint, type checks and tests. Integration tests exercise scenario

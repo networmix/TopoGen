@@ -7,9 +7,9 @@ from dataclasses import FrozenInstanceError, asdict, fields, is_dataclass
 import networkx as nx
 import pytest
 
-from topogen.library import Library, load_library, thaw
-from topogen.scenario import build_scenario
-from topogen.scenario.records import (
+from netlab_topogen.library import Library, load_library, thaw
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.scenario.records import (
     Corridor,
     CorridorGraph,
     DeviceLink,
@@ -22,13 +22,13 @@ from topogen.scenario.records import (
     SitePlan,
     StripeGroups,
 )
-from topogen.scenario.sites import (
+from netlab_topogen.scenario.sites import (
     finalize_blueprints,
     plan_sites,
     read_corridors,
     resolve_metro_settings,
 )
-from topogen.scenario.striping import stripe_groups
+from netlab_topogen.scenario.striping import stripe_groups
 
 
 def assert_frozen(value):
@@ -79,7 +79,7 @@ def test_constructor_buffers_are_owned():
     rules = [{"path": "^a$", "attrs": {"labels": [1]}}]
     position = [1.0, 2.0]
     sites = [Site("metro1/pop1", metro, "pop", 1, "b", None, position)]
-    from topogen.scenario.records import SiteLink
+    from netlab_topogen.scenario.records import SiteLink
 
     links = [
         SiteLink(
@@ -211,7 +211,7 @@ def test_failed_build_and_independent_concurrent_builds_keep_inputs(
 def test_build_stages_run_in_contract_order(
     corridor_graph, scenario_config, monkeypatch
 ):
-    import topogen.scenario.build as stages
+    import netlab_topogen.scenario.build as stages
 
     names = [
         "read_corridors",

@@ -6,8 +6,8 @@ import pytest
 import yaml
 from ngraph import Scenario, prepare
 
-from topogen.scenario.document import to_demand_sets
-from topogen.scenario.traffic import _quantize, generate_traffic
+from netlab_topogen.scenario.document import to_demand_sets
+from netlab_topogen.scenario.traffic import _quantize, generate_traffic
 
 
 def test_three_site_uniform_is_six_demands_of_100(make_plan, scenario_config):

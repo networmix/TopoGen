@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Python**: Support Python 3.14, including the free-threaded build; CI tests Python 3.11 to 3.14.
 - **Python API**: Add `netlab_topogen.library.load_library`, and `write_scenario` and `write_artifacts` in `netlab_topogen.scenario`.
 
 ### Removed

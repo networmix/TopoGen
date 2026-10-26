@@ -15,11 +15,7 @@ those routes into a network. NetGraph runs the analysis of that network.
 Use Python 3.11 or later. Run these commands in a terminal:
 
 ```bash
-git clone https://github.com/networmix/NetLab-TopoGen
-cd NetLab-TopoGen
-python3 -m venv venv
-source venv/bin/activate
-python -m pip install -e .
+pip install netlab-topogen
 ```
 
 This also installs NetGraph 0.25, which brings its computation engine,
@@ -134,6 +130,10 @@ A failed configuration makes the command return a failure status.
 ## Development
 
 ```bash
+git clone https://github.com/networmix/NetLab-TopoGen
+cd NetLab-TopoGen
+python3 -m venv venv
+source venv/bin/activate
 python -m pip install -e '.[dev]'
 make check-ci
 ```

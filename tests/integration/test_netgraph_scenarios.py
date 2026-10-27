@@ -1,199 +1,106 @@
-"""Exercise emitted scenarios through NetGraph's real parser and workflows."""
+"""Generated scenarios run through the public prepare/run result boundary."""
 
-from collections import Counter
+import io
+import json
 from pathlib import Path
 
-import networkx as nx
 import pytest
 import yaml
-from ngraph.dsl.blueprints.expand import expand_network_dsl
-from ngraph.scenario import Scenario
+from ngraph import Scenario, prepare, run, write_json
 
-from topogen.blueprints_lib import get_builtin_blueprints
-from topogen.config import TopologyConfig
-from topogen.corridors import corridor_risk_name
-from topogen.scenario import build_scenario
-from topogen.validation import validate_scenario_yaml
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.corridors import corridor_risk_name
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
+from netlab_topogen.validation import validate_scenario
 
 REPO = Path(__file__).resolve().parents[2]
 
 
-def _graph():
-    graph = nx.MultiGraph()
-    for index, name in enumerate(["alpha", "beta", "gamma"]):
-        graph.add_node(
-            name,
-            node_type="metro",
-            name=name,
-            metro_id=name,
-            x=index * 300_000.0,
-            y=0.0,
-            radius_km=20.0,
-            name_orig=name,
-        )
-    for source, target in [("alpha", "beta"), ("beta", "gamma"), ("alpha", "gamma")]:
-        graph.add_edge(
-            source,
-            target,
-            edge_type="corridor",
-            length_km=300.0,
-            risk_groups=[f"corridor_risk_{source}_{target}"],
-        )
-    return graph
+def execute(text, policy=None):
+    doc = yaml.safe_load(text)
+    for step in doc["workflow"]:
+        if "iterations" in step:
+            step["iterations"] = 3
+            step["workers"] = 1
+            if policy is not None:
+                step["failure_policy"] = policy
+    scenario = Scenario.from_yaml(yaml.safe_dump(doc))
+    stream = io.StringIO()
+    write_json(run(prepare(scenario, demand_sets=tuple(scenario.demand_sets))), stream)
+    return {step["name"]: step for step in json.loads(stream.getvalue())["steps"]}
 
 
-@pytest.mark.parametrize("model", ["uniform", "gravity", "hose"])
-@pytest.mark.parametrize("matrix_name", ["default", "custom_traffic"])
-def test_generated_scenario_executes_current_netgraph(
-    tmp_path, monkeypatch, model, matrix_name
-):
-    # No cwd/lib overrides: exercise the installed package's built-in libraries.
-    monkeypatch.chdir(tmp_path)
-    config = TopologyConfig()
-    config.traffic.matrix_name = matrix_name
-    config.traffic.model = model
-    config.traffic.gbps_per_mw = 1.0
-    config.traffic.mw_per_dc_region = 10.0
-    config.traffic.priority_ratios = {0: 1.0}
-    config.traffic.flow_policy_config = {0: "SHORTEST_PATHS_ECMP"}
-    config.build.build_defaults.dc_regions_per_metro = 1
-    scenario_yaml = build_scenario(_graph(), config)
-    scenario = Scenario.from_yaml(scenario_yaml)
-    assert scenario.demand_set.get_set(matrix_name)
-    assert scenario.failure_policy_set.policies
-    assert not validate_scenario_yaml(scenario_yaml)
-    # Keep the full workflow, with a small Monte Carlo sample for the test.
-    for step in scenario.workflow:
-        if hasattr(step, "iterations"):
-            step.iterations = 3
-    scenario.run()
-    results = scenario.results.to_dict()["steps"]
-    assert set(results) == {
+@pytest.mark.parametrize(
+    "model,alpha", [("uniform", 20), ("gravity", 16.65625), ("hose", 20)]
+)
+@pytest.mark.parametrize("matrix", ["default", "custom_traffic"])
+def test_models_run(corridor_graph, scenario_config, model, alpha, matrix):
+    scenario_config.traffic.model = model
+    scenario_config.traffic.matrix_name = matrix
+    scenario_config.traffic.flow_policy_config = {0: "SHORTEST_PATHS_ECMP"}
+    # The reference default uses two PoPs per metro.
+    scenario_config.build.build_defaults.pop_per_metro = 2
+    build = build_scenario(corridor_graph, scenario_config, load_library(None))
+    assert not validate_scenario(build.yaml, scenario_config.components).issues
+    results = execute(build.yaml)
+    assert results["msd_baseline"]["result"]["alpha_feasible"]["value"] == alpha
+    placement = results["tm_placement"]["result"]
+    assert (
+        placement["alpha"]["value"]
+        == results["msd_baseline"]["result"]["alpha_feasible"]["value"]
+    )
+    assert placement["outputs"]["cost_distribution"] is True
+    assert placement["outputs"]["native"]["edge_flows"] is False
+    assert any(
+        row.get("cost_distribution", {}).get("bins")
+        for case in placement["cases"]
+        for row in case["states"]["converged"]["rows"]
+    )
+    assert list(results) == [
         "network_statistics",
         "msd_baseline",
         "tm_placement",
         "cost_power",
-    }
-    assert results["msd_baseline"]["data"]["alpha_star"] > 0
+    ]
 
 
 @pytest.mark.parametrize("example", sorted((REPO / "examples").glob("*.yml")))
-def test_example_scenario_runs_with_current_netgraph(example, monkeypatch):
-    monkeypatch.chdir(REPO)
-    config = TopologyConfig.from_yaml(example)
-    graph = _graph()
-    # Exercise the actual example DC overrides and optics with synthetic corridors.
+def test_examples_run(example, corridor_graph):
+    cfg = TopologyConfig.from_yaml(example)
     for node, name in zip(
-        graph.nodes,
+        corridor_graph,
         ["new-york-jersey-city-newark", "columbus", "washington-arlington"],
         strict=True,
     ):
-        graph.nodes[node]["name"] = name
-    for source, target, key, data in graph.edges(keys=True, data=True):
+        corridor_graph.nodes[node]["name"] = name
+    for u, v, k, data in corridor_graph.edges(keys=True, data=True):
         data["risk_groups"] = [
             corridor_risk_name(
                 "corridor_risk",
-                graph.nodes[source]["name"],
-                graph.nodes[target]["name"],
-                key,
+                corridor_graph.nodes[u]["name"],
+                corridor_graph.nodes[v]["name"],
+                k,
             )
         ]
-    scenario_yaml = build_scenario(graph, config)
-    assert not validate_scenario_yaml(
-        scenario_yaml,
-        hw_component_map=config.components.hw_component,
-        optics_map=config.components.optics,
+    build = build_scenario(corridor_graph, cfg, load_library(REPO / "lib"))
+    assert not validate_scenario(build.yaml, cfg.components).issues
+    assert (
+        execute(build.yaml)["msd_baseline"]["result"]["alpha_feasible"]["value"]
+        == 1.6875
     )
-    scenario = Scenario.from_yaml(scenario_yaml)
-    for step in scenario.workflow:
-        if hasattr(step, "iterations"):
-            step.iterations = 3
-    scenario.run()
-    assert scenario.results.to_dict()["steps"]["msd_baseline"]["data"]["alpha_star"] > 0
 
 
 @pytest.mark.parametrize("samples", [3, 10])
-def test_shipped_sample_workflows_execute(samples, monkeypatch):
-    monkeypatch.chdir(REPO)
-    config = TopologyConfig()
-    config.traffic.model = "hose"
-    config.traffic.samples = samples
-    config.traffic.matrix_name = "baseline_traffic_matrix"
-    config.traffic.gbps_per_mw = 1.0
-    config.traffic.mw_per_dc_region = 10.0
-    config.traffic.priority_ratios = {0: 1.0}
-    config.build.build_defaults.dc_regions_per_metro = 1
-    config.workflows.assignments.default = f"hose_samples_{samples}"
-    scenario_yaml = build_scenario(_graph(), config)
-    assert not validate_scenario_yaml(scenario_yaml)
-    scenario = Scenario.from_yaml(scenario_yaml)
-    for step in scenario.workflow:
-        if hasattr(step, "iterations"):
-            step.iterations = 3
-    scenario.run()
-    assert len(scenario.results.to_dict()["steps"]) == 2 * samples + 2
-
-
-def test_validator_reports_netgraph_workflow_error():
-    step = {"type": "NetworkStats", "name": "analysis", "unknown_option": True}
-    data = {
-        "network": {
-            "nodes": {"a": {}, "b": {}},
-            "links": [{"source": "a", "target": "b", "capacity": 100, "cost": 1}],
-        },
-        "demands": {"default": [{"source": "a", "target": "b", "volume": 10}]},
-        "workflow": [step],
-    }
-    issues = validate_scenario_yaml(yaml.safe_dump(data))
-    assert any(
-        "Unrecognized key" in issue and "unknown_option" in issue for issue in issues
-    )
-
-
-def test_validator_rejects_unknown_failure_field():
-    data = {
-        "network": {
-            "nodes": {"a": {}, "b": {}},
-            "links": [{"source": "a", "target": "b", "capacity": 100, "cost": 1}],
-        },
-        "failures": {
-            "custom": {
-                "modes": [
-                    {
-                        "weight": 1,
-                        "rules": [
-                            {
-                                "scope": "link",
-                                "mode": "choice",
-                                "count": 1,
-                                "unknown_option": True,
-                            }
-                        ],
-                    }
-                ]
-            }
-        },
-    }
-    issues = validate_scenario_yaml(yaml.safe_dump(data))
-    assert any("unknown_option" in issue for issue in issues)
-
-
-@pytest.mark.parametrize(
-    "blueprint,nodes,intra,inter",
-    [("Dragonfly_A3H2G7", 21, 21, 21), ("DragonFly_CustomG4", 16, 24, 16)],
-)
-def test_dragonfly_expansion_preserves_fabric(blueprint, nodes, intra, inter):
-    net = expand_network_dsl(
-        {
-            "blueprints": {blueprint: get_builtin_blueprints()[blueprint]},
-            "network": {"nodes": {"site": {"blueprint": blueprint}}},
-        }
-    )
-    assert len(net.nodes) == nodes
-    counts = Counter(link.attrs["link_type"] for link in net.links.values())
-    assert counts == {"intra_group": intra, "inter_group": inter}
-    graph = nx.Graph((link.source, link.target) for link in net.links.values())
-    assert nx.is_connected(graph)
+def test_sampled_workflows_run(samples, corridor_graph, scenario_config):
+    cfg = scenario_config
+    cfg.traffic.model = "hose"
+    cfg.traffic.samples = samples
+    cfg.traffic.matrix_name = "baseline_traffic_matrix"
+    cfg.workflows.assignments.default = f"hose_samples_{samples}"
+    build = build_scenario(corridor_graph, cfg, load_library(REPO / "lib"))
+    assert not validate_scenario(build.yaml, cfg.components).issues
+    assert len(execute(build.yaml)) == 2 * samples + 2
 
 
 @pytest.mark.parametrize(
@@ -206,16 +113,9 @@ def test_dragonfly_expansion_preserves_fabric(blueprint, nodes, intra, inter):
         "fabric_only",
     ],
 )
-def test_shipped_failure_policies_run(policy, monkeypatch):
-    monkeypatch.chdir(REPO)
-    config = TopologyConfig()
-    config.failure_policies.assignments.default = policy
-    config.traffic.gbps_per_mw = 1.0
-    config.traffic.mw_per_dc_region = 10.0
-    scenario = Scenario.from_yaml(build_scenario(_graph(), config))
-    for step in scenario.workflow:
-        if hasattr(step, "iterations"):
-            step.iterations = 3
-            step.failure_policy = policy
-    scenario.run()
-    assert scenario.results.to_dict()["steps"]["tm_placement"]["data"]["baseline"]
+def test_failure_policies_run(policy, corridor_graph, scenario_config):
+    cfg = scenario_config
+    cfg.failure_policies.assignments.default = policy
+    build = build_scenario(corridor_graph, cfg, load_library(REPO / "lib"))
+    result = execute(build.yaml, policy)["tm_placement"]["result"]
+    assert sum(case["case"]["occurrences"] for case in result["cases"]) == 3

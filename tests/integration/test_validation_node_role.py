@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from topogen.validation.audits.node_role import check_node_roles
+from netlab_topogen.validation.audits.node_role import check_node_roles
 
 
 def test_check_node_roles_reports_missing() -> None:

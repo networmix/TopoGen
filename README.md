@@ -1,8 +1,8 @@
-# TopoGen
+# NetLab-TopoGen
 
-[![CI](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/TopoGen/actions/workflows/python-test.yml)
+[![CI](https://github.com/networmix/NetLab-TopoGen/actions/workflows/python-test.yml/badge.svg?branch=main)](https://github.com/networmix/NetLab-TopoGen/actions/workflows/python-test.yml)
 
-TopoGen creates backbone network scenarios for the contiguous United States.
+NetLab-TopoGen creates backbone network scenarios for the contiguous United States.
 It chooses metropolitan areas from Census data and follows highways to connect
 them. It then adds network sites, routers, traffic demands and failure policies.
 The result is a YAML scenario for [NetGraph](https://github.com/networmix/NetGraph).
@@ -15,16 +15,12 @@ those routes into a network. NetGraph runs the analysis of that network.
 Use Python 3.11 or later. Run these commands in a terminal:
 
 ```bash
-git clone https://github.com/networmix/TopoGen
-cd TopoGen
-python3 -m venv venv
-source venv/bin/activate
-python -m pip install -e .
+pip install netlab-topogen
 ```
 
-This also installs NetGraph and its computation engine, NetGraph-Core, in the
-versions this release supports. [pyproject.toml](pyproject.toml) lists those
-version ranges and the other dependencies.
+This also installs NetGraph 0.25, which brings its computation engine,
+NetGraph-Core. [pyproject.toml](pyproject.toml) lists the supported NetGraph
+versions and the other dependencies.
 
 ## Download the geographic data
 
@@ -45,9 +41,9 @@ Run this five-metro example from the repository root:
 
 ```bash
 cp examples/small_baseline.yml config.yml
-topogen info config.yml
-topogen generate config.yml -o output
-topogen build config.yml -o output
+netlab-topogen info config.yml
+netlab-topogen generate config.yml -o output
+netlab-topogen build config.yml -o output
 ```
 
 `info` checks the configuration and shows whether its data files exist.
@@ -58,7 +54,8 @@ A route between two metros is called a **corridor**.
 `build` adds points of presence (PoPs), where backbone routers are located, and
 data-center sites. A **blueprint** describes the devices and links inside a site.
 The build also assigns hardware, creates traffic demands and checks the scenario
-with NetGraph before saving it.
+with NetGraph. It writes files only after the check passes, so a scenario that
+fails the check leaves the existing files unchanged.
 
 Files in `output/` use the configuration filename as their prefix:
 
@@ -69,8 +66,9 @@ Files in `output/` use the configuration filename as their prefix:
 | `config_network_graph.json` | Sites and the links between them, with their capacities |
 | `config_*.jpg` | Maps and site diagrams enabled in the configuration |
 
-Map backgrounds need an internet connection. To run the analysis steps saved in
-the scenario:
+Map backgrounds need an internet connection; without one, `build` stops with an
+error after writing the scenario and the site-network JSON. To run the analysis
+steps saved in the scenario:
 
 ```bash
 ngraph run output/config_scenario.yml --output output
@@ -97,18 +95,21 @@ Gbps; geographic distances use kilometers.
 
 The traffic models are `uniform` (equal traffic between data-center sites),
 `gravity` (traffic weighted by site size and distance), and `hose` (traffic fitted
-to each site's send and receive totals).
+to each site's send and receive totals). `traffic.flow_policy_config` gives each
+priority class a NetGraph routing preset, spelled exactly as NetGraph names it,
+such as `TE_MAXFLOW_UNLIM`.
 
 Start with the [baseline, Clos and Dragonfly examples](examples/).
-The [configuration schema](topogen/schemas/topogen_config.json) lists every
+The [configuration schema](netlab_topogen/schemas/netlab_topogen_config.json) lists every
 accepted field and its allowed values.
 
 Your own sites, hardware, failures and analyses go in `lib/blueprints.yml`,
 `lib/components.yml`, `lib/failure_policies.yml` and `lib/workflows.yml`.
-TopoGen reads `lib/` in the directory where you run the command. Each file maps
-names to definitions; a name that matches a built-in definition replaces it.
-The repository's `lib/` already adds failure policies and workflows, such as
-`hose_samples_3` for three sampled traffic matrices. See
+The `netlab-topogen` command reads `lib/` in the directory where you run it. Each file
+maps names to definitions; a name that matches a built-in definition replaces it.
+Only the workflow the configuration selects is checked, so an unused workflow
+cannot stop a build. The repository's `lib/` already adds failure policies and
+workflows, such as `hose_samples_3` for three sampled traffic matrices. See
 [how the pipeline works](dev/PIPELINE.md) for the build rules, Python entry
 points and validation steps.
 
@@ -129,6 +130,10 @@ A failed configuration makes the command return a failure status.
 ## Development
 
 ```bash
+git clone https://github.com/networmix/NetLab-TopoGen
+cd NetLab-TopoGen
+python3 -m venv venv
+source venv/bin/activate
 python -m pip install -e '.[dev]'
 make check-ci
 ```

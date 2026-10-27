@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Batch runner for TopoGen: run generate+build for each config in a folder.
+# Batch runner for NetLab-TopoGen: run generate+build for each config in a folder.
 #
 # Usage:
 #   ./build.sh [--include PATTERN ...] [--exclude PATTERN ...] [--force] [--build-only] <configs_dir> <output_dir>
@@ -107,9 +107,9 @@ CONFIGS_DIR=$(abs_path "$CONFIGS_DIR_RAW")
 OUTPUT_DIR=$(abs_path "$OUTPUT_DIR_RAW")
 
 # Use the installed CLI from the active environment.
-command -v topogen >/dev/null 2>&1 || die "Activate the TopoGen venv or install TopoGen."
+command -v netlab-topogen >/dev/null 2>&1 || die "Activate the NetLab-TopoGen venv or install NetLab-TopoGen."
 
-echo "🚀 TopoGen batch run"
+echo "🚀 NetLab-TopoGen batch run"
 OUTPUT_DIR_PRINT=${OUTPUT_DIR%/.}
 CONFIGS_DIR_PRINT=${CONFIGS_DIR%/.}
 echo "📁 Configs: $CONFIGS_DIR_PRINT"
@@ -204,7 +204,7 @@ while IFS= read -r -d '' cfg; do
 
     if [[ "$run_generate" == "true" ]]; then
       # Run generate writing artefacts directly to workdir via -o
-      topogen generate "$cfg_abs" -o "$workdir" 2>&1 | tee "$workdir/generate.log"
+      netlab-topogen generate "$cfg_abs" -o "$workdir" 2>&1 | tee "$workdir/generate.log"
       gen_ec=${PIPESTATUS[0]}
     else
       # Use cached artefacts
@@ -232,7 +232,7 @@ while IFS= read -r -d '' cfg; do
   scenario_out="$workdir/${stem}_scenario.yml"
   if [[ $gen_ec -eq 0 || $gen_ec -eq 100 ]]; then
     # Run build writing scenario into workdir via -o
-    topogen build "$cfg_abs" -o "$scenario_out" 2>&1 | tee "$workdir/build.log"
+    netlab-topogen build "$cfg_abs" -o "$scenario_out" 2>&1 | tee "$workdir/build.log"
     build_ec=${PIPESTATUS[0]}
     case "$build_ec" in
       0)

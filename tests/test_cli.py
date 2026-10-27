@@ -23,7 +23,7 @@ def _invoke_main(argv: list[str], *, stub_subcommand: bool = False):
 
     With ``stub_subcommand``, replace subcommands with a recorder that prints once.
     """
-    import topogen.cli as cli
+    import netlab_topogen.cli as cli
 
     importlib.reload(cli)
 
@@ -38,11 +38,11 @@ def _invoke_main(argv: list[str], *, stub_subcommand: bool = False):
     with (
         ExitStack() as patches,
         patch("sys.stdout", new_callable=StringIO) as buf,
-        patch("sys.argv", ["topogen"] + argv),
+        patch("sys.argv", ["netlab-topogen"] + argv),
     ):
         patches.enter_context(
             patch(
-                "topogen.log_config.set_global_log_level",
+                "netlab_topogen.log_config.set_global_log_level",
                 side_effect=lambda lvl: level_holder.__setitem__("level", lvl),
             )
         )
@@ -100,7 +100,7 @@ def test_subcommand_dispatch_build_generate_info():
 
 
 def test_timer_context_manager_success_and_error():
-    from topogen.cli import Timer
+    from netlab_topogen.cli import Timer
 
     with patch("sys.stdout", new_callable=StringIO) as buf:
         with Timer("Unit test op"):
@@ -118,7 +118,7 @@ def test_timer_context_manager_success_and_error():
 
 
 def test__load_config_file_not_found_exits_with_code_2(tmp_path):
-    from topogen.cli import _load_config
+    from netlab_topogen.cli import _load_config
 
     missing = tmp_path / "does_not_exist.yml"
     with pytest.raises(SystemExit) as exc:
@@ -127,7 +127,7 @@ def test__load_config_file_not_found_exits_with_code_2(tmp_path):
 
 
 def test__load_config_generic_error_exits_with_code_2():
-    import topogen.cli as cli
+    import netlab_topogen.cli as cli
 
     with (
         patch.object(cli.TopologyConfig, "from_yaml", side_effect=ValueError("bad")),
@@ -138,7 +138,7 @@ def test__load_config_generic_error_exits_with_code_2():
 
 
 def test_build_command_success_print_and_non_print():
-    import topogen.cli as cli
+    import netlab_topogen.cli as cli
 
     importlib.reload(cli)
 
@@ -175,7 +175,7 @@ def test_build_command_success_print_and_non_print():
 
 
 def test_build_command_failure_exit_codes():
-    import topogen.cli as cli
+    import netlab_topogen.cli as cli
 
     importlib.reload(cli)
 
@@ -198,10 +198,10 @@ def test_build_command_failure_exit_codes():
 
 
 def test_run_pipeline_missing_integrated_graph(tmp_path):
-    from topogen import RunContext, TopologyConfig
-    from topogen.cli import _run_pipeline
+    from netlab_topogen import RunContext, TopologyConfig
+    from netlab_topogen.cli import _run_pipeline
 
-    with pytest.raises(FileNotFoundError, match="Run topogen generate first"):
+    with pytest.raises(FileNotFoundError, match="Run netlab-topogen generate first"):
         _run_pipeline(
             TopologyConfig(),
             tmp_path / "scenario.yml",
@@ -210,7 +210,7 @@ def test_run_pipeline_missing_integrated_graph(tmp_path):
 
 
 def test_generate_command_success_and_failure():
-    import topogen.cli as cli
+    import netlab_topogen.cli as cli
 
     importlib.reload(cli)
 
@@ -230,7 +230,7 @@ def test_generate_command_success_and_failure():
 
 
 def test_info_command_prints_status(tmp_path):
-    import topogen.cli as cli
+    import netlab_topogen.cli as cli
 
     importlib.reload(cli)
 
@@ -255,5 +255,5 @@ def test_info_command_prints_status(tmp_path):
     ):
         cli.info_command(Namespace(config="config.yml", output=None))
         out = buf.getvalue()
-        assert "TopoGen Configuration" in out
+        assert "NetLab-TopoGen Configuration" in out
         assert "UAC polygons:" in out

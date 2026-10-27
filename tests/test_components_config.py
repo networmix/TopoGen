@@ -3,7 +3,7 @@
 import pytest
 import yaml
 
-from topogen.config import ComponentsConfig, TopologyConfig
+from netlab_topogen.config import ComponentsConfig, TopologyConfig
 
 
 def test_component_defaults():

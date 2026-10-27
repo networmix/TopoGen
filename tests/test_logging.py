@@ -3,33 +3,33 @@
 import logging
 from io import StringIO
 
-from topogen.log_config import get_logger, set_global_log_level
+from netlab_topogen.log_config import get_logger, set_global_log_level
 
 
 def test_set_global_log_level():
     set_global_log_level(logging.WARNING)
-    topogen_logger = logging.getLogger("topogen")
-    assert topogen_logger.level == logging.WARNING
+    netlab_topogen_logger = logging.getLogger("netlab_topogen")
+    assert netlab_topogen_logger.level == logging.WARNING
 
     set_global_log_level(logging.DEBUG)
-    topogen_logger = logging.getLogger("topogen")
-    assert topogen_logger.level == logging.DEBUG
+    netlab_topogen_logger = logging.getLogger("netlab_topogen")
+    assert netlab_topogen_logger.level == logging.DEBUG
 
     set_global_log_level(logging.INFO)
-    topogen_logger = logging.getLogger("topogen")
-    assert topogen_logger.level == logging.INFO
+    netlab_topogen_logger = logging.getLogger("netlab_topogen")
+    assert netlab_topogen_logger.level == logging.INFO
 
 
 def test_logger_hierarchy():
     set_global_log_level(logging.WARNING)
 
-    child_logger = get_logger("topogen.test.child")
+    child_logger = get_logger("netlab_topogen.test.child")
 
     assert child_logger.getEffectiveLevel() == logging.WARNING
 
 
 def test_logging_output():
-    logger = get_logger("topogen.test.output")
+    logger = get_logger("netlab_topogen.test.output")
 
     log_capture = StringIO()
     handler = logging.StreamHandler(log_capture)

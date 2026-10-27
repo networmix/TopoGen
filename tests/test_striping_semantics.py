@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import contextlib
+from pathlib import Path
 from typing import Any
 
 import networkx as nx
 import yaml
+from ngraph import Scenario
 
-from topogen.config import TopologyConfig
-from topogen.scenario import build_scenario
-from topogen.workflows_lib import get_builtin_workflows
+from netlab_topogen.config import TopologyConfig
+from netlab_topogen.library import load_library
+from netlab_topogen.scenario import build_scenario
 
 
 def _expand_yaml(yaml_text: str):
-    from ngraph.dsl.blueprints.expand import expand_network_dsl
-
     data = yaml.safe_load(yaml_text)
-    return expand_network_dsl(data)
+    return Scenario.from_yaml(yaml.safe_dump(data)).network
 
 
 def _site_of(node_name: str) -> str:
@@ -86,14 +86,14 @@ def _base_cfg() -> TopologyConfig:
     cfg.build.tm_sizing.enabled = False
     cfg.components.optics = {}
     # pick a valid built-in workflow
-    wf = next(iter(get_builtin_workflows().keys()))
+    wf = next(iter(load_library(Path("lib")).workflows.keys()))
     cfg.workflows.assignments.default = wf
     return cfg
 
 
 @contextlib.contextmanager
 def _patch_blueprints(new_entries: dict[str, dict[str, Any]]):
-    import topogen.blueprints_lib as BL
+    import netlab_topogen.blueprints_lib as BL
 
     removed: list[str] = []
     try:
@@ -116,8 +116,8 @@ def test_equivalence_one_device_each_end_width1():
     cfg_b.build.build_defaults.inter_metro_link.striping = {"mode": "width", "width": 1}
     cfg_b.build.build_defaults.dc_to_pop_link.striping = {"mode": "width", "width": 1}
 
-    yml_a = build_scenario(graph, cfg_a)
-    yml_b = build_scenario(graph, cfg_b)
+    yml_a = build_scenario(graph, cfg_a, load_library(Path("lib"))).yaml
+    yml_b = build_scenario(graph, cfg_b, load_library(Path("lib"))).yaml
     net_a = _expand_yaml(yml_a)
     net_b = _expand_yaml(yml_b)
 
@@ -150,8 +150,8 @@ def test_dc_pop_one_vs_many_width1_reduces_links():
             "width": 1,
         }
 
-        yml_a = build_scenario(graph, cfg_a)
-        yml_b = build_scenario(graph, cfg_b)
+        yml_a = build_scenario(graph, cfg_a, load_library(Path("lib"))).yaml
+        yml_b = build_scenario(graph, cfg_b, load_library(Path("lib"))).yaml
         net_a = _expand_yaml(yml_a)
         net_b = _expand_yaml(yml_b)
 
@@ -199,8 +199,8 @@ def test_dc_pop_many_vs_many_width2_groups_links():
             "width": 2,
         }
 
-        yml_a = build_scenario(graph, cfg_a)
-        yml_b = build_scenario(graph, cfg_b)
+        yml_a = build_scenario(graph, cfg_a, load_library(Path("lib"))).yaml
+        yml_b = build_scenario(graph, cfg_b, load_library(Path("lib"))).yaml
         net_a = _expand_yaml(yml_a)
         net_b = _expand_yaml(yml_b)
 
@@ -210,3 +210,15 @@ def test_dc_pop_many_vs_many_width2_groups_links():
         for k, v in ca.items():
             assert v == 4
             assert cb.get(k, 0) == 2
+
+
+def test_stripes_use_numeric_device_order_for_multi_digit_names():
+    from netlab_topogen.scenario.striping import _group_devices
+
+    selected = {f"core/r{i}": {} for i in range(1, 13)}
+    assert _group_devices(selected, {"mode": "width", "width": 3}, "Many") == {
+        "g1": ("core/r1", "core/r2", "core/r3"),
+        "g2": ("core/r4", "core/r5", "core/r6"),
+        "g3": ("core/r7", "core/r8", "core/r9"),
+        "g4": ("core/r10", "core/r11", "core/r12"),
+    }

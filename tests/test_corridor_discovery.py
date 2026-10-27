@@ -3,13 +3,13 @@
 import networkx as nx
 import pytest
 
-from topogen.config import CorridorsConfig
-from topogen.corridors import (
+from netlab_topogen.config import CorridorsConfig
+from netlab_topogen.corridors import (
     CorridorPath,
     add_corridors,
     extract_corridor_graph,
 )
-from topogen.metro_clusters import MetroCluster
+from netlab_topogen.metro_clusters import MetroCluster
 
 
 class TestCorridorDiscovery:

@@ -3,24 +3,30 @@
 import networkx as nx
 import pytest
 
-from topogen.blueprints_lib import get_builtin_blueprints
-from topogen.config import (
+from netlab_topogen.config import (
     CorridorsConfig,
     FormattingConfig,
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.corridors import add_corridors, assign_risk_groups, extract_corridor_graph
-from topogen.integrated_graph import (
+from netlab_topogen.corridors import (
+    add_corridors,
+    assign_risk_groups,
+    extract_corridor_graph,
+)
+from netlab_topogen.integrated_graph import (
     _contract_degree2_chains,
     load_from_json,
     save_to_json,
 )
-from topogen.metro_clusters import MetroCluster
-from topogen.scenario.config import _determine_metro_settings
-from topogen.scenario.graph_pipeline import build_site_graph
-from topogen.scenario.network import _extract_metros_from_graph
-from topogen.scenario.risk import _build_risk_groups_section
+from netlab_topogen.metro_clusters import MetroCluster
+from netlab_topogen.scenario.document import _risk_groups
+from netlab_topogen.scenario.records import StripeGroups
+from netlab_topogen.scenario.sites import (
+    plan_sites,
+    read_corridors,
+    resolve_metro_settings,
+)
 
 
 def metro(identifier, x):
@@ -89,29 +95,23 @@ def test_parallel_corridors_survive_json_and_site_expansion(tmp_path):
     config = TopologyConfig()
     config.build.build_defaults.pop_per_metro = 1
     config.build.build_defaults.dc_regions_per_metro = 0
-    selected = _extract_metros_from_graph(loaded)
-    sites = build_site_graph(
+    selected = read_corridors(loaded)
+    sites = plan_sites(
         selected,
-        _determine_metro_settings(selected, config),
-        loaded,
-        get_builtin_blueprints(),
+        resolve_metro_settings(selected, config.build, config.traffic),
+        StripeGroups({}),
     )
-    wan = [
-        d
-        for _, _, d in sites.edges(data=True)
-        if d["link_type"] == "inter_metro_corridor"
-    ]
+    wan = [link for link in sites.links if link.kind == "inter_metro_corridor"]
     assert len(wan) == 2
-    assert {d["cost"] for d in wan} == {5, 6}
+    assert {link.cost for link in wan} == {5, 6}
 
     assert [
-        risk["attrs"]["distance_km"]
-        for risk in _build_risk_groups_section(loaded, config)
+        risk["attrs"]["distance_km"] for risk in _risk_groups(selected, config)
     ] == [5, 6]
 
 
 def test_component_filter_reports_removed_metro_anchor(monkeypatch):
-    from topogen import integrated_graph as pipeline
+    from netlab_topogen import integrated_graph as pipeline
 
     metros = [metro("main", 0), metro("island", 100_000)]
     roads = nx.Graph()

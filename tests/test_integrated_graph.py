@@ -2,8 +2,8 @@
 
 import networkx as nx
 
-from topogen.config import ValidationConfig
-from topogen.integrated_graph import (
+from netlab_topogen.config import ValidationConfig
+from netlab_topogen.integrated_graph import (
     _contract_degree2_chains,
     _keep_largest_component,
     _remove_slivers,
@@ -148,9 +148,9 @@ class TestMetroMergeAttributes:
 
     def test_metro_highway_collision_sets_full_metro_attrs(self, monkeypatch):
         # Build a tiny highway graph with nodes at both metro centroids
-        from topogen import integrated_graph as ig
-        from topogen.config import TopologyConfig
-        from topogen.integrated_graph import build_integrated_graph
+        from netlab_topogen import integrated_graph as ig
+        from netlab_topogen.config import TopologyConfig
+        from netlab_topogen.integrated_graph import build_integrated_graph
 
         def fake_build_highway_graph(*_args, **_kwargs):
             G = nx.Graph()
@@ -163,7 +163,7 @@ class TestMetroMergeAttributes:
             return G
 
         def fake_load_metro_clusters(*_args, **_kwargs):
-            from topogen.metro_clusters import MetroCluster
+            from netlab_topogen.metro_clusters import MetroCluster
 
             return [
                 MetroCluster(

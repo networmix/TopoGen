@@ -3,7 +3,7 @@
 import pytest
 import yaml
 
-from topogen.config import TopologyConfig
+from netlab_topogen.config import TopologyConfig
 
 
 @pytest.mark.parametrize(

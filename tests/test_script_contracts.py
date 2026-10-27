@@ -15,7 +15,7 @@ def test_batch_exit_status(tmp_path, stage, code):
     configs = tmp_path / "configs"
     configs.mkdir()
     (configs / "one.yml").write_text("{}")
-    runner = tmp_path / "topogen"
+    runner = tmp_path / "netlab-topogen"
     runner.write_text(
         f'#!/bin/sh\nif [ "$1" = "{stage}" ]; then exit {code}; fi\nexit 0\n'
     )

@@ -1,25 +1,27 @@
 """End-to-end integration tests for risk group functionality."""
 
+from pathlib import Path
+
 import networkx as nx
 import yaml
 
-from topogen.config import (
+from netlab_topogen.config import (
     BuildConfig,
     BuildDefaults,
     CorridorsConfig,
     RiskGroupsConfig,
     TopologyConfig,
 )
-from topogen.corridors import (
+from netlab_topogen.corridors import (
     CorridorPath,
     extract_corridor_graph,
 )
-from topogen.corridors import (
+from netlab_topogen.corridors import (
     assign_risk_groups as assign_risk_groups_to_corridors,
 )
-from topogen.metro_clusters import MetroCluster
-from topogen.scenario import build_scenario
-from topogen.workflows_lib import get_builtin_workflows
+from netlab_topogen.library import load_library
+from netlab_topogen.metro_clusters import MetroCluster
+from netlab_topogen.scenario import build_scenario
 
 
 class TestEndToEndRiskGroups:
@@ -197,10 +199,12 @@ class TestEndToEndRiskGroups:
         scenario_config.corridors = config
         # Avoid brittle default by selecting any available workflow
         scenario_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
-        yaml_str = build_scenario(corridor_graph, scenario_config)
+        yaml_str = build_scenario(
+            corridor_graph, scenario_config, load_library(Path("lib"))
+        ).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         assert "risk_groups" in scenario_data
@@ -214,7 +218,7 @@ class TestEndToEndRiskGroups:
         metro_groups = [
             g for g in groups.values() if "metro_name" in g.get("attrs", {})
         ]
-        assert len(metro_groups) == 8  # 4 metros x 2 types (PoPs + DC regions)
+        assert len(metro_groups) == 16  # Four metros, two PoPs and two DC sites each.
 
         metro_names = {g["attrs"]["metro_name"] for g in metro_groups}
         assert "denver-aurora" in metro_names
@@ -346,10 +350,12 @@ class TestEndToEndRiskGroups:
         )
         scenario_config.corridors = config
         scenario_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
-        yaml_str = build_scenario(corridor_graph, scenario_config)
+        yaml_str = build_scenario(
+            corridor_graph, scenario_config, load_library(Path("lib"))
+        ).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         assert "risk_groups" in scenario_data
@@ -495,10 +501,12 @@ class TestEndToEndRiskGroups:
         )
         scenario_config.corridors = config
         scenario_config.workflows.assignments.default = next(
-            iter(get_builtin_workflows().keys())
+            iter(load_library(Path("lib")).workflows.keys())
         )
 
-        yaml_str = build_scenario(corridor_graph, scenario_config)
+        yaml_str = build_scenario(
+            corridor_graph, scenario_config, load_library(Path("lib"))
+        ).yaml
         scenario_data = yaml.safe_load(yaml_str)
 
         risk_group_names = {rg["name"] for rg in scenario_data["risk_groups"]}

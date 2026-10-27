@@ -4,7 +4,7 @@ from pathlib import Path
 
 import networkx as nx
 
-from topogen.visualization import export_site_graph_map
+from netlab_topogen.visualization import export_site_graph_map
 
 
 def test_export_site_graph_map_smoke(tmp_path: Path) -> None:

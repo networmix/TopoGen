@@ -2,7 +2,7 @@ from pathlib import Path
 
 from ngraph import Link, Network, Node
 
-from topogen.visualization import export_blueprint_diagram
+from netlab_topogen.visualization import export_blueprint_diagram
 
 
 def test_export_blueprint_diagram_smoke(tmp_path: Path) -> None:

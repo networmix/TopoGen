@@ -3,8 +3,8 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "topogen"
-version = "0.5.2"
+name = "netlab-topogen"
+version = "0.6.0"
 description = "Generate NetGraph backbone scenarios from US Census urban areas and TIGER/Line roads."
 readme = "README.md"
 authors = [{ name = "Andrey Golovanov" }]
@@ -13,11 +13,17 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: System :: Networking",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
@@ -37,8 +43,7 @@ dependencies = [
     # Strict schema validation at runtime
     "jsonschema",
     # NetGraph ecosystem
-    "ngraph>=0.24.1,<0.25.0",
-    "netgraph-core>=0.10.0,<0.12",
+    "ngraph>=0.25.0,<0.26",
 ]
 
 # Dev / CI extras
@@ -61,16 +66,16 @@ dev = [
 ]
 
 [project.urls]
-Repository = "https://github.com/networmix/TopoGen"
-Changelog = "https://github.com/networmix/TopoGen/blob/main/CHANGELOG.md"
-Issues = "https://github.com/networmix/TopoGen/issues"
+Repository = "https://github.com/networmix/NetLab-TopoGen"
+Changelog = "https://github.com/networmix/NetLab-TopoGen/blob/main/CHANGELOG.md"
+Issues = "https://github.com/networmix/NetLab-TopoGen/issues"
 
 [project.scripts]
-topogen = "topogen.cli:main"
+netlab-topogen = "netlab_topogen.cli:main"
 
 # Pytest flags
 [tool.pytest.ini_options]
-addopts = "--cov=./topogen --cov-fail-under=50 --cov-report term-missing"
+addopts = "--cov=./netlab_topogen --cov-fail-under=50 --cov-report term-missing"
 timeout = 30
 markers = [
     "slow: marks integration tests as slow (deselect with '-m \"not slow\"')",
@@ -91,11 +96,11 @@ exclude_lines = [
 
 # Package discovery
 [tool.setuptools.packages.find]
-include = ["topogen*"]
+include = ["netlab_topogen*"]
 
 [tool.setuptools.package-data]
-"topogen.schemas" = ["topogen_config.json"]
-"topogen" = ["py.typed"]
+"netlab_topogen.schemas" = ["netlab_topogen_config.json"]
+"netlab_topogen" = ["py.typed"]
 
 # Ruff
 [tool.ruff]
@@ -108,7 +113,7 @@ ignore = ["E501"]                          # allow long strings and comments
 fixable = ["ALL"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["topogen"]
+known-first-party = ["netlab_topogen"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -116,7 +121,7 @@ skip-magic-trailing-comma = false
 
 # Pyright / Pylance
 [tool.pyright]
-include = ["topogen"]
+include = ["netlab_topogen"]
 stubPath = "typings"
 typeCheckingMode = "standard"
 pythonVersion = "3.11"

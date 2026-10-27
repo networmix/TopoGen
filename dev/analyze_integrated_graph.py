@@ -12,7 +12,7 @@ from pathlib import Path
 
 import networkx as nx
 
-from topogen.integrated_graph import load_from_json
+from netlab_topogen.integrated_graph import load_from_json
 
 
 def _find_high_degree_cut(graph: nx.Graph, k: int, pool_size: int = 20) -> list:

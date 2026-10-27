@@ -224,7 +224,7 @@ rounds up to 9,600 Gbps. Each PoP's egress is then 9,600 Gbps, so with
 Because the arithmetic is exact, a capacity that lands exactly on a quantum step
 stays there. With 1 MW per site instead, each direction carries 200 Gbps; with
 headroom 1.1 and a 10 Gbps quantum the corridor needs exactly 220 Gbps and gets
-220. NetLab-TopoGen 0.5.2 computed 200 × 1.1 in floating point as 220.00000000000003
+220. TopoGen 0.5.2 computed 200 × 1.1 in floating point as 220.00000000000003
 and gave the corridor 230. Capacities and optic counts can differ from 0.5.2
 wherever its floating-point arithmetic disagreed with these rules, including
 with `quantum_gbps: 0`: there 0.5.2 wrote this corridor as 220.00000000000003.
@@ -368,7 +368,7 @@ checked, when a scenario uses it: it must be a list of step mappings, and
 validation checks its steps. Other entries in `lib/workflows.yml` do not affect
 the build. Each step uses `type` for its analysis class and `demand_set` when it
 needs traffic, with the step keys of NetGraph 0.25. A workflow written for
-NetLab-TopoGen 0.5.2 needs these renames: `resolution` to `alpha_tolerance`,
+TopoGen 0.5.2 needs these renames: `resolution` to `alpha_tolerance`,
 `parallelism` to `workers`, `store_failure_patterns` to `failure_trace`,
 `include_flow_details` to `outputs.cost_distribution` and `include_used_edges` to
 `outputs.edge_flows`; `alpha_from_field` is gone.

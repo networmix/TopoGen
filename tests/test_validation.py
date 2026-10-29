@@ -289,12 +289,12 @@ def test_nonempty_platform_mapping_requires_installed_platforms():
 @pytest.mark.parametrize(
     "capacity,volume,excess",
     [
-        (1001, 1001, False),
-        (1003, 1003, False),
+        (20001, 20001, False),
+        (40003, 40003, False),
         (33333, 33333, False),
-        (100, 100.02, True),
-        (4097, 4097.8194, True),
-        (20001, 20005.0002, True),
+        (100, 100.002, True),
+        (4097, 4097.0625, True),
+        (20000, 20000.5, True),
     ],
 )
 def test_dc_audit_uses_declared_volume_with_automatic_units(
@@ -311,14 +311,20 @@ def test_dc_audit_uses_declared_volume_with_automatic_units(
     assert "units" not in yaml.safe_load(build.yaml)
     result = validate_scenario(build.yaml, cfg.components)
     assert result.prepared is not None
-    assert result.prepared.topology.q > 0.01
+    q = result.prepared.topology.q
+    demands = result.prepared.demand_sets["default"].demands
+    assert len(demands) == 2
     if excess:
+        assert 0 < volume - capacity < q / 2
+        assert all(d.nominal_units * q <= capacity for d in demands)
         assert result.issues == tuple(
             f"dc capacity: demand set 'default', metro{site}/dc1 {direction} demand {volume:,.6g} exceeds adjacency capacity {capacity:,.6g}"
             for direction in ("egress", "ingress")
             for site in (1, 2)
         )
     else:
+        assert volume == capacity
+        assert all(capacity < d.nominal_units * q <= capacity + q / 2 for d in demands)
         assert not result.issues
 
 
